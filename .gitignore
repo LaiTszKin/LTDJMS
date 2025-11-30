@@ -1,0 +1,24 @@
+# environment
+.envrc
+
+# Gradle
+.gradle/
+build/
+out/
+
+# Java
+*.class
+*.log
+hs_err_pid*
+replay_pid*
+
+# VS Code
+.vscode/
+
+# OS
+.DS_Store
+
+# Archives
+*.jar
+*.war
+*.ear
