@@ -1,0 +1,176 @@
+package ltdjms.discord.gametoken.services;
+
+import ltdjms.discord.currency.domain.MemberCurrencyAccount;
+import ltdjms.discord.currency.persistence.MemberCurrencyAccountRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Random;
+
+/**
+ * Service for the dice-game-1 mini-game.
+ * Handles dice rolling, reward calculation, and currency distribution.
+ */
+public class DiceGame1Service {
+
+    private static final Logger LOG = LoggerFactory.getLogger(DiceGame1Service.class);
+
+    /**
+     * Number of dice rolls per game.
+     */
+    public static final int ROLLS_PER_GAME = 5;
+
+    /**
+     * Base reward multiplier: each dice value (1-6) is multiplied by this to get the reward.
+     * 1 -> 250,000, 2 -> 500,000, ..., 6 -> 1,500,000
+     */
+    public static final long REWARD_PER_DICE_VALUE = 250_000L;
+
+    private final MemberCurrencyAccountRepository currencyRepository;
+    private final Random random;
+
+    public DiceGame1Service(MemberCurrencyAccountRepository currencyRepository) {
+        this(currencyRepository, new Random());
+    }
+
+    /**
+     * Constructor with injectable Random for testing.
+     */
+    public DiceGame1Service(MemberCurrencyAccountRepository currencyRepository, Random random) {
+        this.currencyRepository = currencyRepository;
+        this.random = random;
+    }
+
+    /**
+     * Plays the dice game for a member.
+     * Rolls 5 dice and calculates the total reward based on dice values.
+     * The reward is added to the member's currency account.
+     *
+     * @param guildId the Discord guild ID
+     * @param userId  the Discord user ID
+     * @return the game result
+     */
+    public DiceGameResult play(long guildId, long userId) {
+        LOG.debug("Playing dice-game-1 for guildId={}, userId={}", guildId, userId);
+
+        // Roll dice
+        List<Integer> diceRolls = rollDice();
+
+        // Calculate total reward
+        long totalReward = calculateTotalReward(diceRolls);
+
+        // Apply reward to currency account (may need multiple adjustments due to MAX_ADJUSTMENT_AMOUNT)
+        long previousBalance = currencyRepository.findOrCreate(guildId, userId).balance();
+        applyRewardToCurrency(guildId, userId, totalReward);
+        long newBalance = currencyRepository.findByGuildIdAndUserId(guildId, userId)
+                .map(MemberCurrencyAccount::balance)
+                .orElse(previousBalance + totalReward);
+
+        DiceGameResult result = new DiceGameResult(
+                guildId,
+                userId,
+                diceRolls,
+                totalReward,
+                previousBalance,
+                newBalance
+        );
+
+        LOG.info("Dice game completed: guildId={}, userId={}, rolls={}, reward={}, newBalance={}",
+                guildId, userId, diceRolls, totalReward, newBalance);
+
+        return result;
+    }
+
+    /**
+     * Rolls the dice for a game.
+     *
+     * @return list of dice values (1-6)
+     */
+    List<Integer> rollDice() {
+        List<Integer> rolls = new ArrayList<>(ROLLS_PER_GAME);
+        for (int i = 0; i < ROLLS_PER_GAME; i++) {
+            rolls.add(random.nextInt(6) + 1);  // 1-6
+        }
+        return rolls;
+    }
+
+    /**
+     * Calculates the total reward based on dice rolls.
+     *
+     * @param diceRolls the list of dice values
+     * @return the total reward
+     */
+    long calculateTotalReward(List<Integer> diceRolls) {
+        return diceRolls.stream()
+                .mapToLong(dice -> (long) dice * REWARD_PER_DICE_VALUE)
+                .sum();
+    }
+
+    /**
+     * Applies the reward to the member's currency account.
+     * If the reward exceeds the max adjustment amount, splits into multiple adjustments.
+     *
+     * @param guildId     the Discord guild ID
+     * @param userId      the Discord user ID
+     * @param totalReward the total reward to apply
+     */
+    void applyRewardToCurrency(long guildId, long userId, long totalReward) {
+        long remaining = totalReward;
+        long maxAdjustment = MemberCurrencyAccount.MAX_ADJUSTMENT_AMOUNT;
+
+        while (remaining > 0) {
+            long adjustment = Math.min(remaining, maxAdjustment);
+            currencyRepository.adjustBalance(guildId, userId, adjustment);
+            remaining -= adjustment;
+        }
+    }
+
+    /**
+     * Result of a dice game.
+     */
+    public record DiceGameResult(
+            long guildId,
+            long userId,
+            List<Integer> diceRolls,
+            long totalReward,
+            long previousBalance,
+            long newBalance
+    ) {
+        /**
+         * Formats the result as a Discord message.
+         */
+        public String formatMessage(String currencyIcon, String currencyName) {
+            StringBuilder sb = new StringBuilder();
+            sb.append("**Dice Game Results**\n");
+            sb.append("Rolls: ");
+
+            for (int i = 0; i < diceRolls.size(); i++) {
+                int roll = diceRolls.get(i);
+                sb.append(diceEmoji(roll));
+                if (i < diceRolls.size() - 1) {
+                    sb.append(" ");
+                }
+            }
+
+            sb.append("\n\n");
+            sb.append(String.format("Total Reward: %s %,d %s\n", currencyIcon, totalReward, currencyName));
+            sb.append(String.format("New Balance: %s %,d %s", currencyIcon, newBalance, currencyName));
+
+            return sb.toString();
+        }
+
+        private String diceEmoji(int value) {
+            return switch (value) {
+                case 1 -> ":one:";
+                case 2 -> ":two:";
+                case 3 -> ":three:";
+                case 4 -> ":four:";
+                case 5 -> ":five:";
+                case 6 -> ":six:";
+                default -> String.valueOf(value);
+            };
+        }
+    }
+}

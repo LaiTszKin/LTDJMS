@@ -13,25 +13,33 @@ test-integration:
 clean:
 	mvn clean
 
-# Run locally (requires PostgreSQL running)
-run:
-	java -jar target/*.jar
+coverage:
+	mvn jacoco:report
+	open target/site/jacoco/index.html
 
+test-coverage:
+	mvn clean test jacoco:report
+	open target/site/jacoco/index.html
+	
 # Docker commands
-docker-build:
+update:
 	docker compose build
 
-docker-up:
+start:
 	docker compose up -d
 
-docker-dev:
+start-dev:
 	docker compose up --build -d
 
-docker-down:
+stop:
 	docker compose down
 
-docker-logs:
+logs:
 	docker compose logs -f
+
+restart:
+	docker compose down
+	docker compose up -d
 
 # Database only (for local development)
 db-up:
@@ -51,13 +59,16 @@ help:
 	@echo "  build           - Build the project (skip tests)"
 	@echo "  test            - Run unit tests"
 	@echo "  test-integration - Run all tests including integration"
+	@echo "  coverage       - Generate code coverage report"
+	@echo "  test-coverage  - Run tests and generate coverage report"
 	@echo "  clean           - Clean build artifacts"
 	@echo "  run             - Run the bot locally"
-	@echo "  docker-build    - Build Docker image"
-	@echo "  docker-up       - Start all services with Docker Compose (no rebuild)"
-	@echo "  docker-dev      - Build (using layer cache) and start all services"
-	@echo "  docker-down     - Stop all Docker services"
-	@echo "  docker-logs     - Follow Docker logs"
+	@echo "  update    - Build Docker image"
+	@echo "  start           - Start all services with Docker Compose (no rebuild)"
+	@echo "  start-dev       - Build (using layer cache) and start all services"
+	@echo "  restart         - Restart all Docker services"
+	@echo "  stop            - Stop all Docker services"
+	@echo "  logs            - Follow Docker logs"
 	@echo "  db-up           - Start PostgreSQL only"
 	@echo "  db-down         - Stop PostgreSQL"
 	@echo "  dev             - Start development environment"

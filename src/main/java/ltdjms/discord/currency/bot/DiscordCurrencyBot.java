@@ -13,6 +13,15 @@ import ltdjms.discord.currency.services.CurrencyConfigService;
 import ltdjms.discord.currency.services.DefaultBalanceService;
 import ltdjms.discord.currency.services.EmojiValidator;
 import ltdjms.discord.currency.services.JdaEmojiValidator;
+import ltdjms.discord.gametoken.commands.DiceGame1CommandHandler;
+import ltdjms.discord.gametoken.commands.DiceGame1ConfigCommandHandler;
+import ltdjms.discord.gametoken.commands.GameTokenAdjustCommandHandler;
+import ltdjms.discord.gametoken.persistence.DiceGame1ConfigRepository;
+import ltdjms.discord.gametoken.persistence.GameTokenAccountRepository;
+import ltdjms.discord.gametoken.persistence.JdbcDiceGame1ConfigRepository;
+import ltdjms.discord.gametoken.persistence.JdbcGameTokenAccountRepository;
+import ltdjms.discord.gametoken.services.DiceGame1Service;
+import ltdjms.discord.gametoken.services.GameTokenService;
 import ltdjms.discord.shared.DatabaseConfig;
 import ltdjms.discord.shared.DatabaseSchemaMigrator;
 import ltdjms.discord.shared.EnvironmentConfig;
@@ -49,21 +58,30 @@ public class DiscordCurrencyBot {
         // Initialize repositories
         GuildCurrencyConfigRepository configRepository = new JdbcGuildCurrencyConfigRepository(dataSource);
         MemberCurrencyAccountRepository accountRepository = new JdbcMemberCurrencyAccountRepository(dataSource);
+        GameTokenAccountRepository tokenRepository = new JdbcGameTokenAccountRepository(dataSource);
+        DiceGame1ConfigRepository diceGameConfigRepository = new JdbcDiceGame1ConfigRepository(dataSource);
 
         // Initialize services
         EmojiValidator emojiValidator = new JdaEmojiValidator();
         BalanceService balanceService = new DefaultBalanceService(accountRepository, configRepository);
         CurrencyConfigService configService = new CurrencyConfigService(configRepository, emojiValidator);
         BalanceAdjustmentService adjustmentService = new BalanceAdjustmentService(accountRepository, configRepository);
+        GameTokenService tokenService = new GameTokenService(tokenRepository);
+        DiceGame1Service diceGameService = new DiceGame1Service(accountRepository);
 
         // Initialize command handlers
         BalanceCommandHandler balanceHandler = new BalanceCommandHandler(balanceService);
         CurrencyConfigCommandHandler configHandler = new CurrencyConfigCommandHandler(configService);
         BalanceAdjustmentCommandHandler adjustmentHandler = new BalanceAdjustmentCommandHandler(adjustmentService);
+        GameTokenAdjustCommandHandler gameTokenAdjustHandler = new GameTokenAdjustCommandHandler(tokenService);
+        DiceGame1CommandHandler diceGame1Handler = new DiceGame1CommandHandler(
+                tokenService, diceGameService, diceGameConfigRepository, configRepository);
+        DiceGame1ConfigCommandHandler diceGame1ConfigHandler = new DiceGame1ConfigCommandHandler(diceGameConfigRepository);
 
         // Initialize slash command listener
         SlashCommandListener slashCommandListener = new SlashCommandListener(
-                balanceHandler, configHandler, adjustmentHandler);
+                balanceHandler, configHandler, adjustmentHandler,
+                gameTokenAdjustHandler, diceGame1Handler, diceGame1ConfigHandler);
 
         // Build JDA instance with default non-privileged gateway intents to avoid
         // DISALLOWED_INTENTS (4014) errors when the bot token does not have

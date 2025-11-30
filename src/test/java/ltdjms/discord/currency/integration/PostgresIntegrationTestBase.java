@@ -54,6 +54,8 @@ public abstract class PostgresIntegrationTestBase {
             // Truncate tables in correct order (respecting foreign keys if any)
             stmt.execute("TRUNCATE TABLE member_currency_account CASCADE");
             stmt.execute("TRUNCATE TABLE guild_currency_config CASCADE");
+            stmt.execute("TRUNCATE TABLE game_token_account CASCADE");
+            stmt.execute("TRUNCATE TABLE dice_game1_config CASCADE");
         }
     }
 

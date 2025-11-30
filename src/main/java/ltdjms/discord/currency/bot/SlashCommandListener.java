@@ -3,6 +3,9 @@ package ltdjms.discord.currency.bot;
 import ltdjms.discord.currency.commands.BalanceAdjustmentCommandHandler;
 import ltdjms.discord.currency.commands.BalanceCommandHandler;
 import ltdjms.discord.currency.commands.CurrencyConfigCommandHandler;
+import ltdjms.discord.gametoken.commands.DiceGame1CommandHandler;
+import ltdjms.discord.gametoken.commands.DiceGame1ConfigCommandHandler;
+import ltdjms.discord.gametoken.commands.GameTokenAdjustCommandHandler;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
@@ -25,27 +28,44 @@ public class SlashCommandListener extends ListenerAdapter {
     public static final String CMD_BALANCE = "balance";
     public static final String CMD_CURRENCY_CONFIG = "currency-config";
     public static final String CMD_ADJUST_BALANCE = "adjust-balance";
+    public static final String CMD_GAME_TOKEN_ADJUST = "game-token-adjust";
+    public static final String CMD_DICE_GAME_1 = "dice-game-1";
+    public static final String CMD_DICE_GAME_1_CONFIG = "dice-game-1-config";
 
     private final BalanceCommandHandler balanceHandler;
     private final CurrencyConfigCommandHandler configHandler;
     private final BalanceAdjustmentCommandHandler adjustmentHandler;
+    private final GameTokenAdjustCommandHandler gameTokenAdjustHandler;
+    private final DiceGame1CommandHandler diceGame1Handler;
+    private final DiceGame1ConfigCommandHandler diceGame1ConfigHandler;
     private final SlashCommandMetrics metrics;
 
     public SlashCommandListener(
             BalanceCommandHandler balanceHandler,
             CurrencyConfigCommandHandler configHandler,
-            BalanceAdjustmentCommandHandler adjustmentHandler) {
-        this(balanceHandler, configHandler, adjustmentHandler, new SlashCommandMetrics());
+            BalanceAdjustmentCommandHandler adjustmentHandler,
+            GameTokenAdjustCommandHandler gameTokenAdjustHandler,
+            DiceGame1CommandHandler diceGame1Handler,
+            DiceGame1ConfigCommandHandler diceGame1ConfigHandler) {
+        this(balanceHandler, configHandler, adjustmentHandler,
+                gameTokenAdjustHandler, diceGame1Handler, diceGame1ConfigHandler,
+                new SlashCommandMetrics());
     }
 
     public SlashCommandListener(
             BalanceCommandHandler balanceHandler,
             CurrencyConfigCommandHandler configHandler,
             BalanceAdjustmentCommandHandler adjustmentHandler,
+            GameTokenAdjustCommandHandler gameTokenAdjustHandler,
+            DiceGame1CommandHandler diceGame1Handler,
+            DiceGame1ConfigCommandHandler diceGame1ConfigHandler,
             SlashCommandMetrics metrics) {
         this.balanceHandler = balanceHandler;
         this.configHandler = configHandler;
         this.adjustmentHandler = adjustmentHandler;
+        this.gameTokenAdjustHandler = gameTokenAdjustHandler;
+        this.diceGame1Handler = diceGame1Handler;
+        this.diceGame1ConfigHandler = diceGame1ConfigHandler;
         this.metrics = metrics;
     }
 
@@ -81,6 +101,20 @@ public class SlashCommandListener extends ListenerAdapter {
                 Commands.slash(CMD_ADJUST_BALANCE, "Adjust a member's currency balance")
                         .addOption(OptionType.USER, "member", "The member whose balance to adjust", true)
                         .addOption(OptionType.INTEGER, "amount", "Amount to add (positive) or subtract (negative)", true)
+                        .setDefaultPermissions(DefaultMemberPermissions.enabledFor(Permission.ADMINISTRATOR)),
+
+                // /game-token-adjust - admin only
+                Commands.slash(CMD_GAME_TOKEN_ADJUST, "Adjust a member's game token balance")
+                        .addOption(OptionType.USER, "member", "The member whose tokens to adjust", true)
+                        .addOption(OptionType.INTEGER, "amount", "Amount to add (positive) or subtract (negative)", true)
+                        .setDefaultPermissions(DefaultMemberPermissions.enabledFor(Permission.ADMINISTRATOR)),
+
+                // /dice-game-1 - available to all users
+                Commands.slash(CMD_DICE_GAME_1, "Play the dice mini-game (costs game tokens)"),
+
+                // /dice-game-1-config - admin only
+                Commands.slash(CMD_DICE_GAME_1_CONFIG, "Configure the dice game settings")
+                        .addOption(OptionType.INTEGER, "token-cost", "Number of game tokens required per play", false)
                         .setDefaultPermissions(DefaultMemberPermissions.enabledFor(Permission.ADMINISTRATOR))
         ).queue(
                 commands -> LOG.info("Registered {} slash commands", commands.size()),
@@ -109,6 +143,9 @@ public class SlashCommandListener extends ListenerAdapter {
                 case CMD_BALANCE -> balanceHandler.handle(event);
                 case CMD_CURRENCY_CONFIG -> handleWithAdminCheck(event, configHandler);
                 case CMD_ADJUST_BALANCE -> handleWithAdminCheck(event, adjustmentHandler);
+                case CMD_GAME_TOKEN_ADJUST -> handleWithAdminCheck(event, gameTokenAdjustHandler);
+                case CMD_DICE_GAME_1 -> diceGame1Handler.handle(event);
+                case CMD_DICE_GAME_1_CONFIG -> handleWithAdminCheck(event, diceGame1ConfigHandler);
                 default -> {
                     LOG.warn("Unknown command received: {}", commandName);
                     event.reply("Unknown command.").setEphemeral(true).queue();
