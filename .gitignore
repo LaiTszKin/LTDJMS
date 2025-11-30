@@ -1,10 +1,21 @@
 # environment
 .envrc
+.env
+.env.local
 
 # Gradle
 .gradle/
 build/
 out/
+
+# Maven
+target/
+pom.xml.tag
+pom.xml.releaseBackup
+pom.xml.versionsBackup
+pom.xml.next
+release.properties
+dependency-reduced-pom.xml
 
 # Java
 *.class
@@ -12,13 +23,21 @@ out/
 hs_err_pid*
 replay_pid*
 
-# VS Code
+# IDE
 .vscode/
+.idea/
+*.iml
+*.ipr
+*.iws
 
 # OS
 .DS_Store
+Thumbs.db
 
 # Archives
 *.jar
 *.war
 *.ear
+
+# Docker
+docker-compose.override.yml

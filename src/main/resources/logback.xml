@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration scan="true" scanPeriod="30 seconds">
+
+    <!-- Console appender with human-readable format -->
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <!-- JSON console appender for production/container environments -->
+    <appender name="JSON_CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
+            <pattern>{"timestamp":"%d{yyyy-MM-dd'T'HH:mm:ss.SSSZ}","level":"%level","logger":"%logger{36}","thread":"%thread","message":"%msg","exception":"%ex{short}"}%n</pattern>
+        </encoder>
+    </appender>
+
+    <!-- Application loggers - Currency Bot -->
+    <logger name="ltdjms.discord.currency.bot" level="INFO">
+        <!-- Bot and command handling - INFO for operational visibility -->
+    </logger>
+
+    <logger name="ltdjms.discord.currency.commands" level="INFO">
+        <!-- Command handlers - INFO for tracking command execution -->
+    </logger>
+
+    <logger name="ltdjms.discord.currency.services" level="INFO">
+        <!-- Service layer - INFO for business operation tracking -->
+    </logger>
+
+    <logger name="ltdjms.discord.currency.persistence" level="INFO">
+        <!-- Persistence layer - INFO for database operation tracking -->
+    </logger>
+
+    <!-- JDA logging - INFO for connection events, WARN to reduce noise -->
+    <logger name="net.dv8tion.jda" level="INFO"/>
+    <logger name="net.dv8tion.jda.internal.requests" level="WARN"/>
+    <logger name="net.dv8tion.jda.api.requests" level="WARN"/>
+
+    <!-- HikariCP logging - INFO for pool events -->
+    <logger name="com.zaxxer.hikari" level="INFO"/>
+    <logger name="com.zaxxer.hikari.pool" level="INFO"/>
+
+    <!-- PostgreSQL JDBC driver - reduce verbosity -->
+    <logger name="org.postgresql" level="WARN"/>
+
+    <!-- Root logger -->
+    <root level="WARN">
+        <appender-ref ref="CONSOLE"/>
+    </root>
+
+    <!-- Profile-based configuration for Docker/Production -->
+    <!-- To use JSON logging, set LOG_FORMAT=json environment variable -->
+    <!-- Or override via logback-spring.xml if using Spring Boot -->
+</configuration>
