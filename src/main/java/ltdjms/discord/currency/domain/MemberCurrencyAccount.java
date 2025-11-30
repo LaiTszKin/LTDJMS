@@ -14,9 +14,11 @@ public record MemberCurrencyAccount(
         Instant updatedAt
 ) {
     /**
-     * Maximum amount that can be adjusted in a single command to prevent errors.
+     * Maximum amount that can be adjusted in a single command.
+     * Set to Long.MAX_VALUE to support large adjustments while relying on
+     * overflow protection in withAdjustedBalance for safety.
      */
-    public static final long MAX_ADJUSTMENT_AMOUNT = 1_000_000L;
+    public static final long MAX_ADJUSTMENT_AMOUNT = Long.MAX_VALUE;
 
     public MemberCurrencyAccount {
         if (balance < 0) {
@@ -38,14 +40,21 @@ public record MemberCurrencyAccount(
 
     /**
      * Creates a new account instance with an adjusted balance.
-     * This method validates that the resulting balance is non-negative.
+     * This method validates that the resulting balance is non-negative and
+     * protects against long overflow.
      *
      * @param amount the amount to add (positive) or subtract (negative)
      * @return a new account with the adjusted balance
-     * @throws IllegalArgumentException if the adjustment would result in a negative balance
+     * @throws IllegalArgumentException if the adjustment would result in a negative balance or overflow
      */
     public MemberCurrencyAccount withAdjustedBalance(long amount) {
-        long newBalance = this.balance + amount;
+        long newBalance;
+        try {
+            newBalance = Math.addExact(this.balance, amount);
+        } catch (ArithmeticException e) {
+            throw new IllegalArgumentException(
+                    "Cannot adjust balance by " + amount + ": would cause overflow");
+        }
         if (newBalance < 0) {
             throw new IllegalArgumentException(
                     "Cannot adjust balance by " + amount + ": would result in negative balance " + newBalance);

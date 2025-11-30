@@ -169,4 +169,94 @@ class BalanceAdjustmentCommandIntegrationTest extends PostgresIntegrationTestBas
         assertThat(result.newBalance()).isEqualTo(100L);
         assertThat(accountRepository.findByGuildIdAndUserId(TEST_GUILD_ID, TEST_USER_ID)).isPresent();
     }
+
+    // Tests for adjustBalanceTo (adjust mode)
+
+    @Test
+    @DisplayName("should adjust balance to target value (increase)")
+    void shouldAdjustBalanceToTargetValueIncrease() {
+        // Given - member has 100
+        adjustmentService.adjustBalance(TEST_GUILD_ID, TEST_USER_ID, 100L);
+
+        // When - adjust to 500
+        BalanceAdjustmentResult result = adjustmentService.adjustBalanceTo(TEST_GUILD_ID, TEST_USER_ID, 500L);
+
+        // Then
+        assertThat(result.previousBalance()).isEqualTo(100L);
+        assertThat(result.newBalance()).isEqualTo(500L);
+        assertThat(result.adjustment()).isEqualTo(400L);
+
+        // Verify with balance command
+        BalanceView balance = balanceService.getBalance(TEST_GUILD_ID, TEST_USER_ID);
+        assertThat(balance.balance()).isEqualTo(500L);
+    }
+
+    @Test
+    @DisplayName("should adjust balance to target value (decrease)")
+    void shouldAdjustBalanceToTargetValueDecrease() {
+        // Given - member has 500
+        adjustmentService.adjustBalance(TEST_GUILD_ID, TEST_USER_ID, 500L);
+
+        // When - adjust to 200
+        BalanceAdjustmentResult result = adjustmentService.adjustBalanceTo(TEST_GUILD_ID, TEST_USER_ID, 200L);
+
+        // Then
+        assertThat(result.previousBalance()).isEqualTo(500L);
+        assertThat(result.newBalance()).isEqualTo(200L);
+        assertThat(result.adjustment()).isEqualTo(-300L);
+
+        // Verify with balance command
+        BalanceView balance = balanceService.getBalance(TEST_GUILD_ID, TEST_USER_ID);
+        assertThat(balance.balance()).isEqualTo(200L);
+    }
+
+    @Test
+    @DisplayName("should adjust balance to zero")
+    void shouldAdjustBalanceToZero() {
+        // Given - member has 100
+        adjustmentService.adjustBalance(TEST_GUILD_ID, TEST_USER_ID, 100L);
+
+        // When - adjust to 0
+        BalanceAdjustmentResult result = adjustmentService.adjustBalanceTo(TEST_GUILD_ID, TEST_USER_ID, 0L);
+
+        // Then
+        assertThat(result.previousBalance()).isEqualTo(100L);
+        assertThat(result.newBalance()).isEqualTo(0L);
+        assertThat(result.adjustment()).isEqualTo(-100L);
+
+        // Verify with balance command
+        BalanceView balance = balanceService.getBalance(TEST_GUILD_ID, TEST_USER_ID);
+        assertThat(balance.balance()).isEqualTo(0L);
+    }
+
+    @Test
+    @DisplayName("should reject negative target balance")
+    void shouldRejectNegativeTargetBalance() {
+        // Given - member has 100
+        adjustmentService.adjustBalance(TEST_GUILD_ID, TEST_USER_ID, 100L);
+
+        // When/Then - adjust to -1 should fail
+        assertThatThrownBy(() -> adjustmentService.adjustBalanceTo(TEST_GUILD_ID, TEST_USER_ID, -1L))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("negative");
+
+        // Verify balance unchanged
+        BalanceView balance = balanceService.getBalance(TEST_GUILD_ID, TEST_USER_ID);
+        assertThat(balance.balance()).isEqualTo(100L);
+    }
+
+    @Test
+    @DisplayName("should handle no-op adjustment (same balance)")
+    void shouldHandleNoOpAdjustment() {
+        // Given - member has 100
+        adjustmentService.adjustBalance(TEST_GUILD_ID, TEST_USER_ID, 100L);
+
+        // When - adjust to same value
+        BalanceAdjustmentResult result = adjustmentService.adjustBalanceTo(TEST_GUILD_ID, TEST_USER_ID, 100L);
+
+        // Then
+        assertThat(result.previousBalance()).isEqualTo(100L);
+        assertThat(result.newBalance()).isEqualTo(100L);
+        assertThat(result.adjustment()).isEqualTo(0L);
+    }
 }

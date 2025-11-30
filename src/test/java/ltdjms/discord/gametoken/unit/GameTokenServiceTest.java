@@ -5,8 +5,11 @@ import ltdjms.discord.gametoken.persistence.GameTokenAccountRepository;
 import ltdjms.discord.gametoken.persistence.InsufficientTokensException;
 import ltdjms.discord.gametoken.services.GameTokenService;
 import ltdjms.discord.gametoken.services.GameTokenService.TokenAdjustmentResult;
+import ltdjms.discord.shared.DomainError;
+import ltdjms.discord.shared.Result;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -220,5 +223,162 @@ class GameTokenServiceTest {
         assertThat(message).contains("Removed");
         assertThat(message).contains("50");
         assertThat(message).contains("<@123>");
+    }
+
+    @Nested
+    @DisplayName("tryAdjustTokens (Result-based API)")
+    class TryAdjustTokensTests {
+
+        @Test
+        @DisplayName("should return Ok result for successful credit")
+        void shouldReturnOkResultForSuccessfulCredit() {
+            // Given
+            Instant now = Instant.now();
+            GameTokenAccount initial = new GameTokenAccount(TEST_GUILD_ID, TEST_USER_ID, 100L, now, now);
+            GameTokenAccount adjusted = new GameTokenAccount(TEST_GUILD_ID, TEST_USER_ID, 150L, now, now);
+
+            when(accountRepository.findOrCreate(TEST_GUILD_ID, TEST_USER_ID)).thenReturn(initial);
+            when(accountRepository.tryAdjustTokens(TEST_GUILD_ID, TEST_USER_ID, 50L)).thenReturn(Result.ok(adjusted));
+
+            // When
+            Result<TokenAdjustmentResult, DomainError> result =
+                    tokenService.tryAdjustTokens(TEST_GUILD_ID, TEST_USER_ID, 50L);
+
+            // Then
+            assertThat(result.isOk()).isTrue();
+            assertThat(result.getValue().previousTokens()).isEqualTo(100L);
+            assertThat(result.getValue().newTokens()).isEqualTo(150L);
+            assertThat(result.getValue().adjustment()).isEqualTo(50L);
+        }
+
+        @Test
+        @DisplayName("should return Ok result for successful debit")
+        void shouldReturnOkResultForSuccessfulDebit() {
+            // Given
+            Instant now = Instant.now();
+            GameTokenAccount initial = new GameTokenAccount(TEST_GUILD_ID, TEST_USER_ID, 100L, now, now);
+            GameTokenAccount adjusted = new GameTokenAccount(TEST_GUILD_ID, TEST_USER_ID, 50L, now, now);
+
+            when(accountRepository.findOrCreate(TEST_GUILD_ID, TEST_USER_ID)).thenReturn(initial);
+            when(accountRepository.tryAdjustTokens(TEST_GUILD_ID, TEST_USER_ID, -50L)).thenReturn(Result.ok(adjusted));
+
+            // When
+            Result<TokenAdjustmentResult, DomainError> result =
+                    tokenService.tryAdjustTokens(TEST_GUILD_ID, TEST_USER_ID, -50L);
+
+            // Then
+            assertThat(result.isOk()).isTrue();
+            assertThat(result.getValue().previousTokens()).isEqualTo(100L);
+            assertThat(result.getValue().newTokens()).isEqualTo(50L);
+            assertThat(result.getValue().adjustment()).isEqualTo(-50L);
+        }
+
+        @Test
+        @DisplayName("should return Err result with INSUFFICIENT_TOKENS for insufficient funds")
+        void shouldReturnErrResultForInsufficientTokens() {
+            // Given
+            Instant now = Instant.now();
+            GameTokenAccount initial = new GameTokenAccount(TEST_GUILD_ID, TEST_USER_ID, 30L, now, now);
+            DomainError expectedError = DomainError.insufficientTokens("Insufficient tokens");
+
+            when(accountRepository.findOrCreate(TEST_GUILD_ID, TEST_USER_ID)).thenReturn(initial);
+            when(accountRepository.tryAdjustTokens(TEST_GUILD_ID, TEST_USER_ID, -50L))
+                    .thenReturn(Result.err(expectedError));
+
+            // When
+            Result<TokenAdjustmentResult, DomainError> result =
+                    tokenService.tryAdjustTokens(TEST_GUILD_ID, TEST_USER_ID, -50L);
+
+            // Then
+            assertThat(result.isErr()).isTrue();
+            assertThat(result.getError().category()).isEqualTo(DomainError.Category.INSUFFICIENT_TOKENS);
+        }
+
+        @Test
+        @DisplayName("should return Err result with PERSISTENCE_FAILURE for database error")
+        void shouldReturnErrResultForDatabaseError() {
+            // Given
+            Instant now = Instant.now();
+            GameTokenAccount initial = new GameTokenAccount(TEST_GUILD_ID, TEST_USER_ID, 100L, now, now);
+            DomainError expectedError = DomainError.persistenceFailure("Database error", new RuntimeException());
+
+            when(accountRepository.findOrCreate(TEST_GUILD_ID, TEST_USER_ID)).thenReturn(initial);
+            when(accountRepository.tryAdjustTokens(TEST_GUILD_ID, TEST_USER_ID, 50L))
+                    .thenReturn(Result.err(expectedError));
+
+            // When
+            Result<TokenAdjustmentResult, DomainError> result =
+                    tokenService.tryAdjustTokens(TEST_GUILD_ID, TEST_USER_ID, 50L);
+
+            // Then
+            assertThat(result.isErr()).isTrue();
+            assertThat(result.getError().category()).isEqualTo(DomainError.Category.PERSISTENCE_FAILURE);
+        }
+    }
+
+    @Nested
+    @DisplayName("tryDeductTokens (Result-based API)")
+    class TryDeductTokensTests {
+
+        @Test
+        @DisplayName("should return Ok result for successful deduction")
+        void shouldReturnOkResultForSuccessfulDeduction() {
+            // Given
+            Instant now = Instant.now();
+            GameTokenAccount adjusted = new GameTokenAccount(TEST_GUILD_ID, TEST_USER_ID, 70L, now, now);
+
+            when(accountRepository.tryAdjustTokens(TEST_GUILD_ID, TEST_USER_ID, -30L)).thenReturn(Result.ok(adjusted));
+
+            // When
+            Result<GameTokenAccount, DomainError> result =
+                    tokenService.tryDeductTokens(TEST_GUILD_ID, TEST_USER_ID, 30L);
+
+            // Then
+            assertThat(result.isOk()).isTrue();
+            assertThat(result.getValue().tokens()).isEqualTo(70L);
+        }
+
+        @Test
+        @DisplayName("should return Err result with INVALID_INPUT for zero deduction")
+        void shouldReturnErrResultForZeroDeduction() {
+            // When
+            Result<GameTokenAccount, DomainError> result =
+                    tokenService.tryDeductTokens(TEST_GUILD_ID, TEST_USER_ID, 0L);
+
+            // Then
+            assertThat(result.isErr()).isTrue();
+            assertThat(result.getError().category()).isEqualTo(DomainError.Category.INVALID_INPUT);
+            assertThat(result.getError().message()).contains("must be positive");
+        }
+
+        @Test
+        @DisplayName("should return Err result with INVALID_INPUT for negative deduction")
+        void shouldReturnErrResultForNegativeDeduction() {
+            // When
+            Result<GameTokenAccount, DomainError> result =
+                    tokenService.tryDeductTokens(TEST_GUILD_ID, TEST_USER_ID, -10L);
+
+            // Then
+            assertThat(result.isErr()).isTrue();
+            assertThat(result.getError().category()).isEqualTo(DomainError.Category.INVALID_INPUT);
+            assertThat(result.getError().message()).contains("must be positive");
+        }
+
+        @Test
+        @DisplayName("should return Err result with INSUFFICIENT_TOKENS for insufficient funds")
+        void shouldReturnErrResultForInsufficientTokens() {
+            // Given
+            DomainError expectedError = DomainError.insufficientTokens("Insufficient tokens");
+            when(accountRepository.tryAdjustTokens(TEST_GUILD_ID, TEST_USER_ID, -100L))
+                    .thenReturn(Result.err(expectedError));
+
+            // When
+            Result<GameTokenAccount, DomainError> result =
+                    tokenService.tryDeductTokens(TEST_GUILD_ID, TEST_USER_ID, 100L);
+
+            // Then
+            assertThat(result.isErr()).isTrue();
+            assertThat(result.getError().category()).isEqualTo(DomainError.Category.INSUFFICIENT_TOKENS);
+        }
     }
 }

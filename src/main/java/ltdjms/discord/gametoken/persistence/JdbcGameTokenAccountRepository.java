@@ -2,6 +2,8 @@ package ltdjms.discord.gametoken.persistence;
 
 import ltdjms.discord.currency.persistence.RepositoryException;
 import ltdjms.discord.gametoken.domain.GameTokenAccount;
+import ltdjms.discord.shared.DomainError;
+import ltdjms.discord.shared.Result;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -124,6 +126,52 @@ public class JdbcGameTokenAccountRepository implements GameTokenAccountRepositor
         } catch (SQLException e) {
             LOG.error("Failed to adjust game tokens for guildId={}, userId={}", guildId, userId, e);
             throw new RepositoryException("Failed to adjust game tokens", e);
+        }
+    }
+
+    @Override
+    public Result<GameTokenAccount, DomainError> tryAdjustTokens(long guildId, long userId, long amount) {
+        // First, ensure the account exists
+        try {
+            findOrCreate(guildId, userId);
+        } catch (RepositoryException e) {
+            return Result.err(DomainError.persistenceFailure("Failed to find or create account", e));
+        }
+
+        // Atomic update with non-negative check
+        String sql = "UPDATE game_token_account " +
+                "SET tokens = tokens + ?, updated_at = ? " +
+                "WHERE guild_id = ? AND user_id = ? AND tokens + ? >= 0 " +
+                "RETURNING guild_id, user_id, tokens, created_at, updated_at";
+
+        try (Connection conn = dataSource.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            Instant now = Instant.now();
+            stmt.setLong(1, amount);
+            stmt.setTimestamp(2, Timestamp.from(now));
+            stmt.setLong(3, guildId);
+            stmt.setLong(4, userId);
+            stmt.setLong(5, amount);
+
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    GameTokenAccount updated = mapRow(rs);
+                    LOG.info("Adjusted game tokens: guildId={}, userId={}, amount={}, newTokens={}",
+                            guildId, userId, amount, updated.tokens());
+                    return Result.ok(updated);
+                } else {
+                    // The update didn't match, meaning the token check failed
+                    GameTokenAccount current = findByGuildIdAndUserId(guildId, userId)
+                            .orElse(null);
+                    long currentTokens = current != null ? current.tokens() : 0;
+                    return Result.err(DomainError.insufficientTokens(
+                            "Insufficient tokens: current=" + currentTokens + ", adjustment=" + amount));
+                }
+            }
+        } catch (SQLException e) {
+            LOG.error("Failed to adjust game tokens for guildId={}, userId={}", guildId, userId, e);
+            return Result.err(DomainError.persistenceFailure("Failed to adjust game tokens", e));
         }
     }
 

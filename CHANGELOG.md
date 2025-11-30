@@ -2,6 +2,24 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.3.0] - 2025-11-30
+
+### Added
+- 新增共用錯誤模型：`Result<T, DomainError>` 及 `DomainError` 類別，提供顯式的成功/失敗結果與錯誤分類（輸入錯誤、餘額不足、代幣不足、持久化失敗、非預期錯誤）。
+- 新增 `BalanceAdjustmentService.tryAdjustBalance` 與 `GameTokenService.tryAdjustTokens` 等 Result-based API，以 `DomainError` 精準回報錯誤原因。
+- 新增 `/adjust-balance` 指令的 `mode` 參數（`add`、`deduct`、`adjust`），支援以目標餘額調整，以及更具語意的回覆訊息。
+- 新增覆蓋率門檻檢查：在 JaCoCo Maven plugin 中加入 `check` execution，並透過 `make verify` / `make coverage-check` 在 CI 中強制 80% 行覆蓋率（排除 bot 主程式、listener、command handlers、emoji validator 與 JDBC repository 實作等類別）。
+
+### Changed
+- 調整 `MemberCurrencyAccount` 的單次調整上限為 `Long.MAX_VALUE`，並以 `Math.addExact` 防止 long overflow，同時維持非負餘額檢查。
+- `/adjust-balance` 指令的參數結構改為必填 `mode` + `member` + `amount`，不同模式下 `amount` 代表加值、扣值或目標餘額，並更新成功訊息格式與紀錄內容。
+- 擴充 `BalanceAdjustmentService`、`GameTokenService`、相關 JDBC repository 以支援 Result-based API，並將資料庫錯誤與餘額/代幣不足情境映射為對應的 `DomainError`。
+- 更新 `BotErrorHandler` 以 `DomainError` 的 category 決定使用者訊息與 log 等級，統一處理輸入錯誤、餘額不足、代幣不足、持久化失敗與非預期錯誤。
+- 擴充貨幣與遊戲代幣相關的合約測試、整合測試與單元測試，涵蓋 Result-based API、新的模式參數與邊界條件。
+
+### Breaking
+- `/adjust-balance` 斜線指令現在必須提供 `mode` 參數（`add` / `deduct` / `adjust`），且在 `adjust` 模式下 `amount` 代表目標餘額而非單純增減值；任何現有的快捷指令、教學文件或自動化腳本需要同步更新。
+
 ## [0.2.0] - 2025-11-30
 
 ### Added

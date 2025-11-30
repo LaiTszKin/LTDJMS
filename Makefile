@@ -10,6 +10,12 @@ test:
 test-integration:
 	mvn verify
 
+verify:
+	mvn clean verify
+
+coverage-check:
+	mvn clean verify -DskipTests=false
+
 clean:
 	mvn clean
 
@@ -23,6 +29,7 @@ test-coverage:
 	
 # Docker commands
 update:
+	git pull origin main
 	docker compose build
 
 start:
@@ -56,19 +63,21 @@ dev: db-up
 # Help
 help:
 	@echo "Available targets:"
-	@echo "  build           - Build the project (skip tests)"
-	@echo "  test            - Run unit tests"
+	@echo "  build            - Build the project (skip tests)"
+	@echo "  test             - Run unit tests"
 	@echo "  test-integration - Run all tests including integration"
-	@echo "  coverage       - Generate code coverage report"
-	@echo "  test-coverage  - Run tests and generate coverage report"
-	@echo "  clean           - Clean build artifacts"
-	@echo "  run             - Run the bot locally"
-	@echo "  update    - Build Docker image"
-	@echo "  start           - Start all services with Docker Compose (no rebuild)"
-	@echo "  start-dev       - Build (using layer cache) and start all services"
-	@echo "  restart         - Restart all Docker services"
-	@echo "  stop            - Stop all Docker services"
-	@echo "  logs            - Follow Docker logs"
-	@echo "  db-up           - Start PostgreSQL only"
-	@echo "  db-down         - Stop PostgreSQL"
-	@echo "  dev             - Start development environment"
+	@echo "  verify           - Clean build and run all tests with coverage check"
+	@echo "  coverage-check   - Run tests and enforce 80% coverage threshold"
+	@echo "  coverage         - Generate code coverage report"
+	@echo "  test-coverage    - Run tests and generate coverage report"
+	@echo "  clean            - Clean build artifacts"
+	@echo "  run              - Run the bot locally"
+	@echo "  update           - Build Docker image"
+	@echo "  start            - Start all services with Docker Compose (no rebuild)"
+	@echo "  start-dev        - Build (using layer cache) and start all services"
+	@echo "  restart          - Restart all Docker services"
+	@echo "  stop             - Stop all Docker services"
+	@echo "  logs             - Follow Docker logs"
+	@echo "  db-up            - Start PostgreSQL only"
+	@echo "  db-down          - Stop PostgreSQL"
+	@echo "  dev              - Start development environment"

@@ -1,6 +1,8 @@
 package ltdjms.discord.currency.persistence;
 
 import ltdjms.discord.currency.domain.MemberCurrencyAccount;
+import ltdjms.discord.shared.DomainError;
+import ltdjms.discord.shared.Result;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -123,6 +125,52 @@ public class JdbcMemberCurrencyAccountRepository implements MemberCurrencyAccoun
         } catch (SQLException e) {
             LOG.error("Failed to adjust balance for guildId={}, userId={}", guildId, userId, e);
             throw new RepositoryException("Failed to adjust balance", e);
+        }
+    }
+
+    @Override
+    public Result<MemberCurrencyAccount, DomainError> tryAdjustBalance(long guildId, long userId, long amount) {
+        // First, ensure the account exists
+        try {
+            findOrCreate(guildId, userId);
+        } catch (RepositoryException e) {
+            return Result.err(DomainError.persistenceFailure("Failed to find or create account", e));
+        }
+
+        // Atomic update with non-negative check
+        String sql = "UPDATE member_currency_account " +
+                "SET balance = balance + ?, updated_at = ? " +
+                "WHERE guild_id = ? AND user_id = ? AND balance + ? >= 0 " +
+                "RETURNING guild_id, user_id, balance, created_at, updated_at";
+
+        try (Connection conn = dataSource.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            Instant now = Instant.now();
+            stmt.setLong(1, amount);
+            stmt.setTimestamp(2, Timestamp.from(now));
+            stmt.setLong(3, guildId);
+            stmt.setLong(4, userId);
+            stmt.setLong(5, amount);
+
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    MemberCurrencyAccount updated = mapRow(rs);
+                    LOG.info("Adjusted balance: guildId={}, userId={}, amount={}, newBalance={}",
+                            guildId, userId, amount, updated.balance());
+                    return Result.ok(updated);
+                } else {
+                    // The update didn't match, meaning the balance check failed
+                    MemberCurrencyAccount current = findByGuildIdAndUserId(guildId, userId)
+                            .orElse(null);
+                    long currentBalance = current != null ? current.balance() : 0;
+                    return Result.err(DomainError.insufficientBalance(
+                            "Insufficient balance: current=" + currentBalance + ", adjustment=" + amount));
+                }
+            }
+        } catch (SQLException e) {
+            LOG.error("Failed to adjust balance for guildId={}, userId={}", guildId, userId, e);
+            return Result.err(DomainError.persistenceFailure("Failed to adjust balance", e));
         }
     }
 

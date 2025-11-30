@@ -5,6 +5,8 @@ import ltdjms.discord.currency.domain.MemberCurrencyAccount;
 import ltdjms.discord.currency.persistence.GuildCurrencyConfigRepository;
 import ltdjms.discord.currency.persistence.MemberCurrencyAccountRepository;
 import ltdjms.discord.currency.persistence.NegativeBalanceException;
+import ltdjms.discord.shared.DomainError;
+import ltdjms.discord.shared.Result;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -68,6 +70,117 @@ public class BalanceAdjustmentService {
 
         LOG.info("Balance adjusted: guildId={}, userId={}, previous={}, new={}, adjustment={}",
                 guildId, userId, previousBalance, updated.balance(), amount);
+
+        return result;
+    }
+
+    /**
+     * Adjusts a member's balance by the specified amount using Result-based error handling.
+     *
+     * @param guildId the Discord guild ID
+     * @param userId  the Discord user ID
+     * @param amount  the amount to adjust (positive for credit, negative for debit)
+     * @return Result containing BalanceAdjustmentResult on success, or DomainError on failure
+     */
+    public Result<BalanceAdjustmentResult, DomainError> tryAdjustBalance(long guildId, long userId, long amount) {
+        LOG.debug("Adjusting balance for guildId={}, userId={}, amount={}", guildId, userId, amount);
+
+        // Validate amount
+        if (!MemberCurrencyAccount.isValidAdjustmentAmount(amount)) {
+            return Result.err(DomainError.invalidInput(
+                    "Amount exceeds maximum: |" + amount + "| > " + MemberCurrencyAccount.MAX_ADJUSTMENT_AMOUNT));
+        }
+
+        // Get current balance
+        MemberCurrencyAccount current = accountRepository.findOrCreate(guildId, userId);
+        long previousBalance = current.balance();
+
+        // Apply adjustment using Result-based API
+        Result<MemberCurrencyAccount, DomainError> adjustResult =
+                accountRepository.tryAdjustBalance(guildId, userId, amount);
+
+        if (adjustResult.isErr()) {
+            return Result.err(adjustResult.getError());
+        }
+
+        MemberCurrencyAccount updated = adjustResult.getValue();
+
+        // Get currency config for display
+        GuildCurrencyConfig config = configRepository.findByGuildId(guildId)
+                .orElse(GuildCurrencyConfig.createDefault(guildId));
+
+        BalanceAdjustmentResult result = new BalanceAdjustmentResult(
+                guildId,
+                userId,
+                previousBalance,
+                updated.balance(),
+                amount,
+                config.currencyName(),
+                config.currencyIcon()
+        );
+
+        LOG.info("Balance adjusted: guildId={}, userId={}, previous={}, new={}, adjustment={}",
+                guildId, userId, previousBalance, updated.balance(), amount);
+
+        return Result.ok(result);
+    }
+
+    /**
+     * Adjusts a member's balance to a specific target value.
+     *
+     * @param guildId       the Discord guild ID
+     * @param userId        the Discord user ID
+     * @param targetBalance the target balance to set (must be non-negative)
+     * @return the adjustment result
+     * @throws IllegalArgumentException if the target balance is negative or the delta exceeds maximum
+     */
+    public BalanceAdjustmentResult adjustBalanceTo(long guildId, long userId, long targetBalance) {
+        LOG.debug("Adjusting balance to target for guildId={}, userId={}, targetBalance={}",
+                guildId, userId, targetBalance);
+
+        // Validate target balance
+        if (targetBalance < 0) {
+            throw new IllegalArgumentException("Target balance cannot be negative: " + targetBalance);
+        }
+
+        // Get current balance
+        MemberCurrencyAccount current = accountRepository.findOrCreate(guildId, userId);
+        long previousBalance = current.balance();
+
+        // Calculate delta with overflow protection
+        long delta;
+        try {
+            delta = Math.subtractExact(targetBalance, previousBalance);
+        } catch (ArithmeticException e) {
+            throw new IllegalArgumentException(
+                    "Adjustment would cause overflow: target=" + targetBalance + ", current=" + previousBalance);
+        }
+
+        // Validate delta
+        if (!MemberCurrencyAccount.isValidAdjustmentAmount(delta)) {
+            throw new IllegalArgumentException(
+                    "Amount exceeds maximum: |" + delta + "| > " + MemberCurrencyAccount.MAX_ADJUSTMENT_AMOUNT);
+        }
+
+        // Apply adjustment
+        MemberCurrencyAccount updated = accountRepository.adjustBalance(guildId, userId, delta);
+
+        // Get currency config for display
+        GuildCurrencyConfig config = configRepository.findByGuildId(guildId)
+                .orElse(GuildCurrencyConfig.createDefault(guildId));
+
+        BalanceAdjustmentResult result = new BalanceAdjustmentResult(
+                guildId,
+                userId,
+                previousBalance,
+                updated.balance(),
+                delta,
+                config.currencyName(),
+                config.currencyIcon()
+        );
+
+        LOG.info("Balance adjusted to target: guildId={}, userId={}, previous={}, new={}, adjustment={}",
+                guildId, userId, previousBalance, updated.balance(), delta);
 
         return result;
     }

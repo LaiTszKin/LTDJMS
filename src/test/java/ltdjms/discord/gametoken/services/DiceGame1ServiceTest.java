@@ -3,6 +3,8 @@ package ltdjms.discord.gametoken.services;
 import ltdjms.discord.currency.domain.MemberCurrencyAccount;
 import ltdjms.discord.currency.persistence.MemberCurrencyAccountRepository;
 import ltdjms.discord.gametoken.services.DiceGame1Service.DiceGameResult;
+import ltdjms.discord.shared.DomainError;
+import ltdjms.discord.shared.Result;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -73,6 +75,12 @@ class DiceGame1ServiceTest {
             Instant now = Instant.now();
             this.account = new MemberCurrencyAccount(guildId, userId, account.balance() + amount, account.createdAt(), now);
             return account;
+        }
+
+        @Override
+        public Result<MemberCurrencyAccount, DomainError> tryAdjustBalance(long guildId, long userId, long amount) {
+            MemberCurrencyAccount updated = adjustBalance(guildId, userId, amount);
+            return Result.ok(updated);
         }
 
         @Override
@@ -174,9 +182,9 @@ class DiceGame1ServiceTest {
     }
 
     @Test
-    @DisplayName("should split large rewards into multiple adjustments")
-    void shouldSplitLargeRewardsIntoMultipleAdjustments() {
-        // Given - max reward is 7,500,000 which exceeds MAX_ADJUSTMENT_AMOUNT (1,000,000)
+    @DisplayName("should apply reward in single adjustment when MAX_ADJUSTMENT_AMOUNT is very large")
+    void shouldApplyRewardInSingleAdjustment() {
+        // Given - max reward is 7,500,000 which is less than Long.MAX_VALUE
         // Random returns all 5s, resulting in dice all showing 6
         PredictableRandom random = new PredictableRandom(List.of(5, 5, 5, 5, 5));
         StubCurrencyRepository repository = new StubCurrencyRepository(0L);
@@ -185,9 +193,8 @@ class DiceGame1ServiceTest {
         // When
         service.play(TEST_GUILD_ID, TEST_USER_ID);
 
-        // Then - should call adjustBalance multiple times
-        // 7,500,000 / 1,000,000 = 7 full + 500,000 remaining = 8 calls
-        assertThat(repository.getAdjustCallCount()).isEqualTo(8);
+        // Then - should call adjustBalance just once since MAX_ADJUSTMENT_AMOUNT is Long.MAX_VALUE
+        assertThat(repository.getAdjustCallCount()).isEqualTo(1);
     }
 
     @Test

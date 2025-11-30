@@ -13,6 +13,7 @@ import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import net.dv8tion.jda.api.interactions.commands.DefaultMemberPermissions;
 import net.dv8tion.jda.api.interactions.commands.OptionType;
 import net.dv8tion.jda.api.interactions.commands.build.Commands;
+import net.dv8tion.jda.api.interactions.commands.build.OptionData;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -99,8 +100,14 @@ public class SlashCommandListener extends ListenerAdapter {
 
                 // /adjust-balance - admin only
                 Commands.slash(CMD_ADJUST_BALANCE, "Adjust a member's currency balance")
-                        .addOption(OptionType.USER, "member", "The member whose balance to adjust", true)
-                        .addOption(OptionType.INTEGER, "amount", "Amount to add (positive) or subtract (negative)", true)
+                        .addOptions(
+                                new OptionData(OptionType.STRING, "mode", "The adjustment mode", true)
+                                        .addChoice("add", "add")
+                                        .addChoice("deduct", "deduct")
+                                        .addChoice("adjust", "adjust"),
+                                new OptionData(OptionType.USER, "member", "The member whose balance to adjust", true),
+                                new OptionData(OptionType.INTEGER, "amount", "Amount to add/deduct, or target balance for adjust mode", true)
+                        )
                         .setDefaultPermissions(DefaultMemberPermissions.enabledFor(Permission.ADMINISTRATOR)),
 
                 // /game-token-adjust - admin only

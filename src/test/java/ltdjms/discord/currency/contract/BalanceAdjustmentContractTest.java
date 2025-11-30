@@ -79,17 +79,32 @@ class BalanceAdjustmentContractTest {
     }
 
     @Test
-    @DisplayName("Account adjustment should be validated against maximum")
-    void accountAdjustmentShouldBeValidatedAgainstMaximum() {
-        // Given - contract specifies maximum adjustment amount
-        long validAmount = MemberCurrencyAccount.MAX_ADJUSTMENT_AMOUNT;
-        long invalidAmount = MemberCurrencyAccount.MAX_ADJUSTMENT_AMOUNT + 1;
+    @DisplayName("Account adjustment validation accepts all long values")
+    void accountAdjustmentValidationAcceptsAllLongValues() {
+        // Given - MAX_ADJUSTMENT_AMOUNT is now Long.MAX_VALUE
+        // All long values should be considered valid for adjustment amounts
 
-        // Then
-        assertThat(MemberCurrencyAccount.isValidAdjustmentAmount(validAmount)).isTrue();
-        assertThat(MemberCurrencyAccount.isValidAdjustmentAmount(-validAmount)).isTrue();
-        assertThat(MemberCurrencyAccount.isValidAdjustmentAmount(invalidAmount)).isFalse();
-        assertThat(MemberCurrencyAccount.isValidAdjustmentAmount(-invalidAmount)).isFalse();
+        // Then - validation should accept all values
+        assertThat(MemberCurrencyAccount.isValidAdjustmentAmount(1L)).isTrue();
+        assertThat(MemberCurrencyAccount.isValidAdjustmentAmount(-1L)).isTrue();
+        assertThat(MemberCurrencyAccount.isValidAdjustmentAmount(Long.MAX_VALUE)).isTrue();
+        // Note: Long.MIN_VALUE + 1 is used instead of -Long.MAX_VALUE to avoid overflow
+        assertThat(MemberCurrencyAccount.isValidAdjustmentAmount(Long.MIN_VALUE + 1)).isTrue();
+    }
+
+    @Test
+    @DisplayName("Account withAdjustedBalance should protect against overflow")
+    void accountWithAdjustedBalanceShouldProtectAgainstOverflow() {
+        // Given - an account at max balance
+        MemberCurrencyAccount account = new MemberCurrencyAccount(
+                TEST_GUILD_ID, TEST_USER_ID, Long.MAX_VALUE,
+                java.time.Instant.now(), java.time.Instant.now()
+        );
+
+        // When/Then - attempting to add more should fail with overflow protection
+        assertThatThrownBy(() -> account.withAdjustedBalance(1L))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("overflow");
     }
 
     @Test

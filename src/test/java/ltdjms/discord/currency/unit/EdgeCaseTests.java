@@ -57,32 +57,7 @@ class EdgeCaseTests {
         }
 
         @Test
-        @DisplayName("should reject adjustment amount exceeding positive maximum")
-        void shouldRejectAmountExceedingPositiveMaximum() {
-            long tooLarge = MemberCurrencyAccount.MAX_ADJUSTMENT_AMOUNT + 1;
-
-            assertThatThrownBy(() -> adjustmentService.adjustBalance(TEST_GUILD_ID, TEST_USER_ID, tooLarge))
-                    .isInstanceOf(IllegalArgumentException.class)
-                    .hasMessageContaining("exceeds maximum");
-
-            // Verify no repository calls were made
-            verifyNoInteractions(accountRepository);
-        }
-
-        @Test
-        @DisplayName("should reject adjustment amount exceeding negative maximum")
-        void shouldRejectAmountExceedingNegativeMaximum() {
-            long tooLargeNegative = -(MemberCurrencyAccount.MAX_ADJUSTMENT_AMOUNT + 1);
-
-            assertThatThrownBy(() -> adjustmentService.adjustBalance(TEST_GUILD_ID, TEST_USER_ID, tooLargeNegative))
-                    .isInstanceOf(IllegalArgumentException.class)
-                    .hasMessageContaining("exceeds maximum");
-
-            verifyNoInteractions(accountRepository);
-        }
-
-        @Test
-        @DisplayName("should accept adjustment at exactly the maximum amount")
+        @DisplayName("should accept adjustment at exactly the maximum amount (Long.MAX_VALUE)")
         void shouldAcceptAdjustmentAtExactlyMaximum() {
             Instant now = Instant.now();
             MemberCurrencyAccount initial = new MemberCurrencyAccount(TEST_GUILD_ID, TEST_USER_ID, 0L, now, now);
@@ -131,6 +106,61 @@ class EdgeCaseTests {
 
             assertThat(result.previousBalance()).isEqualTo(100L);
             assertThat(result.newBalance()).isEqualTo(100L);
+        }
+    }
+
+    // ============================================================
+    // Overflow Protection Tests
+    // ============================================================
+
+    @Nested
+    @DisplayName("Overflow Protection Tests")
+    class OverflowProtectionTests {
+
+        @Test
+        @DisplayName("should reject adjustment that would cause positive overflow")
+        void shouldRejectAdjustmentCausingPositiveOverflow() {
+            Instant now = Instant.now();
+            MemberCurrencyAccount account = new MemberCurrencyAccount(TEST_GUILD_ID, TEST_USER_ID, Long.MAX_VALUE, now, now);
+
+            // Adding 1 to Long.MAX_VALUE would overflow
+            assertThatThrownBy(() -> account.withAdjustedBalance(1))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("overflow");
+        }
+
+        @Test
+        @DisplayName("should accept large adjustment that does not overflow")
+        void shouldAcceptLargeAdjustmentThatDoesNotOverflow() {
+            Instant now = Instant.now();
+            MemberCurrencyAccount account = new MemberCurrencyAccount(TEST_GUILD_ID, TEST_USER_ID, 0L, now, now);
+
+            // Should be able to add large amount without overflow
+            MemberCurrencyAccount result = account.withAdjustedBalance(Long.MAX_VALUE);
+            assertThat(result.balance()).isEqualTo(Long.MAX_VALUE);
+        }
+
+        @Test
+        @DisplayName("should accept adjustment close to overflow boundary")
+        void shouldAcceptAdjustmentCloseToOverflowBoundary() {
+            Instant now = Instant.now();
+            MemberCurrencyAccount account = new MemberCurrencyAccount(TEST_GUILD_ID, TEST_USER_ID, Long.MAX_VALUE - 100, now, now);
+
+            // Adding exactly 100 should work
+            MemberCurrencyAccount result = account.withAdjustedBalance(100);
+            assertThat(result.balance()).isEqualTo(Long.MAX_VALUE);
+        }
+
+        @Test
+        @DisplayName("should reject adjustment just past overflow boundary")
+        void shouldRejectAdjustmentJustPastOverflowBoundary() {
+            Instant now = Instant.now();
+            MemberCurrencyAccount account = new MemberCurrencyAccount(TEST_GUILD_ID, TEST_USER_ID, Long.MAX_VALUE - 100, now, now);
+
+            // Adding 101 would overflow
+            assertThatThrownBy(() -> account.withAdjustedBalance(101))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("overflow");
         }
     }
 

@@ -6,7 +6,7 @@
 
     <groupId>ltdjms</groupId>
     <artifactId>discord-currency-bot</artifactId>
-    <version>0.2.0</version>
+    <version>0.3.0</version>
     <packaging>jar</packaging>
 
     <name>Discord Currency Bot</name>
@@ -161,6 +161,44 @@
                         <goals>
                             <goal>report</goal>
                         </goals>
+                    </execution>
+                    <execution>
+                        <id>check</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>check</goal>
+                        </goals>
+                        <configuration>
+                            <rules>
+                                <rule>
+                                    <element>BUNDLE</element>
+                                    <limits>
+                                        <limit>
+                                            <counter>LINE</counter>
+                                            <value>COVEREDRATIO</value>
+                                            <minimum>0.80</minimum>
+                                        </limit>
+                                    </limits>
+                                </rule>
+                            </rules>
+                            <excludes>
+                                <!-- Exclude bot main class and listener (requires Discord connection) -->
+                                <exclude>**/DiscordCurrencyBot.class</exclude>
+                                <exclude>**/BotErrorHandler.class</exclude>
+                                <exclude>**/SlashCommandListener.class</exclude>
+                                <exclude>**/SlashCommandListener$*.class</exclude>
+                                <exclude>**/GatewayIntentsConfiguration.class</exclude>
+                                <!-- Exclude command handlers that require JDA mocking (JDK 25 incompatible) -->
+                                <exclude>**/*CommandHandler.class</exclude>
+                                <!-- Exclude error handler and validator classes -->
+                                <exclude>**/EmojiValidator.class</exclude>
+                                <exclude>**/DiscordEmojiValidator.class</exclude>
+                                <exclude>**/RepositoryException.class</exclude>
+                                <exclude>**/NegativeBalanceException.class</exclude>
+                                <!-- Exclude JDBC repository implementation details (covered by integration tests) -->
+                                <exclude>**/Jdbc*Repository.class</exclude>
+                            </excludes>
+                        </configuration>
                     </execution>
                 </executions>
             </plugin>

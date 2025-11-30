@@ -1,5 +1,6 @@
 package ltdjms.discord.currency.bot;
 
+import ltdjms.discord.shared.DomainError;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -114,5 +115,56 @@ public final class BotErrorHandler {
                 event.getUser().getIdLong(),
                 event.getGuild() != null ? event.getGuild().getIdLong() : "DM",
                 details);
+    }
+
+    /**
+     * Handles a DomainError by mapping it to the appropriate user message and log level.
+     *
+     * @param event the slash command event
+     * @param error the DomainError to handle
+     */
+    public static void handleDomainError(SlashCommandInteractionEvent event, DomainError error) {
+        switch (error.category()) {
+            case INVALID_INPUT -> handleInvalidInput(event, error.message());
+
+            case INSUFFICIENT_BALANCE -> {
+                LOG.warn("Insufficient balance for command {} for user={} in guild={}: {}",
+                        event.getName(),
+                        event.getUser().getIdLong(),
+                        event.getGuild() != null ? event.getGuild().getIdLong() : "DM",
+                        error.message());
+                replyWithError(event, "Cannot reduce balance below zero. Current balance is insufficient for this deduction.");
+            }
+
+            case INSUFFICIENT_TOKENS -> {
+                LOG.warn("Insufficient tokens for command {} for user={} in guild={}: {}",
+                        event.getName(),
+                        event.getUser().getIdLong(),
+                        event.getGuild() != null ? event.getGuild().getIdLong() : "DM",
+                        error.message());
+                replyWithError(event, "Not enough game tokens for this operation.");
+            }
+
+            case PERSISTENCE_FAILURE -> handleDatabaseError(event, error.cause());
+
+            case UNEXPECTED_FAILURE -> handleUnexpectedError(event, error.cause());
+        }
+    }
+
+    /**
+     * Returns a user-friendly message based on the DomainError category.
+     * This can be used when the caller wants to handle the reply themselves.
+     *
+     * @param error the DomainError
+     * @return a user-friendly message
+     */
+    public static String getUserMessage(DomainError error) {
+        return switch (error.category()) {
+            case INVALID_INPUT -> error.message();
+            case INSUFFICIENT_BALANCE -> "Cannot reduce balance below zero. Current balance is insufficient for this deduction.";
+            case INSUFFICIENT_TOKENS -> "Not enough game tokens for this operation.";
+            case PERSISTENCE_FAILURE -> "A database error occurred. Please try again later.";
+            case UNEXPECTED_FAILURE -> GENERIC_ERROR_MESSAGE;
+        };
     }
 }

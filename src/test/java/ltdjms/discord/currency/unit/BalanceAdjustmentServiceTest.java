@@ -7,8 +7,11 @@ import ltdjms.discord.currency.persistence.MemberCurrencyAccountRepository;
 import ltdjms.discord.currency.persistence.NegativeBalanceException;
 import ltdjms.discord.currency.services.BalanceAdjustmentService;
 import ltdjms.discord.currency.services.BalanceAdjustmentService.BalanceAdjustmentResult;
+import ltdjms.discord.shared.DomainError;
+import ltdjms.discord.shared.Result;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -103,26 +106,6 @@ class BalanceAdjustmentServiceTest {
     }
 
     @Test
-    @DisplayName("should reject amount exceeding maximum")
-    void shouldRejectAmountExceedingMaximum() {
-        long tooLargeAmount = MemberCurrencyAccount.MAX_ADJUSTMENT_AMOUNT + 1;
-
-        assertThatThrownBy(() -> adjustmentService.adjustBalance(TEST_GUILD_ID, TEST_USER_ID, tooLargeAmount))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("exceeds maximum");
-    }
-
-    @Test
-    @DisplayName("should reject negative amount exceeding maximum")
-    void shouldRejectNegativeAmountExceedingMaximum() {
-        long tooLargeNegativeAmount = -(MemberCurrencyAccount.MAX_ADJUSTMENT_AMOUNT + 1);
-
-        assertThatThrownBy(() -> adjustmentService.adjustBalance(TEST_GUILD_ID, TEST_USER_ID, tooLargeNegativeAmount))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("exceeds maximum");
-    }
-
-    @Test
     @DisplayName("should include currency info in result")
     void shouldIncludeCurrencyInfoInResult() {
         // Given
@@ -182,5 +165,218 @@ class BalanceAdjustmentServiceTest {
         verify(accountRepository).findOrCreate(TEST_GUILD_ID, TEST_USER_ID);
         assertThat(result.previousBalance()).isEqualTo(0L);
         assertThat(result.newBalance()).isEqualTo(100L);
+    }
+
+    @Nested
+    @DisplayName("adjustBalanceTo (adjust to target balance)")
+    class AdjustBalanceToTests {
+
+        @Test
+        @DisplayName("should adjust from lower balance to higher target")
+        void shouldAdjustFromLowerToHigherTarget() {
+            // Given
+            Instant now = Instant.now();
+            MemberCurrencyAccount initial = new MemberCurrencyAccount(TEST_GUILD_ID, TEST_USER_ID, 120L, now, now);
+            MemberCurrencyAccount adjusted = new MemberCurrencyAccount(TEST_GUILD_ID, TEST_USER_ID, 500L, now, now);
+
+            when(accountRepository.findOrCreate(TEST_GUILD_ID, TEST_USER_ID)).thenReturn(initial);
+            when(accountRepository.adjustBalance(TEST_GUILD_ID, TEST_USER_ID, 380L)).thenReturn(adjusted);
+            when(configRepository.findByGuildId(TEST_GUILD_ID)).thenReturn(Optional.empty());
+
+            // When
+            BalanceAdjustmentResult result = adjustmentService.adjustBalanceTo(TEST_GUILD_ID, TEST_USER_ID, 500L);
+
+            // Then
+            assertThat(result.previousBalance()).isEqualTo(120L);
+            assertThat(result.newBalance()).isEqualTo(500L);
+            assertThat(result.adjustment()).isEqualTo(380L);
+        }
+
+        @Test
+        @DisplayName("should adjust from higher balance to lower target")
+        void shouldAdjustFromHigherToLowerTarget() {
+            // Given
+            Instant now = Instant.now();
+            MemberCurrencyAccount initial = new MemberCurrencyAccount(TEST_GUILD_ID, TEST_USER_ID, 500L, now, now);
+            MemberCurrencyAccount adjusted = new MemberCurrencyAccount(TEST_GUILD_ID, TEST_USER_ID, 200L, now, now);
+
+            when(accountRepository.findOrCreate(TEST_GUILD_ID, TEST_USER_ID)).thenReturn(initial);
+            when(accountRepository.adjustBalance(TEST_GUILD_ID, TEST_USER_ID, -300L)).thenReturn(adjusted);
+            when(configRepository.findByGuildId(TEST_GUILD_ID)).thenReturn(Optional.empty());
+
+            // When
+            BalanceAdjustmentResult result = adjustmentService.adjustBalanceTo(TEST_GUILD_ID, TEST_USER_ID, 200L);
+
+            // Then
+            assertThat(result.previousBalance()).isEqualTo(500L);
+            assertThat(result.newBalance()).isEqualTo(200L);
+            assertThat(result.adjustment()).isEqualTo(-300L);
+        }
+
+        @Test
+        @DisplayName("should adjust to zero balance")
+        void shouldAdjustToZeroBalance() {
+            // Given
+            Instant now = Instant.now();
+            MemberCurrencyAccount initial = new MemberCurrencyAccount(TEST_GUILD_ID, TEST_USER_ID, 100L, now, now);
+            MemberCurrencyAccount adjusted = new MemberCurrencyAccount(TEST_GUILD_ID, TEST_USER_ID, 0L, now, now);
+
+            when(accountRepository.findOrCreate(TEST_GUILD_ID, TEST_USER_ID)).thenReturn(initial);
+            when(accountRepository.adjustBalance(TEST_GUILD_ID, TEST_USER_ID, -100L)).thenReturn(adjusted);
+            when(configRepository.findByGuildId(TEST_GUILD_ID)).thenReturn(Optional.empty());
+
+            // When
+            BalanceAdjustmentResult result = adjustmentService.adjustBalanceTo(TEST_GUILD_ID, TEST_USER_ID, 0L);
+
+            // Then
+            assertThat(result.previousBalance()).isEqualTo(100L);
+            assertThat(result.newBalance()).isEqualTo(0L);
+            assertThat(result.adjustment()).isEqualTo(-100L);
+        }
+
+        @Test
+        @DisplayName("should reject negative target balance")
+        void shouldRejectNegativeTargetBalance() {
+            // When/Then
+            assertThatThrownBy(() -> adjustmentService.adjustBalanceTo(TEST_GUILD_ID, TEST_USER_ID, -1L))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("negative");
+        }
+
+        @Test
+        @DisplayName("should handle same balance (no-op)")
+        void shouldHandleSameBalanceNoOp() {
+            // Given
+            Instant now = Instant.now();
+            MemberCurrencyAccount initial = new MemberCurrencyAccount(TEST_GUILD_ID, TEST_USER_ID, 100L, now, now);
+
+            when(accountRepository.findOrCreate(TEST_GUILD_ID, TEST_USER_ID)).thenReturn(initial);
+            when(accountRepository.adjustBalance(TEST_GUILD_ID, TEST_USER_ID, 0L)).thenReturn(initial);
+            when(configRepository.findByGuildId(TEST_GUILD_ID)).thenReturn(Optional.empty());
+
+            // When
+            BalanceAdjustmentResult result = adjustmentService.adjustBalanceTo(TEST_GUILD_ID, TEST_USER_ID, 100L);
+
+            // Then
+            assertThat(result.previousBalance()).isEqualTo(100L);
+            assertThat(result.newBalance()).isEqualTo(100L);
+            assertThat(result.adjustment()).isEqualTo(0L);
+        }
+    }
+
+    @Nested
+    @DisplayName("tryAdjustBalance (Result-based API)")
+    class TryAdjustBalanceTests {
+
+        @Test
+        @DisplayName("should return Ok result for successful credit")
+        void shouldReturnOkResultForSuccessfulCredit() {
+            // Given
+            Instant now = Instant.now();
+            MemberCurrencyAccount initial = new MemberCurrencyAccount(TEST_GUILD_ID, TEST_USER_ID, 100L, now, now);
+            MemberCurrencyAccount adjusted = new MemberCurrencyAccount(TEST_GUILD_ID, TEST_USER_ID, 150L, now, now);
+
+            when(accountRepository.findOrCreate(TEST_GUILD_ID, TEST_USER_ID)).thenReturn(initial);
+            when(accountRepository.tryAdjustBalance(TEST_GUILD_ID, TEST_USER_ID, 50L)).thenReturn(Result.ok(adjusted));
+            when(configRepository.findByGuildId(TEST_GUILD_ID)).thenReturn(Optional.empty());
+
+            // When
+            Result<BalanceAdjustmentResult, DomainError> result =
+                    adjustmentService.tryAdjustBalance(TEST_GUILD_ID, TEST_USER_ID, 50L);
+
+            // Then
+            assertThat(result.isOk()).isTrue();
+            assertThat(result.getValue().previousBalance()).isEqualTo(100L);
+            assertThat(result.getValue().newBalance()).isEqualTo(150L);
+            assertThat(result.getValue().adjustment()).isEqualTo(50L);
+        }
+
+        @Test
+        @DisplayName("should return Ok result for successful debit")
+        void shouldReturnOkResultForSuccessfulDebit() {
+            // Given
+            Instant now = Instant.now();
+            MemberCurrencyAccount initial = new MemberCurrencyAccount(TEST_GUILD_ID, TEST_USER_ID, 100L, now, now);
+            MemberCurrencyAccount adjusted = new MemberCurrencyAccount(TEST_GUILD_ID, TEST_USER_ID, 50L, now, now);
+
+            when(accountRepository.findOrCreate(TEST_GUILD_ID, TEST_USER_ID)).thenReturn(initial);
+            when(accountRepository.tryAdjustBalance(TEST_GUILD_ID, TEST_USER_ID, -50L)).thenReturn(Result.ok(adjusted));
+            when(configRepository.findByGuildId(TEST_GUILD_ID)).thenReturn(Optional.empty());
+
+            // When
+            Result<BalanceAdjustmentResult, DomainError> result =
+                    adjustmentService.tryAdjustBalance(TEST_GUILD_ID, TEST_USER_ID, -50L);
+
+            // Then
+            assertThat(result.isOk()).isTrue();
+            assertThat(result.getValue().previousBalance()).isEqualTo(100L);
+            assertThat(result.getValue().newBalance()).isEqualTo(50L);
+            assertThat(result.getValue().adjustment()).isEqualTo(-50L);
+        }
+
+        @Test
+        @DisplayName("should return Err result with INSUFFICIENT_BALANCE for insufficient funds")
+        void shouldReturnErrResultForInsufficientBalance() {
+            // Given
+            Instant now = Instant.now();
+            MemberCurrencyAccount initial = new MemberCurrencyAccount(TEST_GUILD_ID, TEST_USER_ID, 50L, now, now);
+            DomainError expectedError = DomainError.insufficientBalance("Insufficient balance");
+
+            when(accountRepository.findOrCreate(TEST_GUILD_ID, TEST_USER_ID)).thenReturn(initial);
+            when(accountRepository.tryAdjustBalance(TEST_GUILD_ID, TEST_USER_ID, -100L))
+                    .thenReturn(Result.err(expectedError));
+
+            // When
+            Result<BalanceAdjustmentResult, DomainError> result =
+                    adjustmentService.tryAdjustBalance(TEST_GUILD_ID, TEST_USER_ID, -100L);
+
+            // Then
+            assertThat(result.isErr()).isTrue();
+            assertThat(result.getError().category()).isEqualTo(DomainError.Category.INSUFFICIENT_BALANCE);
+        }
+
+        @Test
+        @DisplayName("should return Err result with PERSISTENCE_FAILURE for database error")
+        void shouldReturnErrResultForDatabaseError() {
+            // Given
+            Instant now = Instant.now();
+            MemberCurrencyAccount initial = new MemberCurrencyAccount(TEST_GUILD_ID, TEST_USER_ID, 100L, now, now);
+            DomainError expectedError = DomainError.persistenceFailure("Database error", new RuntimeException());
+
+            when(accountRepository.findOrCreate(TEST_GUILD_ID, TEST_USER_ID)).thenReturn(initial);
+            when(accountRepository.tryAdjustBalance(TEST_GUILD_ID, TEST_USER_ID, 50L))
+                    .thenReturn(Result.err(expectedError));
+
+            // When
+            Result<BalanceAdjustmentResult, DomainError> result =
+                    adjustmentService.tryAdjustBalance(TEST_GUILD_ID, TEST_USER_ID, 50L);
+
+            // Then
+            assertThat(result.isErr()).isTrue();
+            assertThat(result.getError().category()).isEqualTo(DomainError.Category.PERSISTENCE_FAILURE);
+        }
+
+        @Test
+        @DisplayName("should include currency info in successful result")
+        void shouldIncludeCurrencyInfoInSuccessfulResult() {
+            // Given
+            Instant now = Instant.now();
+            MemberCurrencyAccount initial = new MemberCurrencyAccount(TEST_GUILD_ID, TEST_USER_ID, 0L, now, now);
+            MemberCurrencyAccount adjusted = new MemberCurrencyAccount(TEST_GUILD_ID, TEST_USER_ID, 100L, now, now);
+            GuildCurrencyConfig config = new GuildCurrencyConfig(TEST_GUILD_ID, "Gold", "💰", now, now);
+
+            when(accountRepository.findOrCreate(TEST_GUILD_ID, TEST_USER_ID)).thenReturn(initial);
+            when(accountRepository.tryAdjustBalance(TEST_GUILD_ID, TEST_USER_ID, 100L)).thenReturn(Result.ok(adjusted));
+            when(configRepository.findByGuildId(TEST_GUILD_ID)).thenReturn(Optional.of(config));
+
+            // When
+            Result<BalanceAdjustmentResult, DomainError> result =
+                    adjustmentService.tryAdjustBalance(TEST_GUILD_ID, TEST_USER_ID, 100L);
+
+            // Then
+            assertThat(result.isOk()).isTrue();
+            assertThat(result.getValue().currencyName()).isEqualTo("Gold");
+            assertThat(result.getValue().currencyIcon()).isEqualTo("💰");
+        }
     }
 }

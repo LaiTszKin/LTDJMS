@@ -3,6 +3,8 @@ package ltdjms.discord.gametoken.services;
 import ltdjms.discord.gametoken.domain.GameTokenAccount;
 import ltdjms.discord.gametoken.persistence.GameTokenAccountRepository;
 import ltdjms.discord.gametoken.persistence.InsufficientTokensException;
+import ltdjms.discord.shared.DomainError;
+import ltdjms.discord.shared.Result;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -93,6 +95,60 @@ public class GameTokenService {
             throw new IllegalArgumentException("Tokens to deduct must be positive: " + tokens);
         }
         return accountRepository.adjustTokens(guildId, userId, -tokens);
+    }
+
+    /**
+     * Adjusts a member's token balance using Result-based error handling.
+     *
+     * @param guildId the Discord guild ID
+     * @param userId  the Discord user ID
+     * @param amount  the amount to adjust (positive for credit, negative for debit)
+     * @return Result containing TokenAdjustmentResult on success, or DomainError on failure
+     */
+    public Result<TokenAdjustmentResult, DomainError> tryAdjustTokens(long guildId, long userId, long amount) {
+        LOG.debug("Adjusting tokens for guildId={}, userId={}, amount={}", guildId, userId, amount);
+
+        // Get current balance
+        GameTokenAccount current = accountRepository.findOrCreate(guildId, userId);
+        long previousTokens = current.tokens();
+
+        // Apply adjustment using Result-based API
+        Result<GameTokenAccount, DomainError> adjustResult =
+                accountRepository.tryAdjustTokens(guildId, userId, amount);
+
+        if (adjustResult.isErr()) {
+            return Result.err(adjustResult.getError());
+        }
+
+        GameTokenAccount updated = adjustResult.getValue();
+
+        TokenAdjustmentResult result = new TokenAdjustmentResult(
+                guildId,
+                userId,
+                previousTokens,
+                updated.tokens(),
+                amount
+        );
+
+        LOG.info("Tokens adjusted: guildId={}, userId={}, previous={}, new={}, adjustment={}",
+                guildId, userId, previousTokens, updated.tokens(), amount);
+
+        return Result.ok(result);
+    }
+
+    /**
+     * Deducts tokens using Result-based error handling.
+     *
+     * @param guildId the Discord guild ID
+     * @param userId  the Discord user ID
+     * @param tokens  the number of tokens to deduct (must be positive)
+     * @return Result containing the updated account, or DomainError on failure
+     */
+    public Result<GameTokenAccount, DomainError> tryDeductTokens(long guildId, long userId, long tokens) {
+        if (tokens <= 0) {
+            return Result.err(DomainError.invalidInput("Tokens to deduct must be positive: " + tokens));
+        }
+        return accountRepository.tryAdjustTokens(guildId, userId, -tokens);
     }
 
     /**
