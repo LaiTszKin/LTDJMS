@@ -6,11 +6,11 @@
 
     <groupId>ltdjms</groupId>
     <artifactId>discord-currency-bot</artifactId>
-    <version>0.5.0</version>
+    <version>0.6.0</version>
     <packaging>jar</packaging>
 
-    <name>Discord Currency Bot</name>
-    <description>A Discord bot providing per-server virtual currency system</description>
+    <name>LTDJ Management System</name>
+    <description>A Discord bot providing mutiple functions required for the business of LTDJ</description>
 
     <properties>
         <java.version>17</java.version>
@@ -177,6 +177,37 @@
                 <groupId>org.jacoco</groupId>
                 <artifactId>jacoco-maven-plugin</artifactId>
                 <version>0.8.14</version>
+                <!-- Global coverage configuration shared by report/check and CLI executions -->
+                <configuration>
+                    <excludes>
+                        <!-- Exclude bot main class and listener (requires Discord connection) -->
+                        <exclude>**/DiscordCurrencyBot.class</exclude>
+                        <exclude>**/BotErrorHandler.class</exclude>
+                        <exclude>**/SlashCommandListener.class</exclude>
+                        <exclude>**/SlashCommandListener$*.class</exclude>
+                        <exclude>**/GatewayIntentsConfiguration.class</exclude>
+                        <!-- Exclude command handlers and panel button handlers that require JDA mocking (JDK 25 incompatible) -->
+                        <exclude>**/*CommandHandler.class</exclude>
+                        <exclude>**/UserPanelButtonHandler.class</exclude>
+                        <exclude>**/AdminPanelButtonHandler.class</exclude>
+                        <!-- Exclude error handler and validator classes -->
+                        <exclude>**/EmojiValidator.class</exclude>
+                        <exclude>**/DiscordEmojiValidator.class</exclude>
+                        <exclude>**/JdaEmojiValidator.class</exclude>
+                        <!-- Exclude infrastructure-only database configuration (covered indirectly by integration tests) -->
+                        <exclude>**/DatabaseConfig.class</exclude>
+                        <exclude>**/RepositoryException.class</exclude>
+                        <exclude>**/NegativeBalanceException.class</exclude>
+                        <!-- Exclude repository implementation details (covered by integration tests) -->
+                        <exclude>**/Jdbc*Repository.class</exclude>
+                        <exclude>**/Jooq*Repository.class</exclude>
+                        <!-- Exclude Dagger component wiring and DI modules (infrastructure-only) -->
+                        <exclude>**/AppComponent.class</exclude>
+                        <exclude>**/AppComponentFactory.class</exclude>
+                        <exclude>**/DaggerAppComponent*.class</exclude>
+                        <exclude>**/*Module.class</exclude>
+                    </excludes>
+                </configuration>
                 <executions>
                     <execution>
                         <id>prepare-agent</id>
@@ -213,32 +244,6 @@
                                     </limits>
                                 </rule>
                             </rules>
-                            <excludes>
-                                <!-- Exclude bot main class and listener (requires Discord connection) -->
-                                <exclude>**/DiscordCurrencyBot.class</exclude>
-                                <exclude>**/BotErrorHandler.class</exclude>
-                                <exclude>**/SlashCommandListener.class</exclude>
-                                <exclude>**/SlashCommandListener$*.class</exclude>
-                                <exclude>**/GatewayIntentsConfiguration.class</exclude>
-                                <!-- Exclude command handlers that require JDA mocking (JDK 25 incompatible) -->
-                                <exclude>**/*CommandHandler.class</exclude>
-                                <!-- Exclude error handler and validator classes -->
-                                <exclude>**/EmojiValidator.class</exclude>
-                                <exclude>**/DiscordEmojiValidator.class</exclude>
-                                <exclude>**/JdaEmojiValidator.class</exclude>
-                                <!-- Exclude infrastructure-only database configuration (covered indirectly by integration tests) -->
-                                <exclude>**/DatabaseConfig.class</exclude>
-                                <exclude>**/RepositoryException.class</exclude>
-                                <exclude>**/NegativeBalanceException.class</exclude>
-                                <!-- Exclude repository implementation details (covered by integration tests) -->
-                                <exclude>**/Jdbc*Repository.class</exclude>
-                                <exclude>**/Jooq*Repository.class</exclude>
-                                <!-- Exclude Dagger component wiring and DI modules (infrastructure-only) -->
-                                <exclude>**/AppComponent.class</exclude>
-                                <exclude>**/AppComponentFactory.class</exclude>
-                                <exclude>**/DaggerAppComponent*.class</exclude>
-                                <exclude>**/*Module.class</exclude>
-                            </excludes>
                         </configuration>
                     </execution>
                 </executions>

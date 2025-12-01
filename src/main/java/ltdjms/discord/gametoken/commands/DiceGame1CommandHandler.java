@@ -6,10 +6,12 @@ import ltdjms.discord.currency.domain.GuildCurrencyConfig;
 import ltdjms.discord.currency.persistence.GuildCurrencyConfigRepository;
 import ltdjms.discord.gametoken.domain.DiceGame1Config;
 import ltdjms.discord.gametoken.domain.GameTokenAccount;
+import ltdjms.discord.gametoken.domain.GameTokenTransaction;
 import ltdjms.discord.gametoken.persistence.DiceGame1ConfigRepository;
 import ltdjms.discord.gametoken.services.DiceGame1Service;
 import ltdjms.discord.gametoken.services.DiceGame1Service.DiceGameResult;
 import ltdjms.discord.gametoken.services.GameTokenService;
+import ltdjms.discord.gametoken.services.GameTokenTransactionService;
 import ltdjms.discord.shared.DomainError;
 import ltdjms.discord.shared.Result;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
@@ -32,16 +34,19 @@ public class DiceGame1CommandHandler implements SlashCommandListener.CommandHand
     private final DiceGame1Service diceGameService;
     private final DiceGame1ConfigRepository configRepository;
     private final GuildCurrencyConfigRepository currencyConfigRepository;
+    private final GameTokenTransactionService transactionService;
 
     public DiceGame1CommandHandler(
             GameTokenService tokenService,
             DiceGame1Service diceGameService,
             DiceGame1ConfigRepository configRepository,
-            GuildCurrencyConfigRepository currencyConfigRepository) {
+            GuildCurrencyConfigRepository currencyConfigRepository,
+            GameTokenTransactionService transactionService) {
         this.tokenService = tokenService;
         this.diceGameService = diceGameService;
         this.configRepository = configRepository;
         this.currencyConfigRepository = currencyConfigRepository;
+        this.transactionService = transactionService;
     }
 
     @Override
@@ -75,6 +80,18 @@ public class DiceGame1CommandHandler implements SlashCommandListener.CommandHand
             BotErrorHandler.handleDomainError(event, deductResult.getError());
             return;
         }
+
+        GameTokenAccount updatedAccount = deductResult.getValue();
+
+        // Record game token consumption so it appears in token history
+        transactionService.recordTransaction(
+                guildId,
+                userId,
+                -tokenCost,
+                updatedAccount.tokens(),
+                GameTokenTransaction.Source.DICE_GAME_1_PLAY,
+                null
+        );
 
         // Play the game
         DiceGameResult result = diceGameService.play(guildId, userId);

@@ -1,5 +1,7 @@
 package ltdjms.discord.currency.bot;
 
+import ltdjms.discord.panel.commands.AdminPanelButtonHandler;
+import ltdjms.discord.panel.commands.UserPanelButtonHandler;
 import ltdjms.discord.shared.DatabaseConfig;
 import ltdjms.discord.shared.DatabaseSchemaMigrator;
 import ltdjms.discord.shared.EnvironmentConfig;
@@ -42,11 +44,15 @@ public class DiscordCurrencyBot {
         // Get slash command listener from Dagger
         SlashCommandListener slashCommandListener = appComponent.slashCommandListener();
 
+        // Get button interaction handlers from Dagger
+        UserPanelButtonHandler userPanelButtonHandler = appComponent.userPanelButtonHandler();
+        AdminPanelButtonHandler adminPanelButtonHandler = appComponent.adminPanelButtonHandler();
+
         // Build JDA instance with default non-privileged gateway intents to avoid
         // DISALLOWED_INTENTS (4014) errors when the bot token does not have
         // privileged intents such as GUILD_MEMBERS enabled.
         this.jda = JDABuilder.createLight(envConfig.getDiscordBotToken())
-                .addEventListeners(slashCommandListener)
+                .addEventListeners(slashCommandListener, userPanelButtonHandler, adminPanelButtonHandler)
                 .build();
 
         // Wait for JDA to be ready

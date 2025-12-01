@@ -111,3 +111,26 @@ CREATE TRIGGER update_dice_game2_config_updated_at
     BEFORE UPDATE ON dice_game2_config
     FOR EACH ROW
     EXECUTE FUNCTION update_updated_at_column();
+
+-- Game token transaction history table
+CREATE TABLE IF NOT EXISTS game_token_transaction (
+    id BIGSERIAL PRIMARY KEY,
+    guild_id BIGINT NOT NULL,
+    user_id BIGINT NOT NULL,
+    amount BIGINT NOT NULL,
+    balance_after BIGINT NOT NULL,
+    source VARCHAR(50) NOT NULL,
+    description VARCHAR(255),
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+
+    -- Ensure balance_after is never negative
+    CONSTRAINT game_token_transaction_balance_non_negative CHECK (balance_after >= 0)
+);
+
+-- Index for looking up transactions by user in a guild (most common query)
+CREATE INDEX IF NOT EXISTS idx_game_token_transaction_guild_user
+    ON game_token_transaction (guild_id, user_id, created_at DESC);
+
+-- Index for looking up all transactions in a guild
+CREATE INDEX IF NOT EXISTS idx_game_token_transaction_guild
+    ON game_token_transaction (guild_id, created_at DESC);

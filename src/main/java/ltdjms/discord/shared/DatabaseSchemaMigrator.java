@@ -382,6 +382,12 @@ public final class DatabaseSchemaMigrator {
     private String normalizeSchemaType(String schemaType) {
         String normalized = schemaType.trim().toUpperCase(Locale.ROOT);
 
+        // BIGSERIAL 在 PostgreSQL 中實際欄位型別是 BIGINT，因此在這裡將其視為 BIGINT，
+        // 以避免 canonical schema 使用 BIGSERIAL 而 information_schema 回報 BIGINT 時被誤判為破壞性變更。
+        if (normalized.startsWith("BIGSERIAL")) {
+            return "bigint";
+        }
+
         if (normalized.startsWith("BIGINT")) {
             return "bigint";
         }

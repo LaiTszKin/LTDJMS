@@ -5,9 +5,11 @@ import dagger.Provides;
 import ltdjms.discord.gametoken.persistence.DiceGame1ConfigRepository;
 import ltdjms.discord.gametoken.persistence.DiceGame2ConfigRepository;
 import ltdjms.discord.gametoken.persistence.GameTokenAccountRepository;
+import ltdjms.discord.gametoken.persistence.GameTokenTransactionRepository;
 import ltdjms.discord.gametoken.persistence.JdbcDiceGame1ConfigRepository;
 import ltdjms.discord.gametoken.persistence.JdbcDiceGame2ConfigRepository;
 import ltdjms.discord.gametoken.persistence.JdbcGameTokenAccountRepository;
+import ltdjms.discord.gametoken.persistence.JdbcGameTokenTransactionRepository;
 
 import javax.inject.Singleton;
 import javax.sql.DataSource;
@@ -23,6 +25,12 @@ public class GameTokenRepositoryModule {
     @Singleton
     public GameTokenAccountRepository provideGameTokenAccountRepository(DataSource dataSource) {
         return new JdbcGameTokenAccountRepository(dataSource);
+    }
+
+    @Provides
+    @Singleton
+    public GameTokenTransactionRepository provideGameTokenTransactionRepository(DataSource dataSource) {
+        return new JdbcGameTokenTransactionRepository(dataSource);
     }
 
     @Provides

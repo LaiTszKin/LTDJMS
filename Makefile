@@ -20,10 +20,6 @@ clean:
 	mvn clean
 
 coverage:
-	mvn jacoco:report
-	open target/site/jacoco/index.html
-
-test-coverage:
 	mvn clean test jacoco:report
 	open target/site/jacoco/index.html
 	
@@ -69,7 +65,6 @@ help:
 	@echo "  verify           - Clean build and run all tests with coverage check"
 	@echo "  coverage-check   - Run tests and enforce 80% coverage threshold"
 	@echo "  coverage         - Generate code coverage report"
-	@echo "  test-coverage    - Run tests and generate coverage report"
 	@echo "  clean            - Clean build artifacts"
 	@echo "  run              - Run the bot locally"
 	@echo "  update           - Build Docker image"

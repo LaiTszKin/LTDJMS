@@ -4,9 +4,11 @@ import dagger.Module;
 import dagger.Provides;
 import ltdjms.discord.currency.persistence.MemberCurrencyAccountRepository;
 import ltdjms.discord.gametoken.persistence.GameTokenAccountRepository;
+import ltdjms.discord.gametoken.persistence.GameTokenTransactionRepository;
 import ltdjms.discord.gametoken.services.DiceGame1Service;
 import ltdjms.discord.gametoken.services.DiceGame2Service;
 import ltdjms.discord.gametoken.services.GameTokenService;
+import ltdjms.discord.gametoken.services.GameTokenTransactionService;
 
 import javax.inject.Singleton;
 
@@ -20,6 +22,13 @@ public class GameTokenServiceModule {
     @Singleton
     public GameTokenService provideGameTokenService(GameTokenAccountRepository accountRepository) {
         return new GameTokenService(accountRepository);
+    }
+
+    @Provides
+    @Singleton
+    public GameTokenTransactionService provideGameTokenTransactionService(
+            GameTokenTransactionRepository transactionRepository) {
+        return new GameTokenTransactionService(transactionRepository);
     }
 
     @Provides

@@ -20,6 +20,13 @@ import ltdjms.discord.gametoken.persistence.DiceGame2ConfigRepository;
 import ltdjms.discord.gametoken.services.DiceGame1Service;
 import ltdjms.discord.gametoken.services.DiceGame2Service;
 import ltdjms.discord.gametoken.services.GameTokenService;
+import ltdjms.discord.gametoken.services.GameTokenTransactionService;
+import ltdjms.discord.panel.commands.AdminPanelButtonHandler;
+import ltdjms.discord.panel.commands.AdminPanelCommandHandler;
+import ltdjms.discord.panel.commands.UserPanelButtonHandler;
+import ltdjms.discord.panel.commands.UserPanelCommandHandler;
+import ltdjms.discord.panel.services.AdminPanelService;
+import ltdjms.discord.panel.services.UserPanelService;
 
 import javax.inject.Singleton;
 
@@ -60,8 +67,10 @@ public class CommandHandlerModule {
             GameTokenService tokenService,
             DiceGame1Service diceGameService,
             DiceGame1ConfigRepository configRepository,
-            GuildCurrencyConfigRepository currencyConfigRepository) {
-        return new DiceGame1CommandHandler(tokenService, diceGameService, configRepository, currencyConfigRepository);
+            GuildCurrencyConfigRepository currencyConfigRepository,
+            GameTokenTransactionService transactionService) {
+        return new DiceGame1CommandHandler(
+                tokenService, diceGameService, configRepository, currencyConfigRepository, transactionService);
     }
 
     @Provides
@@ -77,8 +86,10 @@ public class CommandHandlerModule {
             GameTokenService tokenService,
             DiceGame2Service diceGameService,
             DiceGame2ConfigRepository configRepository,
-            GuildCurrencyConfigRepository currencyConfigRepository) {
-        return new DiceGame2CommandHandler(tokenService, diceGameService, configRepository, currencyConfigRepository);
+            GuildCurrencyConfigRepository currencyConfigRepository,
+            GameTokenTransactionService transactionService) {
+        return new DiceGame2CommandHandler(
+                tokenService, diceGameService, configRepository, currencyConfigRepository, transactionService);
     }
 
     @Provides
@@ -86,6 +97,53 @@ public class CommandHandlerModule {
     public DiceGame2ConfigCommandHandler provideDiceGame2ConfigCommandHandler(
             DiceGame2ConfigRepository configRepository) {
         return new DiceGame2ConfigCommandHandler(configRepository);
+    }
+
+    @Provides
+    @Singleton
+    public UserPanelService provideUserPanelService(
+            BalanceService balanceService,
+            GameTokenService gameTokenService,
+            GameTokenTransactionService transactionService) {
+        return new UserPanelService(balanceService, gameTokenService, transactionService);
+    }
+
+    @Provides
+    @Singleton
+    public UserPanelCommandHandler provideUserPanelCommandHandler(UserPanelService userPanelService) {
+        return new UserPanelCommandHandler(userPanelService);
+    }
+
+    @Provides
+    @Singleton
+    public UserPanelButtonHandler provideUserPanelButtonHandler(UserPanelService userPanelService) {
+        return new UserPanelButtonHandler(userPanelService);
+    }
+
+    @Provides
+    @Singleton
+    public AdminPanelService provideAdminPanelService(
+            BalanceService balanceService,
+            BalanceAdjustmentService balanceAdjustmentService,
+            GameTokenService gameTokenService,
+            GameTokenTransactionService transactionService,
+            DiceGame1ConfigRepository diceGame1ConfigRepository,
+            DiceGame2ConfigRepository diceGame2ConfigRepository) {
+        return new AdminPanelService(
+                balanceService, balanceAdjustmentService, gameTokenService,
+                transactionService, diceGame1ConfigRepository, diceGame2ConfigRepository);
+    }
+
+    @Provides
+    @Singleton
+    public AdminPanelCommandHandler provideAdminPanelCommandHandler(AdminPanelService adminPanelService) {
+        return new AdminPanelCommandHandler(adminPanelService);
+    }
+
+    @Provides
+    @Singleton
+    public AdminPanelButtonHandler provideAdminPanelButtonHandler(AdminPanelService adminPanelService) {
+        return new AdminPanelButtonHandler(adminPanelService);
     }
 
     @Provides
@@ -98,10 +156,12 @@ public class CommandHandlerModule {
             DiceGame1CommandHandler diceGame1Handler,
             DiceGame1ConfigCommandHandler diceGame1ConfigHandler,
             DiceGame2CommandHandler diceGame2Handler,
-            DiceGame2ConfigCommandHandler diceGame2ConfigHandler) {
+            DiceGame2ConfigCommandHandler diceGame2ConfigHandler,
+            UserPanelCommandHandler userPanelHandler,
+            AdminPanelCommandHandler adminPanelHandler) {
         return new SlashCommandListener(
                 balanceHandler, configHandler, adjustmentHandler,
                 gameTokenAdjustHandler, diceGame1Handler, diceGame1ConfigHandler,
-                diceGame2Handler, diceGame2ConfigHandler);
+                diceGame2Handler, diceGame2ConfigHandler, userPanelHandler, adminPanelHandler);
     }
 }

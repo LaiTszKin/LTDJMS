@@ -15,8 +15,12 @@ import ltdjms.discord.gametoken.commands.DiceGame1ConfigCommandHandler;
 import ltdjms.discord.gametoken.commands.GameTokenAdjustCommandHandler;
 import ltdjms.discord.gametoken.persistence.DiceGame1ConfigRepository;
 import ltdjms.discord.gametoken.persistence.GameTokenAccountRepository;
+import ltdjms.discord.gametoken.persistence.GameTokenTransactionRepository;
 import ltdjms.discord.gametoken.services.DiceGame1Service;
 import ltdjms.discord.gametoken.services.GameTokenService;
+import ltdjms.discord.gametoken.services.GameTokenTransactionService;
+import ltdjms.discord.panel.commands.AdminPanelButtonHandler;
+import ltdjms.discord.panel.commands.UserPanelButtonHandler;
 import ltdjms.discord.shared.DatabaseConfig;
 import ltdjms.discord.shared.EnvironmentConfig;
 import org.jooq.DSLContext;
@@ -54,6 +58,7 @@ public interface AppComponent {
     // Game Token Repositories
     GameTokenAccountRepository gameTokenAccountRepository();
     DiceGame1ConfigRepository diceGame1ConfigRepository();
+    GameTokenTransactionRepository gameTokenTransactionRepository();
 
     // Currency Services
     BalanceService balanceService();
@@ -63,6 +68,7 @@ public interface AppComponent {
     // Game Token Services
     GameTokenService gameTokenService();
     DiceGame1Service diceGame1Service();
+    GameTokenTransactionService gameTokenTransactionService();
 
     // Currency Command Handlers
     BalanceCommandHandler balanceCommandHandler();
@@ -73,6 +79,10 @@ public interface AppComponent {
     GameTokenAdjustCommandHandler gameTokenAdjustCommandHandler();
     DiceGame1CommandHandler diceGame1CommandHandler();
     DiceGame1ConfigCommandHandler diceGame1ConfigCommandHandler();
+
+    // Panel Handlers
+    UserPanelButtonHandler userPanelButtonHandler();
+    AdminPanelButtonHandler adminPanelButtonHandler();
 
     // Slash Command Listener
     SlashCommandListener slashCommandListener();

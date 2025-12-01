@@ -121,6 +121,32 @@ class DatabaseSchemaMigratorIntegrationTest {
                 .hasMessageContaining("destructive");
     }
 
+    @Test
+    @DisplayName("canonical schema 使用 BIGSERIAL 而資料庫為 BIGINT 時，遷移應視為相容且不失敗")
+    void shouldTreatBigserialAsCompatibleWithBigint() throws Exception {
+        DatabaseSchemaMigrator v1 = new DatabaseSchemaMigrator("db/migration_v4_bigserial_base.sql");
+        DatabaseSchemaMigrator v2 = new DatabaseSchemaMigrator("db/migration_v4_bigserial_canonical.sql");
+
+        // 先以 BIGINT 版本建立實際資料表
+        v1.migrate(dataSource);
+
+        // 再以 BIGSERIAL 版本作為 canonical schema 進行遷移，應視為相容而不丟出例外
+        v2.migrate(dataSource);
+
+        // 驗證資料庫中欄位型別仍為 bigint（BIGSERIAL 在 PostgreSQL 中實際儲存型別也是 bigint）
+        try (Connection conn = dataSource.getConnection();
+             PreparedStatement ps = conn.prepareStatement(
+                     "SELECT data_type FROM information_schema.columns " +
+                             "WHERE table_schema = 'public' " +
+                             "AND table_name = 'bigserial_compat_test' " +
+                             "AND column_name = 'id'")) {
+            try (ResultSet rs = ps.executeQuery()) {
+                assertThat(rs.next()).isTrue();
+                assertThat(rs.getString("data_type")).isEqualTo("bigint");
+            }
+        }
+    }
+
     private boolean tableExists(Connection conn, String tableName) throws SQLException {
         try (PreparedStatement ps = conn.prepareStatement(
                 "SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = ?")) {

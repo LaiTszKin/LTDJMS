@@ -2,6 +2,23 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.0] - 2025-12-01
+
+### Added
+- 新增遊戲代幣交易紀錄（`game_token_transaction` 資料表），以及對應的 domain、repository 與 `GameTokenTransactionService`，支援依伺服器與成員查詢遊戲代幣流水。
+- 新增 `/user-panel` 與 `/admin-panel` 面板指令，提供個人面板與管理面板（餘額管理、遊戲代幣管理、遊戲設定管理）。
+- 新增 `UserPanelService`、`AdminPanelService` 與 `UserPanelView` 等服務層，用於聚合貨幣餘額、遊戲代幣與交易紀錄。
+- 新增 `CommandLocalizations`，為所有 slash commands、選項與 choice 提供 zh-TW 本地化，並在 `SlashCommandListener` 註冊時套用。
+- 新增 `docs/` 文件目錄（快速入門、slash commands 參考文件、系統架構、資料模型、模組說明、設定、測試與維運指南）。
+- 新增 `eclipse-formatter.xml` 與 `scripts/tmp_check_cov.py`，協助維持程式碼風格與分析 JaCoCo 覆蓋率。
+
+### Changed
+- 更新 `schema.sql`，加入 `game_token_transaction` 資料表與相關索引，用於紀錄遊戲代幣的變動歷史。
+- 更新 `DiscordCurrencyBot`、`SlashCommandListener`、Dagger `AppComponent` 與相關 DI modules，註冊新的 panel handlers、transaction service 與 zh-TW 本地化。
+- 更新 `DatabaseSchemaMigrator` 與整合測試，使 canonical schema 使用 BIGSERIAL 而實際欄位為 BIGINT 時視為相容，不再誤判為破壞性變更。
+- 調整 `Makefile` 與 `pom.xml` 的 JaCoCo 設定，統一覆蓋率檢查邏輯並簡化 coverage 生成流程。
+- 更新 `README.md`，改為指向 `docs/` 正式文件並補充面板功能說明。
+
 ## [0.5.0] - 2025-12-01
 
 ### Added
