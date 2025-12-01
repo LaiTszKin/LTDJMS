@@ -101,9 +101,11 @@ public class DiceGame1Service {
      * @return the total reward
      */
     long calculateTotalReward(List<Integer> diceRolls, long rewardPerDiceValue) {
-        return diceRolls.stream()
-                .mapToLong(dice -> (long) dice * rewardPerDiceValue)
-                .sum();
+        long sum = 0;
+        for (int i = 0; i < diceRolls.size(); i++) {
+            sum += diceRolls.get(i);
+        }
+        return sum * rewardPerDiceValue;
     }
 
     /**

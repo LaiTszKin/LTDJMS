@@ -13,7 +13,7 @@
 - **管理面板**（`/admin-panel`）：
   - 以 Embed + 按鈕形式提供集中式管理入口。
   - 支援透過表單（Modal）調整成員貨幣餘額與遊戲代幣餘額。
-  - 支援透過選單與表單調整骰子遊戲 1 / 2 的代幣消耗設定。
+  - 支援透過選單與表單調整摘星手 / 神龍擺尾的代幣消耗設定。
 
 ## 2. 主要類別與責任
 
@@ -149,7 +149,7 @@
 
 1. 點擊「遊戲設定管理」按鈕：
    - `showGameManagement` 顯示一個選單（`StringSelectMenu`）：
-     - 選項可能包含「骰子遊戲 1」、「骰子遊戲 2」等，值為 `dice-game-1` / `dice-game-2`。
+     - 選項可能包含「摘星手」、「神龍擺尾」等，值為 `dice-game-1` / `dice-game-2`。
 2. 選擇遊戲後：
    - 觸發 `onStringSelectInteraction`。
    - handler 讀取選中的 `gameType`，向 `AdminPanelService.getGameTokenCost` 查詢目前設定。

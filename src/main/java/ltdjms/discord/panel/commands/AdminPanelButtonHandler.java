@@ -576,8 +576,8 @@ public class AdminPanelButtonHandler extends ListenerAdapter {
 
         StringSelectMenu gameSelect = StringSelectMenu.create(SELECT_GAME)
                 .setPlaceholder("選擇遊戲")
-                .addOption("骰子遊戲 1", "dice-game-1", "查看與調整骰子遊戲 1 的設定")
-                .addOption("骰子遊戲 2", "dice-game-2", "查看與調整骰子遊戲 2 的設定")
+                .addOption("摘星手", "dice-game-1", "查看與調整摘星手的設定")
+                .addOption("神龍擺尾", "dice-game-2", "查看與調整神龍擺尾的設定")
                 .build();
 
         event.editMessageEmbeds(embed)
@@ -602,7 +602,7 @@ public class AdminPanelButtonHandler extends ListenerAdapter {
         DiceGame1Config config = adminPanelService.getDiceGame1Config(guildId);
 
         MessageEmbed embed = new EmbedBuilder()
-                .setTitle("🎲 骰子遊戲 1 設定")
+                .setTitle("🎲 摘星手設定")
                 .setColor(EMBED_COLOR)
                 .addField("代幣範圍",
                         String.format("最小：🎮 %,d\n最大：🎮 %,d",
@@ -637,7 +637,7 @@ public class AdminPanelButtonHandler extends ListenerAdapter {
         DiceGame2Config config = adminPanelService.getDiceGame2Config(guildId);
 
         MessageEmbed embed = new EmbedBuilder()
-                .setTitle("🎲 骰子遊戲 2 設定")
+                .setTitle("🎲 神龍擺尾設定")
                 .setColor(EMBED_COLOR)
                 .addField("代幣範圍",
                         String.format("最小：🎮 %,d\n最大：🎮 %,d",
@@ -705,7 +705,7 @@ public class AdminPanelButtonHandler extends ListenerAdapter {
                 .setMaxLength(10)
                 .build();
 
-        Modal modal = Modal.create(MODAL_GAME_1_TOKENS, "骰子遊戲 1 - 代幣範圍")
+        Modal modal = Modal.create(MODAL_GAME_1_TOKENS, "摘星手 - 代幣範圍")
                 .addComponents(
                         ActionRow.of(minInput),
                         ActionRow.of(maxInput)
@@ -726,7 +726,7 @@ public class AdminPanelButtonHandler extends ListenerAdapter {
                 .setMaxLength(15)
                 .build();
 
-        Modal modal = Modal.create(MODAL_GAME_1_REWARD, "骰子遊戲 1 - 獎勵設定")
+        Modal modal = Modal.create(MODAL_GAME_1_REWARD, "摘星手 - 獎勵設定")
                 .addComponents(ActionRow.of(rewardInput))
                 .build();
 
@@ -752,7 +752,7 @@ public class AdminPanelButtonHandler extends ListenerAdapter {
                 .setMaxLength(10)
                 .build();
 
-        Modal modal = Modal.create(MODAL_GAME_2_TOKENS, "骰子遊戲 2 - 代幣範圍")
+        Modal modal = Modal.create(MODAL_GAME_2_TOKENS, "神龍擺尾 - 代幣範圍")
                 .addComponents(
                         ActionRow.of(minInput),
                         ActionRow.of(maxInput)
@@ -781,7 +781,7 @@ public class AdminPanelButtonHandler extends ListenerAdapter {
                 .setMaxLength(15)
                 .build();
 
-        Modal modal = Modal.create(MODAL_GAME_2_MULTIPLIERS, "骰子遊戲 2 - 獎勵倍率")
+        Modal modal = Modal.create(MODAL_GAME_2_MULTIPLIERS, "神龍擺尾 - 獎勵倍率")
                 .addComponents(
                         ActionRow.of(straightInput),
                         ActionRow.of(baseInput)
@@ -810,7 +810,7 @@ public class AdminPanelButtonHandler extends ListenerAdapter {
                 .setMaxLength(15)
                 .build();
 
-        Modal modal = Modal.create(MODAL_GAME_2_BONUSES, "骰子遊戲 2 - 豹子獎勵")
+        Modal modal = Modal.create(MODAL_GAME_2_BONUSES, "神龍擺尾 - 豹子獎勵")
                 .addComponents(
                         ActionRow.of(lowInput),
                         ActionRow.of(highInput)
@@ -825,13 +825,13 @@ public class AdminPanelButtonHandler extends ListenerAdapter {
                 .setTitle("🎲 遊戲設定管理")
                 .setColor(EMBED_COLOR)
                 .setDescription("選擇要調整設定的遊戲")
-                .addField("骰子遊戲 1",
+                .addField("摘星手",
                         String.format("代幣範圍：🎮 %,d ~ %,d\n單骰倍率：💰 %,d",
                                 game1Config.minTokensPerPlay(),
                                 game1Config.maxTokensPerPlay(),
                                 game1Config.rewardPerDiceValue()),
                         false)
-                .addField("骰子遊戲 2",
+                .addField("神龍擺尾",
                         String.format("代幣範圍：🎮 %,d ~ %,d\n順子倍率：💰 %,d\n基礎倍率：💰 %,d",
                                 game2Config.minTokensPerPlay(),
                                 game2Config.maxTokensPerPlay(),
@@ -1008,7 +1008,7 @@ public class AdminPanelButtonHandler extends ListenerAdapter {
 
         DiceGame1Config newConfig = result.getValue();
         event.reply(String.format(
-                "✅ 骰子遊戲 1 代幣範圍更新成功！\n" +
+                "✅ 摘星手代幣範圍更新成功！\n" +
                         "最小：🎮 %,d → %,d\n" +
                         "最大：🎮 %,d → %,d",
                 oldConfig.minTokensPerPlay(), newConfig.minTokensPerPlay(),
@@ -1045,7 +1045,7 @@ public class AdminPanelButtonHandler extends ListenerAdapter {
 
         DiceGame1Config newConfig = result.getValue();
         event.reply(String.format(
-                "✅ 骰子遊戲 1 獎勵設定更新成功！\n" +
+                "✅ 摘星手獎勵設定更新成功！\n" +
                         "單骰倍率：💰 %,d → %,d",
                 oldConfig.rewardPerDiceValue(), newConfig.rewardPerDiceValue()
         )).setEphemeral(true).queue();
@@ -1089,7 +1089,7 @@ public class AdminPanelButtonHandler extends ListenerAdapter {
 
         DiceGame2Config newConfig = result.getValue();
         event.reply(String.format(
-                "✅ 骰子遊戲 2 代幣範圍更新成功！\n" +
+                "✅ 神龍擺尾代幣範圍更新成功！\n" +
                         "最小：🎮 %,d → %,d\n" +
                         "最大：🎮 %,d → %,d",
                 oldConfig.minTokensPerPlay(), newConfig.minTokensPerPlay(),
@@ -1129,7 +1129,7 @@ public class AdminPanelButtonHandler extends ListenerAdapter {
 
         DiceGame2Config newConfig = result.getValue();
         event.reply(String.format(
-                "✅ 骰子遊戲 2 獎勵倍率更新成功！\n" +
+                "✅ 神龍擺尾獎勵倍率更新成功！\n" +
                         "順子倍率：💰 %,d → %,d\n" +
                         "基礎倍率：💰 %,d → %,d",
                 oldConfig.straightMultiplier(), newConfig.straightMultiplier(),
@@ -1169,7 +1169,7 @@ public class AdminPanelButtonHandler extends ListenerAdapter {
 
         DiceGame2Config newConfig = result.getValue();
         event.reply(String.format(
-                "✅ 骰子遊戲 2 豹子獎勵更新成功！\n" +
+                "✅ 神龍擺尾豹子獎勵更新成功！\n" +
                         "小豹子：💰 %,d → %,d\n" +
                         "大豹子：💰 %,d → %,d",
                 oldConfig.tripleLowBonus(), newConfig.tripleLowBonus(),

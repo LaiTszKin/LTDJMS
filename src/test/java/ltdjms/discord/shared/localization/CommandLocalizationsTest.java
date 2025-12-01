@@ -61,7 +61,7 @@ class CommandLocalizationsTest {
             Map<DiscordLocale, String> localizations = CommandLocalizations.getNameLocalizations("dice-game-1");
 
             assertThat(localizations).containsKey(DiscordLocale.CHINESE_TAIWAN);
-            assertThat(localizations.get(DiscordLocale.CHINESE_TAIWAN)).isEqualTo("骰子遊戲1");
+            assertThat(localizations.get(DiscordLocale.CHINESE_TAIWAN)).isEqualTo("摘星手");
         }
 
         @Test
@@ -70,7 +70,7 @@ class CommandLocalizationsTest {
             Map<DiscordLocale, String> localizations = CommandLocalizations.getNameLocalizations("dice-game-1-config");
 
             assertThat(localizations).containsKey(DiscordLocale.CHINESE_TAIWAN);
-            assertThat(localizations.get(DiscordLocale.CHINESE_TAIWAN)).isEqualTo("骰子遊戲1設定");
+            assertThat(localizations.get(DiscordLocale.CHINESE_TAIWAN)).isEqualTo("摘星手設定");
         }
 
         @Test
@@ -79,7 +79,7 @@ class CommandLocalizationsTest {
             Map<DiscordLocale, String> localizations = CommandLocalizations.getNameLocalizations("dice-game-2");
 
             assertThat(localizations).containsKey(DiscordLocale.CHINESE_TAIWAN);
-            assertThat(localizations.get(DiscordLocale.CHINESE_TAIWAN)).isEqualTo("骰子遊戲2");
+            assertThat(localizations.get(DiscordLocale.CHINESE_TAIWAN)).isEqualTo("神龍擺尾");
         }
 
         @Test
@@ -88,7 +88,7 @@ class CommandLocalizationsTest {
             Map<DiscordLocale, String> localizations = CommandLocalizations.getNameLocalizations("dice-game-2-config");
 
             assertThat(localizations).containsKey(DiscordLocale.CHINESE_TAIWAN);
-            assertThat(localizations.get(DiscordLocale.CHINESE_TAIWAN)).isEqualTo("骰子遊戲2設定");
+            assertThat(localizations.get(DiscordLocale.CHINESE_TAIWAN)).isEqualTo("神龍擺尾設定");
         }
 
         @Test
@@ -164,7 +164,7 @@ class CommandLocalizationsTest {
             Map<DiscordLocale, String> localizations = CommandLocalizations.getDescriptionLocalizations("dice-game-1");
 
             assertThat(localizations).containsKey(DiscordLocale.CHINESE_TAIWAN);
-            assertThat(localizations.get(DiscordLocale.CHINESE_TAIWAN)).isEqualTo("玩骰子小遊戲（消耗遊戲代幣）");
+            assertThat(localizations.get(DiscordLocale.CHINESE_TAIWAN)).isEqualTo("玩摘星手小遊戲（消耗遊戲代幣）");
         }
 
         @Test
@@ -173,7 +173,7 @@ class CommandLocalizationsTest {
             Map<DiscordLocale, String> localizations = CommandLocalizations.getDescriptionLocalizations("dice-game-1-config");
 
             assertThat(localizations).containsKey(DiscordLocale.CHINESE_TAIWAN);
-            assertThat(localizations.get(DiscordLocale.CHINESE_TAIWAN)).isEqualTo("設定骰子遊戲1的代幣消耗");
+            assertThat(localizations.get(DiscordLocale.CHINESE_TAIWAN)).isEqualTo("設定摘星手的代幣消耗");
         }
 
         @Test
@@ -182,7 +182,7 @@ class CommandLocalizationsTest {
             Map<DiscordLocale, String> localizations = CommandLocalizations.getDescriptionLocalizations("dice-game-2");
 
             assertThat(localizations).containsKey(DiscordLocale.CHINESE_TAIWAN);
-            assertThat(localizations.get(DiscordLocale.CHINESE_TAIWAN)).isEqualTo("玩骰子遊戲2小遊戲，有順子和三條獎勵（消耗遊戲代幣）");
+            assertThat(localizations.get(DiscordLocale.CHINESE_TAIWAN)).isEqualTo("玩神龍擺尾小遊戲，有順子和三條獎勵（消耗遊戲代幣）");
         }
 
         @Test
@@ -191,7 +191,7 @@ class CommandLocalizationsTest {
             Map<DiscordLocale, String> localizations = CommandLocalizations.getDescriptionLocalizations("dice-game-2-config");
 
             assertThat(localizations).containsKey(DiscordLocale.CHINESE_TAIWAN);
-            assertThat(localizations.get(DiscordLocale.CHINESE_TAIWAN)).isEqualTo("設定骰子遊戲2的代幣消耗");
+            assertThat(localizations.get(DiscordLocale.CHINESE_TAIWAN)).isEqualTo("設定神龍擺尾的代幣消耗");
         }
 
         @Test

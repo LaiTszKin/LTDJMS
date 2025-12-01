@@ -1,6 +1,6 @@
 # 模組說明：遊戲代幣與骰子小遊戲
 
-本文件介紹遊戲代幣帳戶、小遊戲服務與相關指令，協助你理解 `/dice-game-1`、`/dice-game-2` 以及管理面板中與遊戲相關的操作。舊版的 `/game-token-adjust`、`/dice-game-1-config`、`/dice-game-2-config` 指令已不再註冊為獨立 slash commands，其核心邏輯仍由服務層與管理面板重用。
+本文件介紹遊戲代幣帳戶、小遊戲服務與相關指令，協助你理解 `/dice-game-1`（摘星手）、`/dice-game-2`（神龍擺尾）以及管理面板中與遊戲相關的操作。舊版的 `/game-token-adjust`、`/dice-game-1-config`、`/dice-game-2-config` 指令已不再註冊為獨立 slash commands，其核心邏輯仍由服務層與管理面板重用。
 
 ## 1. 功能概觀
 
@@ -13,8 +13,8 @@
 
 主要對外指令：
 
-- `/dice-game-1`
-- `/dice-game-2`
+- `/dice-game-1`（摘星手）
+- `/dice-game-2`（神龍擺尾）
 - `/user-panel`（顯示代幣餘額與流水入口）
 - `/admin-panel`（提供遊戲代幣與遊戲設定管理）
 
@@ -112,12 +112,12 @@
 
 ### 3.3 遊戲服務
 
-- `DiceGame1Service`：負責骰子遊戲 1 的核心邏輯。
+- `DiceGame1Service`：負責摘星手（原骰子遊戲 1）的核心邏輯。
   - 固定擲 5 顆骰子（`ROLLS_PER_GAME = 5`）。
   - 每顆骰子獎勵為 `點數 × REWARD_PER_DICE_VALUE`，其中 `REWARD_PER_DICE_VALUE = 250_000`。
   - 計算總獎勵後，透過 `MemberCurrencyAccountRepository` 將獎勵加入玩家貨幣帳戶（必要時分批寫入，以符合最大調整量限制）。
 
-- `DiceGame2Service`：負責骰子遊戲 2 的邏輯。
+- `DiceGame2Service`：負責神龍擺尾（原骰子遊戲 2）的邏輯。
   - 每局擲 15 顆骰子。
   - 依「順子」與「三條」等組合計算分數與獎勵。
   - 最終也將獎勵寫回玩家的貨幣帳戶。
@@ -129,7 +129,7 @@
 
 ## 4. 指令與服務的整合流程
 
-### 4.1 `/dice-game-1`
+### 4.1 `/dice-game-1`（摘星手）
 
 Handler：`DiceGame1CommandHandler`
 
@@ -145,11 +145,11 @@ Handler：`DiceGame1CommandHandler`
 
 若任何一步失敗（例如代幣不足、資料庫錯誤），會透過 `Result` + `DomainError` 模式回傳並由 `BotErrorHandler` 處理。
 
-### 4.2 `/dice-game-2`
+### 4.2 `/dice-game-2`（神龍擺尾）
 
 Handler：`DiceGame2CommandHandler`
 
-流程與 `/dice-game-1` 類似，但改用：
+流程與 `/dice-game-1`（摘星手）類似，但改用：
 
 - `DiceGame2Service` 計算結果。
 - `DiceGame2ConfigRepository` 取得設定。

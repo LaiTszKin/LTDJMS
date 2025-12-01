@@ -659,4 +659,53 @@ class DiceGame2ServiceTest {
             assertThat(result.newBalance()).isEqualTo(1_000_000L + result.totalReward());
         }
     }
+
+    @Nested
+    @DisplayName("Performance regression tests")
+    class PerformanceRegression {
+
+        @Test
+        @DisplayName("should complete 500 games within 200ms")
+        void shouldComplete500GamesWithin200ms() {
+            // Given
+            StubCurrencyRepository repository = new StubCurrencyRepository(0L);
+            DiceGame2Service service = new DiceGame2Service(repository);
+            DiceGame2Config config = DiceGame2Config.createDefault(TEST_GUILD_ID);
+
+            // When
+            long startTime = System.nanoTime();
+            for (int i = 0; i < 500; i++) {
+                service.play(TEST_GUILD_ID, TEST_USER_ID, config, DEFAULT_DICE_COUNT);
+            }
+            long endTime = System.nanoTime();
+
+            // Then - should complete within 200ms (200,000,000 ns)
+            long durationNs = endTime - startTime;
+            assertThat(durationNs)
+                    .as("500 games should complete within 200ms")
+                    .isLessThan(200_000_000L);
+        }
+
+        @Test
+        @DisplayName("should analyze rewards efficiently for large dice counts")
+        void shouldAnalyzeRewardsEfficientlyForLargeDiceCounts() {
+            // Given
+            StubCurrencyRepository repository = new StubCurrencyRepository(0L);
+            DiceGame2Service service = new DiceGame2Service(repository);
+            DiceGame2Config config = DiceGame2Config.createDefault(TEST_GUILD_ID);
+
+            // When - play with 60 dice (simulating 20 tokens spent)
+            long startTime = System.nanoTime();
+            for (int i = 0; i < 100; i++) {
+                service.play(TEST_GUILD_ID, TEST_USER_ID, config, 60);
+            }
+            long endTime = System.nanoTime();
+
+            // Then - should complete within 100ms
+            long durationNs = endTime - startTime;
+            assertThat(durationNs)
+                    .as("100 games with 60 dice each should complete within 100ms")
+                    .isLessThan(100_000_000L);
+        }
+    }
 }

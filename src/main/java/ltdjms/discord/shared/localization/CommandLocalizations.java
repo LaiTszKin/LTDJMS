@@ -36,10 +36,10 @@ public final class CommandLocalizations {
         COMMAND_NAME_LOCALIZATIONS.put("currency-config", Map.of(DiscordLocale.CHINESE_TAIWAN, "貨幣設定"));
         COMMAND_NAME_LOCALIZATIONS.put("adjust-balance", Map.of(DiscordLocale.CHINESE_TAIWAN, "調整餘額"));
         COMMAND_NAME_LOCALIZATIONS.put("game-token-adjust", Map.of(DiscordLocale.CHINESE_TAIWAN, "調整遊戲代幣"));
-        COMMAND_NAME_LOCALIZATIONS.put("dice-game-1", Map.of(DiscordLocale.CHINESE_TAIWAN, "骰子遊戲1"));
-        COMMAND_NAME_LOCALIZATIONS.put("dice-game-1-config", Map.of(DiscordLocale.CHINESE_TAIWAN, "骰子遊戲1設定"));
-        COMMAND_NAME_LOCALIZATIONS.put("dice-game-2", Map.of(DiscordLocale.CHINESE_TAIWAN, "骰子遊戲2"));
-        COMMAND_NAME_LOCALIZATIONS.put("dice-game-2-config", Map.of(DiscordLocale.CHINESE_TAIWAN, "骰子遊戲2設定"));
+        COMMAND_NAME_LOCALIZATIONS.put("dice-game-1", Map.of(DiscordLocale.CHINESE_TAIWAN, "摘星手"));
+        COMMAND_NAME_LOCALIZATIONS.put("dice-game-1-config", Map.of(DiscordLocale.CHINESE_TAIWAN, "摘星手設定"));
+        COMMAND_NAME_LOCALIZATIONS.put("dice-game-2", Map.of(DiscordLocale.CHINESE_TAIWAN, "神龍擺尾"));
+        COMMAND_NAME_LOCALIZATIONS.put("dice-game-2-config", Map.of(DiscordLocale.CHINESE_TAIWAN, "神龍擺尾設定"));
         COMMAND_NAME_LOCALIZATIONS.put("user-panel", Map.of(DiscordLocale.CHINESE_TAIWAN, "個人面板"));
         COMMAND_NAME_LOCALIZATIONS.put("admin-panel", Map.of(DiscordLocale.CHINESE_TAIWAN, "管理面板"));
 
@@ -54,13 +54,13 @@ public final class CommandLocalizations {
         COMMAND_DESCRIPTION_LOCALIZATIONS.put("game-token-adjust",
                 Map.of(DiscordLocale.CHINESE_TAIWAN, "調整成員的遊戲代幣餘額"));
         COMMAND_DESCRIPTION_LOCALIZATIONS.put("dice-game-1",
-                Map.of(DiscordLocale.CHINESE_TAIWAN, "玩骰子小遊戲（消耗遊戲代幣）"));
+                Map.of(DiscordLocale.CHINESE_TAIWAN, "玩摘星手小遊戲（消耗遊戲代幣）"));
         COMMAND_DESCRIPTION_LOCALIZATIONS.put("dice-game-1-config",
-                Map.of(DiscordLocale.CHINESE_TAIWAN, "設定骰子遊戲1的代幣消耗"));
+                Map.of(DiscordLocale.CHINESE_TAIWAN, "設定摘星手的代幣消耗"));
         COMMAND_DESCRIPTION_LOCALIZATIONS.put("dice-game-2",
-                Map.of(DiscordLocale.CHINESE_TAIWAN, "玩骰子遊戲2小遊戲，有順子和三條獎勵（消耗遊戲代幣）"));
+                Map.of(DiscordLocale.CHINESE_TAIWAN, "玩神龍擺尾小遊戲，有順子和三條獎勵（消耗遊戲代幣）"));
         COMMAND_DESCRIPTION_LOCALIZATIONS.put("dice-game-2-config",
-                Map.of(DiscordLocale.CHINESE_TAIWAN, "設定骰子遊戲2的代幣消耗"));
+                Map.of(DiscordLocale.CHINESE_TAIWAN, "設定神龍擺尾的代幣消耗"));
         COMMAND_DESCRIPTION_LOCALIZATIONS.put("user-panel",
                 Map.of(DiscordLocale.CHINESE_TAIWAN, "查看您的貨幣餘額、遊戲代幣與流水紀錄"));
         COMMAND_DESCRIPTION_LOCALIZATIONS.put("admin-panel",

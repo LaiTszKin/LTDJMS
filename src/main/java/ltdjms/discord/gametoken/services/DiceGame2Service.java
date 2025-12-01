@@ -231,9 +231,10 @@ public class DiceGame2Service {
      */
     private long calculateStraightReward(List<List<Integer>> straightSegments, long straightMultiplier) {
         long sum = 0;
-        for (List<Integer> segment : straightSegments) {
-            for (int value : segment) {
-                sum += value;
+        for (int i = 0; i < straightSegments.size(); i++) {
+            List<Integer> segment = straightSegments.get(i);
+            for (int j = 0; j < segment.size(); j++) {
+                sum += segment.get(j);
             }
         }
         return sum * straightMultiplier;
@@ -244,8 +245,10 @@ public class DiceGame2Service {
      */
     private long calculateTripleReward(List<List<Integer>> tripleSegments, long tripleLowBonus, long tripleHighBonus) {
         long reward = 0;
-        for (List<Integer> segment : tripleSegments) {
-            int sum = segment.stream().mapToInt(Integer::intValue).sum();
+        for (int i = 0; i < tripleSegments.size(); i++) {
+            List<Integer> segment = tripleSegments.get(i);
+            // Each triple segment always has exactly 3 elements with the same value
+            int sum = segment.get(0) * 3;
             if (sum < 10) {
                 reward += tripleLowBonus;
             } else {

@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.7.1] - 2025-12-01
+
+### Changed
+- 將骰子小遊戲 `/dice-game-1`、`/dice-game-2` 正式命名為「摘星手」與「神龍擺尾」，並更新管理面板介面、本地化文案與相關文件說明。
+- 優化 `DiceGame1Service` 與 `DiceGame2Service` 的獎勵計算實作，新增效能回歸測試，確保多局與高骰子數情境在可接受時間內完成。
+
+### Added
+- 新增骰子小遊戲的效能回歸測試，涵蓋大量對局與高骰子數設定。
+
 ## [0.7.0] - 2025-12-01
 
 ### Added
