@@ -303,6 +303,10 @@ database {
 - [系統架構與模組說明](docs/architecture/overview.md)
 - [快速入門](docs/getting-started/quickstart.md)
 - [資料模型](docs/architecture/data-model.md)
+- [貢獻指南](CONTRIBUTING.md)
+- [安全指南](SECURITY.md)
+- [變更日誌](CHANGELOG.md)
+- [行為準則](CODE_OF_CONDUCT.md)
 
 ## Docker / Schema 手動驗證建議
 
