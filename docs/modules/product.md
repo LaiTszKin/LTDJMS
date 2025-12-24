@@ -11,6 +11,7 @@
 - 伺服器範圍的產品隔離
 - 自動獎勵發放（貨幣或代幣）
 - 與兌換系統的整合
+- 產品刪除時自動失效關聯的兌換碼
 
 ## 2. 領域模型
 
@@ -22,31 +23,57 @@
 // src/main/java/ltdjms/discord/product/domain/Product.java
 public record Product(
     Long id,
-    Long guildId,
+    long guildId,
     String name,
     String description,
-    RewardType rewardType,  // CURRENCY 或 TOKENS
+    RewardType rewardType,  // CURRENCY 或 TOKEN
     Long rewardAmount,
     Instant createdAt,
     Instant updatedAt
 ) {
+    /**
+     * 類型 of 獎勵 that can be given when a product is redeemed.
+     */
+    public enum RewardType {
+        CURRENCY,  // 伺服器貨幣
+        TOKEN      // 遊戲代幣
+    }
+
     // 商業規則驗證
     public Product {
-        if (rewardAmount < 0) {
-            throw new IllegalArgumentException("Reward amount must be non-negative");
+        Objects.requireNonNull(name, "name must not be null");
+        if (name.isBlank()) {
+            throw new IllegalArgumentException("name must not be blank");
         }
-        if (rewardType == null && rewardAmount > 0) {
-            throw new IllegalArgumentException("Reward type required when amount > 0");
+        if (name.length() > 100) {
+            throw new IllegalArgumentException("name must not exceed 100 characters");
         }
-        // ... 其他驗證
+        if (description != null && description.length() > 1000) {
+            throw new IllegalArgumentException("description must not exceed 1000 characters");
+        }
+        if (rewardAmount != null && rewardAmount < 0) {
+            throw new IllegalArgumentException("rewardAmount must not be negative");
+        }
+        // 確保 reward_type 和 reward_amount 一致
+        if ((rewardType == null) != (rewardAmount == null)) {
+            throw new IllegalArgumentException(
+                "rewardType and rewardAmount must both be specified or both be null");
+        }
     }
 }
 ```
 
 關鍵商業規則：
+- 產品名稱不能為空，長度上限 100 字元
+- 產品描述長度上限 1000 字元（可為空）
 - 獎勵數量不得為負
-- 若有獎勵，必須指定類型（貨幣或代幣）
+- 獎勵類型和獎勵金額必須同時設定或同時為空
 - 產品名稱在伺服器內唯一
+
+靜態工廠方法：
+- `create()`: 建立新產品（可指定獎勵）
+- `createWithoutReward()`: 建立無獎勵的產品
+- `withUpdatedDetails()`: 建立更新後的產品副本
 
 ## 3. 服務層
 
@@ -58,30 +85,74 @@ public record Product(
 // src/main/java/ltdjms/discord/product/services/ProductService.java
 public class ProductService {
     private final ProductRepository productRepository;
+    private final RedemptionCodeRepository redemptionCodeRepository;
+    private final DomainEventPublisher eventPublisher;
 
-    public Result<Product, DomainError> createProduct(Long guildId, String name, String description, RewardType rewardType, Long rewardAmount) {
-        // 驗證產品名稱唯一性
-        if (productRepository.existsByGuildAndName(guildId, name)) {
-            return Result.err(DomainError.of(Category.INVALID_INPUT, "Product name already exists"));
+    /**
+     * 建立新產品
+     */
+    public Result<Product, DomainError> createProduct(
+        long guildId, String name, String description,
+        Product.RewardType rewardType, Long rewardAmount) {
+
+        // 驗證名稱唯一性
+        if (productRepository.existsByGuildIdAndName(guildId, name)) {
+            return Result.err(DomainError.invalidInput("商品名稱已存在"));
         }
-        
-        var product = new Product(null, guildId, name, description, rewardType, rewardAmount, Instant.now(), Instant.now());
-        return productRepository.save(product);
+
+        var product = Product.create(guildId, name, description, rewardType, rewardAmount);
+        var saved = productRepository.save(product);
+
+        // 發布事件
+        eventPublisher.publish(new ProductChangedEvent(
+            guildId, saved.id(), ProductChangedEvent.OperationType.CREATED));
+
+        return Result.ok(saved);
     }
 
-    public Result<List<Product>, DomainError> getProductsByGuild(Long guildId) {
-        return Result.ok(productRepository.findByGuildId(guildId));
+    /**
+     * 更新產品
+     */
+    public Result<Product, DomainError> updateProduct(...) {
+        // 驗證與更新邏輯
+        eventPublisher.publish(new ProductChangedEvent(...));
+        return Result.ok(updated);
     }
 
-    // ... 其他方法
+    /**
+     * 刪除產品（V005 遷移後的新行為）
+     */
+    public Result<Unit, DomainError> deleteProduct(long productId) {
+        var existing = productRepository.findById(productId);
+        if (existing.isEmpty()) {
+            return Result.err(DomainError.invalidInput("找不到商品"));
+        }
+
+        // 1. 先失效所有關聯的兌換碼
+        int invalidatedCount = redemptionCodeRepository.invalidateByProductId(productId);
+        if (invalidatedCount > 0) {
+            LOG.info("Invalidated {} redemption codes before deleting product: id={}",
+                invalidatedCount, productId);
+        }
+
+        // 2. 刪除產品（由於 ON DELETE SET NULL，product_id 會自動設為 NULL）
+        boolean deleted = productRepository.deleteById(productId);
+
+        // 3. 發布事件
+        eventPublisher.publish(new ProductChangedEvent(...));
+
+        return Result.okVoid();
+    }
 }
 ```
 
 主要方法：
-- `createProduct`: 建立新產品，驗證名稱唯一性
-- `getProductsByGuild`: 取得伺服器所有產品
-- `updateProduct`: 更新產品資訊
-- `deleteProduct`: 刪除產品（需檢查是否有未使用的兌換碼）
+- `createProduct`: 建立新產品，驗證名稱唯一性，發布 `ProductChangedEvent`（CREATED）
+- `updateProduct`: 更新產品資訊，發布 `ProductChangedEvent`（UPDATED）
+- `deleteProduct`: 刪除產品，先失效關聯兌換碼，發布 `ProductChangedEvent`（DELETED）
+- `getProduct`: 依 ID 查詢產品
+- `getProducts`: 取得伺服器所有產品
+- `getProductCount`: 取得產品總數
 
 ## 4. 持久層
 
@@ -209,7 +280,7 @@ public Result<Void, DomainError> redeemCode(String code, Long userId) {
 
 1. 點擊「產品管理」按鈕
 2. 選擇「新增產品」
-3. 填寫表單：名稱「VIP 會員」、描述「獲得額外福利」、獎勵類型「貨幣」、數量 1000
+3. 填寫表單：名稱「VIP 會員」、描述「獲得額外福利」、獎勵類型「CURRENCY」、數量 1000
 4. 送出後，系統驗證並儲存產品
 
 ### 6.2 產品列表查看
@@ -217,14 +288,38 @@ public Result<Void, DomainError> redeemCode(String code, Long userId) {
 管理面板顯示伺服器所有產品：
 
 - 產品名稱與描述
-- 獎勵資訊
+- 獎勵資訊（貨幣或代幣數量）
 - 未使用兌換碼數量
 - 建立時間
 
 ### 6.3 產品更新與刪除
 
-- 更新：修改產品資訊，系統驗證變更
-- 刪除：僅允許當沒有未使用兌換碼時刪除
+- **更新**：修改產品資訊，系統驗證變更
+- **刪除**：刪除產品時會自動失效所有關聯的兌換碼
+
+### 6.4 產品刪除流程
+
+當管理員刪除產品時，系統會執行以下步驟：
+
+```mermaid
+flowchart TD
+    A[管理員刪除產品] --> B[ProductService.deleteProduct]
+    B --> C{產品存在?}
+    C -->|否| D[回傳錯誤: 找不到商品]
+    C -->|是| E[RedemptionCodeRepository.invalidateByProductId]
+    E --> F[標記所有關聯兌換碼為失效]
+    F --> G[ProductRepository.deleteById]
+    G --> H[資料庫刪除產品記錄]
+    H --> I[外鍵約束 ON DELETE SET NULL]
+    I --> J[redemption_code.product_id 設為 NULL]
+    J --> K[發布 ProductChangedEvent]
+    K --> L[回傳成功]
+```
+
+**重要注意事項**：
+- 兌換碼的使用記錄會被保留（`redeemed_by`、`redeemed_at` 等欄位）
+- 失效的兌換碼無法再被使用（`invalidated_at` 設為當前時間）
+- 管理員面板會透過 `ProductChangedEvent` 即時更新顯示
 
 ## 7. 錯誤處理
 

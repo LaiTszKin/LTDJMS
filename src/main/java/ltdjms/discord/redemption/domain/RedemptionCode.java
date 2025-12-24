@@ -10,12 +10,13 @@ import java.util.Objects;
 public record RedemptionCode(
         Long id,
         String code,
-        long productId,
+        Long productId,
         long guildId,
         Instant expiresAt,
         Long redeemedBy,
         Instant redeemedAt,
-        Instant createdAt
+        Instant createdAt,
+        Instant invalidatedAt
 ) {
     /**
      * Length of the generated redemption code.
@@ -62,7 +63,8 @@ public record RedemptionCode(
                 expiresAt,
                 null,
                 null,
-                Instant.now()
+                Instant.now(),
+                null
         );
     }
 
@@ -84,7 +86,8 @@ public record RedemptionCode(
                 this.expiresAt,
                 userId,
                 Instant.now(),
-                this.createdAt
+                this.createdAt,
+                this.invalidatedAt
         );
     }
 
@@ -107,12 +110,44 @@ public record RedemptionCode(
     }
 
     /**
-     * Checks if this code is valid for use (not redeemed and not expired).
+     * Checks if this code is valid for use (not redeemed, not expired, and not invalidated).
      *
      * @return true if the code can be redeemed
      */
     public boolean isValid() {
-        return !isRedeemed() && !isExpired();
+        return !isInvalidated() && !isRedeemed() && !isExpired();
+    }
+
+    /**
+     * Checks if this code has been invalidated.
+     * A code is invalidated when its associated product is deleted.
+     *
+     * @return true if the code has been invalidated
+     */
+    public boolean isInvalidated() {
+        return invalidatedAt != null;
+    }
+
+    /**
+     * Creates a copy of this code marked as invalidated.
+     *
+     * @return a new RedemptionCode instance marked as invalidated
+     */
+    public RedemptionCode withInvalidated() {
+        if (isInvalidated()) {
+            throw new IllegalStateException("Code has already been invalidated");
+        }
+        return new RedemptionCode(
+                this.id,
+                this.code,
+                null,
+                this.guildId,
+                this.expiresAt,
+                this.redeemedBy,
+                this.redeemedAt,
+                this.createdAt,
+                Instant.now()
+        );
     }
 
     /**

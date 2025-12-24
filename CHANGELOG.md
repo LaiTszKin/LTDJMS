@@ -4,6 +4,34 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.9.2] - 2025-12-25
+
+### Added
+- 新增時序圖文檔（sequence-diagrams.md），展示產品刪除、兌換碼生成與兌換等核心流程
+- 新增事件系統設計文檔（event-system.md），說明領域事件架構與實作
+- RedemptionCode 新增失效狀態追蹤（invalidatedAt 欄位）
+- 新增 invalidateByProductId() repository 方法，支援批次失效兌換碼
+
+### Changed
+- **BREAKING**: 產品刪除行為改變：刪除產品時會自動失效所有關聯的兌換碼，而非阻止刪除操作
+- 資料庫外鍵約束改為 ON DELETE SET NULL，兌換碼的 productId 欄位現可為 NULL
+- RedemptionCode.isValid() 現在會檢查失效狀態
+- 移除產品刪除時的外鍵約束錯誤處理（不再拋出「該商品有已使用的兌換碼」錯誤）
+
+### Fixed
+- 修復 V005 遷移遺漏移除 product_id NOT NULL 約束的問題（V006 補丁）
+
+## [0.9.1] - 2025-12-24
+
+### Fixed
+- 改善商店介面顯示格式：新增商品編號與分隔線，優化商品描述文字格式
+
+### Added
+- 新增 Mermaid 架構圖展示系統架構、模組關係、資料庫 Schema
+- 新增 IDE 設定文件（VS Code / IntelliJ IDEA）
+- 新增共用模組設計文件（DI、Result<T,E>、Domain Events）
+- 新增監控與維護文件
+
 ## [0.9.0] - 2025-12-20
 
 ### Added

@@ -38,29 +38,38 @@ PostgreSQL (currency_bot 資料庫)
 
 ### 2. 給後端／Bot 開發者
 
-- `architecture/overview.md`  
+- `architecture/overview.md`
   系統整體架構與主要元件說明：JDA 事件流程、指令處理器、Service／Repository 分層、Dagger DI 與 PostgreSQL 的關係。
 
-- `architecture/data-model.md`  
-  資料模型與資料表設計說明，涵蓋伺服器貨幣、成員帳戶、遊戲代幣、遊戲設定與代幣交易紀錄等。
+- `architecture/data-model.md`
+  資料模型與資料表設計說明，涵蓋伺服器貨幣、成員帳戶、遊戲代幣、遊戲設定、產品與代幣交易紀錄等。**（V005/V006 更新：新增兌換碼失效機制）**
 
-- `modules/currency-system.md`  
+- `architecture/sequence-diagrams.md`
+  核心業務流程的時序圖（Sequence Diagrams），包括產品刪除、兌換碼生成、兌換流程、事件發布等。
+
+- `modules/currency-system.md`
   Discord 伺服器貨幣系統模組的設計與實作概觀，包括餘額查詢、調整與貨幣設定相關的服務與指令處理器。
 
-- `modules/game-tokens-and-games.md`  
+- `modules/game-tokens-and-games.md`
   遊戲代幣與骰子小遊戲模組的說明，包括代幣帳戶、交易紀錄與骰子遊戲 1 / 2 的規則與服務邏輯。
 
 - `modules/panels.md`
    `/user-panel` 與 `/admin-panel` 面板的互動流程、按鈕與 Modal 設計，以及如何整合各服務。
 
 - `modules/product.md`
-   產品定義模組的設計與實作概觀，包括產品管理相關的服務與資料模型。
+   產品定義模組的設計與實作概觀，包括產品管理、刪除行為（失效關聯兌換碼）與事件發布。**（V005 更新：新增產品刪除流程圖）**
 
 - `modules/redemption.md`
-   兌換系統模組的說明，包括兌換碼生成、驗證與兌換流程，以及與產品模組的整合。
+   兌換系統模組的說明，包括兌換碼生成、驗證、兌換流程、狀態機與失效機制。**（V005 更新：新增失效狀態說明與狀態圖）**
 
 - `modules/shop.md`
    商店模組的設計與實作概觀，包括商店頁面、產品列表瀏覽與分頁功能。
+
+- `modules/shared-module.md`
+   共用模組的說明，包括 Result 型別、DomainError 處理與通用工具類別。
+
+- `modules/event-system.md`
+   領域事件系統的完整說明，包括 ProductChangedEvent、RedemptionCodesGeneratedEvent 等事件的發布與訂閱機制。
 
 ### 3. 給維運／DevOps
 
@@ -83,7 +92,9 @@ PostgreSQL (currency_bot 資料庫)
   1. 根目錄 `README.md`（了解專案全貌與開發指令）
   2. `architecture/overview.md`
   3. `architecture/data-model.md`
-  4. 對應模組文件（`modules/*.md`）
+  4. `architecture/sequence-diagrams.md`（理解核心流程互動）
+  5. 對應模組文件（`modules/*.md`）
+  6. `modules/event-system.md`（理解事件驅動架構）
 
 - **負責部署與維運：**
   1. `getting-started/quickstart.md`

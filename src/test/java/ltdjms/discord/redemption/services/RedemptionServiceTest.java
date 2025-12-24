@@ -87,7 +87,7 @@ class RedemptionServiceTest {
                 List<RedemptionCode> codes = invocation.getArgument(0);
                 return codes.stream()
                         .map(c -> new RedemptionCode(1L, c.code(), c.productId(), c.guildId(),
-                                c.expiresAt(), null, null, c.createdAt()))
+                                c.expiresAt(), null, null, c.createdAt(), c.invalidatedAt()))
                         .toList();
             });
 
@@ -152,7 +152,7 @@ class RedemptionServiceTest {
             Product product = new Product(TEST_PRODUCT_ID, TEST_GUILD_ID, "VIP 服務", "專人服務",
                     null, null, now, now);
             RedemptionCode code = new RedemptionCode(1L, "ABCD1234EFGH5678", TEST_PRODUCT_ID,
-                    TEST_GUILD_ID, null, null, null, now);
+                    TEST_GUILD_ID, null, null, null, now, null);
 
             when(codeRepository.findByCode("ABCD1234EFGH5678")).thenReturn(Optional.of(code));
             when(productRepository.findById(TEST_PRODUCT_ID)).thenReturn(Optional.of(product));
@@ -177,7 +177,7 @@ class RedemptionServiceTest {
             Product product = new Product(TEST_PRODUCT_ID, TEST_GUILD_ID, "禮包", null,
                     Product.RewardType.CURRENCY, 1000L, now, now);
             RedemptionCode code = new RedemptionCode(1L, "ABCD1234EFGH5678", TEST_PRODUCT_ID,
-                    TEST_GUILD_ID, null, null, null, now);
+                    TEST_GUILD_ID, null, null, null, now, null);
 
             when(codeRepository.findByCode("ABCD1234EFGH5678")).thenReturn(Optional.of(code));
             when(productRepository.findById(TEST_PRODUCT_ID)).thenReturn(Optional.of(product));
@@ -204,7 +204,7 @@ class RedemptionServiceTest {
             Product product = new Product(TEST_PRODUCT_ID, TEST_GUILD_ID, "代幣包", null,
                     Product.RewardType.TOKEN, 50L, now, now);
             RedemptionCode code = new RedemptionCode(1L, "ABCD1234EFGH5678", TEST_PRODUCT_ID,
-                    TEST_GUILD_ID, null, null, null, now);
+                    TEST_GUILD_ID, null, null, null, now, null);
 
             when(codeRepository.findByCode("ABCD1234EFGH5678")).thenReturn(Optional.of(code));
             when(productRepository.findById(TEST_PRODUCT_ID)).thenReturn(Optional.of(product));
@@ -231,7 +231,7 @@ class RedemptionServiceTest {
             Product product = new Product(TEST_PRODUCT_ID, TEST_GUILD_ID, "Test", null,
                     null, null, now, now);
             RedemptionCode code = new RedemptionCode(1L, "ABCD1234EFGH5678", TEST_PRODUCT_ID,
-                    TEST_GUILD_ID, null, null, null, now);
+                    TEST_GUILD_ID, null, null, null, now, null);
 
             when(codeRepository.findByCode("ABCD1234EFGH5678")).thenReturn(Optional.of(code));
             when(productRepository.findById(TEST_PRODUCT_ID)).thenReturn(Optional.of(product));
@@ -284,7 +284,7 @@ class RedemptionServiceTest {
             Instant now = Instant.now();
             long otherGuildId = 999999999999999999L;
             RedemptionCode code = new RedemptionCode(1L, "ABCD1234EFGH5678", TEST_PRODUCT_ID,
-                    otherGuildId, null, null, null, now);
+                    otherGuildId, null, null, null, now, null);
 
             when(codeRepository.findByCode("ABCD1234EFGH5678")).thenReturn(Optional.of(code));
 
@@ -304,7 +304,7 @@ class RedemptionServiceTest {
             // Given
             Instant now = Instant.now();
             RedemptionCode code = new RedemptionCode(1L, "ABCD1234EFGH5678", TEST_PRODUCT_ID,
-                    TEST_GUILD_ID, null, 999L, now, now);
+                    TEST_GUILD_ID, null, 999L, now, now, null);
 
             when(codeRepository.findByCode("ABCD1234EFGH5678")).thenReturn(Optional.of(code));
 
@@ -324,7 +324,7 @@ class RedemptionServiceTest {
             Instant now = Instant.now();
             Instant pastDate = now.minus(1, ChronoUnit.DAYS);
             RedemptionCode code = new RedemptionCode(1L, "ABCD1234EFGH5678", TEST_PRODUCT_ID,
-                    TEST_GUILD_ID, pastDate, null, null, now);
+                    TEST_GUILD_ID, pastDate, null, null, now, null);
 
             when(codeRepository.findByCode("ABCD1234EFGH5678")).thenReturn(Optional.of(code));
 
@@ -335,6 +335,25 @@ class RedemptionServiceTest {
             // Then
             assertThat(result.isErr()).isTrue();
             assertThat(result.getError().message()).contains("已過期");
+        }
+
+        @Test
+        @DisplayName("should reject invalidated code")
+        void shouldRejectInvalidatedCode() {
+            // Given
+            Instant now = Instant.now();
+            RedemptionCode code = new RedemptionCode(1L, "ABCD1234EFGH5678", null,
+                    TEST_GUILD_ID, null, null, null, now, now);
+
+            when(codeRepository.findByCode("ABCD1234EFGH5678")).thenReturn(Optional.of(code));
+
+            // When
+            Result<RedemptionService.RedemptionResult, DomainError> result =
+                    redemptionService.redeemCode("ABCD1234EFGH5678", TEST_GUILD_ID, TEST_USER_ID);
+
+            // Then
+            assertThat(result.isErr()).isTrue();
+            assertThat(result.getError().message()).contains("已失效");
         }
     }
 
@@ -350,7 +369,7 @@ class RedemptionServiceTest {
             Product product = new Product(1L, TEST_GUILD_ID, "VIP 服務", "專人服務",
                     null, null, now, now);
             RedemptionCode code = new RedemptionCode(1L, "ABCD1234EFGH5678", 1L,
-                    TEST_GUILD_ID, null, TEST_USER_ID, now, now);
+                    TEST_GUILD_ID, null, TEST_USER_ID, now, now, null);
 
             RedemptionService.RedemptionResult result =
                     new RedemptionService.RedemptionResult(code, product, null);
@@ -372,7 +391,7 @@ class RedemptionServiceTest {
             Product product = new Product(1L, TEST_GUILD_ID, "禮包", null,
                     Product.RewardType.CURRENCY, 1000L, now, now);
             RedemptionCode code = new RedemptionCode(1L, "ABCD1234EFGH5678", 1L,
-                    TEST_GUILD_ID, null, TEST_USER_ID, now, now);
+                    TEST_GUILD_ID, null, TEST_USER_ID, now, now, null);
 
             RedemptionService.RedemptionResult result =
                     new RedemptionService.RedemptionResult(code, product, 1000L);

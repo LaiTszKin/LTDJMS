@@ -25,8 +25,9 @@ public class ProductServiceModule {
     @Singleton
     public ProductService provideProductService(
             ProductRepository productRepository,
+            RedemptionCodeRepository redemptionCodeRepository,
             DomainEventPublisher eventPublisher) {
-        return new ProductService(productRepository, eventPublisher);
+        return new ProductService(productRepository, redemptionCodeRepository, eventPublisher);
     }
 
     @Provides

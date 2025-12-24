@@ -190,9 +190,9 @@
 |------|------|------|
 | `id` | BIGSERIAL (PK) | 產品 ID |
 | `guild_id` | BIGINT | Discord 伺服器 ID |
-| `name` | VARCHAR(100) | 產品名稱 |
-| `description` | VARCHAR(500) | 產品描述 |
-| `reward_type` | VARCHAR(20) | 獎勵類型（CURRENCY 或 TOKENS） |
+| `name` | VARCHAR(100) | 產品名稱，長度上限 100 字元 |
+| `description` | VARCHAR(1000) | 產品描述，長度上限 1000 字元 |
+| `reward_type` | VARCHAR(20) | 獎勵類型（CURRENCY 或 TOKEN） |
 | `reward_amount` | BIGINT | 獎勵數量，不得為負 |
 | `created_at` | TIMESTAMPTZ | 建立時間 |
 | `updated_at` | TIMESTAMPTZ | 最後更新時間 |
@@ -205,8 +205,8 @@
 
 - `UNIQUE (guild_id, name)` 每個伺服器產品名稱唯一
 - `CHECK (reward_amount >= 0)` 獎勵數量非負
-- `CHECK (reward_type IN ('CURRENCY', 'TOKENS'))` 獎勵類型有效
-- `CHECK ((reward_amount = 0 AND reward_type IS NULL) OR (reward_amount > 0 AND reward_type IS NOT NULL))` 獎勵一致性
+- `CHECK (reward_type IN ('CURRENCY', 'TOKEN'))` 獎勵類型有效
+- `CHECK ((reward_amount IS NULL AND reward_type IS NULL) OR (reward_amount IS NOT NULL AND reward_type IS NOT NULL))` 獎勵一致性
 
 索引：
 
@@ -215,11 +215,25 @@
 對應的領域模型：
 
 - `ltdjms.discord.product.domain.Product`
+- `ltdjms.discord.product.services.ProductService`
 
 常見用途：
 
 - 管理面板的「產品管理」功能讀寫此表。
 - 兌換系統驗證代碼時參考產品定義。
+- 商店系統（`/shop`）展示產品列表。
+
+**產品刪除行為**（V005 遷移後）：
+
+當產品被刪除時：
+1. 所有關聯的兌換碼會先被標記為失效（`invalidated_at` 設為當前時間）
+2. 然後刪除產品記錄
+3. 由於外鍵約束使用 `ON DELETE SET NULL`，關聯的兌換碼之 `product_id` 會自動設為 `NULL`
+4. 這保留了兌換碼的使用記錄，同時防止該碼繼續被使用
+
+對應的領域事件：
+
+- `ProductChangedEvent`：產品建立、更新或刪除時發布，用於通知其他模組（如管理員面板）進行狀態同步
 
 ### 4.2 `redemption_code`
 
@@ -228,13 +242,14 @@
 | 欄位 | 類型 | 說明 |
 |------|------|------|
 | `id` | BIGSERIAL (PK) | 兌換碼 ID |
+| `code` | VARCHAR(32) | 兌換碼，唯一，長度上限 32 字元 |
+| `product_id` | BIGINT | 對應產品 ID（可為 NULL，當產品被刪除時） |
 | `guild_id` | BIGINT | Discord 伺服器 ID |
-| `product_id` | BIGINT | 對應產品 ID |
-| `code` | VARCHAR(50) | 兌換碼，唯一 |
+| `expires_at` | TIMESTAMPTZ | 到期時間（可選，NULL 表示永不過期） |
 | `redeemed_by` | BIGINT | 兌換使用者 ID（若已兌換） |
 | `redeemed_at` | TIMESTAMPTZ | 兌換時間（若已兌換） |
-| `expires_at` | TIMESTAMPTZ | 到期時間（可選） |
 | `created_at` | TIMESTAMPTZ | 建立時間 |
+| `invalidated_at` | TIMESTAMPTZ | 失效時間（若關聯產品被刪除） |
 
 主鍵：
 
@@ -243,7 +258,7 @@
 約束：
 
 - `UNIQUE (code)` 兌換碼唯一
-- `FOREIGN KEY (product_id) REFERENCES product(id) ON DELETE RESTRICT` 參考產品
+- `FOREIGN KEY (product_id) REFERENCES product(id) ON DELETE SET NULL` 參考產品，產品刪除時設為 NULL
 - `CHECK ((redeemed_by IS NULL AND redeemed_at IS NULL) OR (redeemed_by IS NOT NULL AND redeemed_at IS NOT NULL))` 兌換一致性
 
 索引：
@@ -251,16 +266,39 @@
 - `idx_redemption_code_guild (guild_id)` 依伺服器查詢代碼
 - `idx_redemption_code_product (product_id)` 依產品查詢代碼
 - `idx_redemption_code_code (code)` 依代碼查詢
-- `idx_redemption_code_product_unused (product_id, redeemed_by) WHERE redeemed_by IS NULL` 依產品查詢未使用代碼
+- `idx_redemption_code_invalidated (invalidated_at) WHERE invalidated_at IS NOT NULL` 查詢已失效代碼
 
 對應的領域模型：
 
 - `ltdjms.discord.redemption.domain.RedemptionCode`
+- `ltdjms.discord.redemption.services.RedemptionService`
 
 常見用途：
 
 - 兌換系統驗證與使用代碼。
 - 管理員查看產品的可用代碼數量。
+- 產品刪除後保留使用記錄。
+
+**兌換碼狀態機**：
+
+兌換碼有以下狀態，由 `RedemptionCode` 類別的方法判斷：
+
+| 狀態 | 判斷條件 | 說明 |
+|------|---------|------|
+| **可用** | `!isInvalidated() && !isRedeemed() && !isExpired()` | 可以正常兌換 |
+| **已兌換** | `isRedeemed()` | 已被使用者使用過 |
+| **已過期** | `isExpired()` | 超過 `expires_at` 時間 |
+| **已失效** | `isInvalidated()` | 關聯產品被刪除 |
+
+**兌換碼生成規則**：
+
+- 長度：16 字元
+- 字元集：`ABCDEFGHJKMNPQRSTUVWXYZ23456789`（排除易混淆字元 0/O、1/I/L）
+- 生成時會檢查資料庫確保唯一性，最多重試 10 次
+
+對應的領域事件：
+
+- `RedemptionCodesGeneratedEvent`：批量生成兌換碼時發布，用於通知管理員面板即時更新統計
 
 ## 4. 時間戳與更新觸發器
 

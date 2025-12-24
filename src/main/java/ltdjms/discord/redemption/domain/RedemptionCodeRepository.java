@@ -107,6 +107,23 @@ public interface RedemptionCodeRepository {
     CodeStats getStatsByProductId(long productId);
 
     /**
+     * Invalidates all redemption codes for a product.
+     * This is called when a product is being deleted.
+     *
+     * @param productId the product ID
+     * @return the number of codes invalidated
+     */
+    int invalidateByProductId(long productId);
+
+    /**
+     * Finds all invalidated redemption codes for a product.
+     *
+     * @param productId the product ID
+     * @return a list of invalidated redemption codes
+     */
+    List<RedemptionCode> findInvalidatedByProductId(long productId);
+
+    /**
      * Statistics about a product's redemption codes.
      */
     record CodeStats(

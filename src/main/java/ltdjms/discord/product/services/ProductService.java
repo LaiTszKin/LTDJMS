@@ -2,6 +2,7 @@ package ltdjms.discord.product.services;
 
 import ltdjms.discord.product.domain.Product;
 import ltdjms.discord.product.domain.ProductRepository;
+import ltdjms.discord.redemption.domain.RedemptionCodeRepository;
 import ltdjms.discord.shared.DomainError;
 import ltdjms.discord.shared.Result;
 import ltdjms.discord.shared.Unit;
@@ -21,10 +22,15 @@ public class ProductService {
     private static final Logger LOG = LoggerFactory.getLogger(ProductService.class);
 
     private final ProductRepository productRepository;
+    private final RedemptionCodeRepository redemptionCodeRepository;
     private final DomainEventPublisher eventPublisher;
 
-    public ProductService(ProductRepository productRepository, DomainEventPublisher eventPublisher) {
+    public ProductService(
+            ProductRepository productRepository,
+            RedemptionCodeRepository redemptionCodeRepository,
+            DomainEventPublisher eventPublisher) {
         this.productRepository = productRepository;
+        this.redemptionCodeRepository = redemptionCodeRepository;
         this.eventPublisher = eventPublisher;
     }
 
@@ -153,7 +159,7 @@ public class ProductService {
 
     /**
      * Deletes a product by ID.
-     * Note: This will fail if there are redeemed codes for this product.
+     * Associated redemption codes will be marked as invalidated and preserved.
      *
      * @param productId the product ID
      * @return Result indicating success or an error
@@ -167,6 +173,13 @@ public class ProductService {
         Product existing = existingOpt.get();
 
         try {
+            // First, invalidate all associated redemption codes
+            int invalidatedCount = redemptionCodeRepository.invalidateByProductId(productId);
+            if (invalidatedCount > 0) {
+                LOG.info("Invalidated {} redemption codes before deleting product: id={}", invalidatedCount, productId);
+            }
+
+            // Then delete the product
             boolean deleted = productRepository.deleteById(productId);
             if (deleted) {
                 LOG.info("Deleted product: id={}", productId);
@@ -180,11 +193,6 @@ public class ProductService {
                 return Result.err(DomainError.invalidInput("刪除商品失敗"));
             }
         } catch (Exception e) {
-            // Check if this is a foreign key constraint violation
-            String message = e.getMessage();
-            if (message != null && message.contains("violates foreign key constraint")) {
-                return Result.err(DomainError.invalidInput("該商品有已使用的兌換碼，無法刪除"));
-            }
             LOG.error("Failed to delete product id={}", productId, e);
             return Result.err(DomainError.persistenceFailure("刪除商品失敗", e));
         }

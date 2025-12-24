@@ -2,6 +2,7 @@ package ltdjms.discord.product.services;
 
 import ltdjms.discord.product.domain.Product;
 import ltdjms.discord.product.domain.ProductRepository;
+import ltdjms.discord.redemption.domain.RedemptionCodeRepository;
 import ltdjms.discord.shared.DomainError;
 import ltdjms.discord.shared.Result;
 import ltdjms.discord.shared.Unit;
@@ -34,13 +35,16 @@ class ProductServiceTest {
     private ProductRepository productRepository;
 
     @Mock
+    private RedemptionCodeRepository redemptionCodeRepository;
+
+    @Mock
     private DomainEventPublisher eventPublisher;
 
     private ProductService productService;
 
     @BeforeEach
     void setUp() {
-        productService = new ProductService(productRepository, eventPublisher);
+        productService = new ProductService(productRepository, redemptionCodeRepository, eventPublisher);
     }
 
     @Nested
@@ -226,6 +230,7 @@ class ProductServiceTest {
                     null, null, now, now);
 
             when(productRepository.findById(1L)).thenReturn(Optional.of(existing));
+            when(redemptionCodeRepository.invalidateByProductId(1L)).thenReturn(0);
             when(productRepository.deleteById(1L)).thenReturn(true);
 
             // When
@@ -233,6 +238,28 @@ class ProductServiceTest {
 
             // Then
             assertThat(result.isOk()).isTrue();
+            verify(redemptionCodeRepository).invalidateByProductId(1L);
+            verify(productRepository).deleteById(1L);
+        }
+
+        @Test
+        @DisplayName("should invalidate associated codes before deleting product")
+        void shouldInvalidateAssociatedCodesBeforeDeletingProduct() {
+            // Given
+            Instant now = Instant.now();
+            Product existing = new Product(1L, TEST_GUILD_ID, "Test", null,
+                    null, null, now, now);
+
+            when(productRepository.findById(1L)).thenReturn(Optional.of(existing));
+            when(redemptionCodeRepository.invalidateByProductId(1L)).thenReturn(5);
+            when(productRepository.deleteById(1L)).thenReturn(true);
+
+            // When
+            Result<Unit, DomainError> result = productService.deleteProduct(1L);
+
+            // Then
+            assertThat(result.isOk()).isTrue();
+            verify(redemptionCodeRepository).invalidateByProductId(1L);
             verify(productRepository).deleteById(1L);
         }
 
@@ -248,6 +275,7 @@ class ProductServiceTest {
             // Then
             assertThat(result.isErr()).isTrue();
             assertThat(result.getError().message()).contains("找不到");
+            verify(redemptionCodeRepository, never()).invalidateByProductId(anyLong());
         }
     }
 

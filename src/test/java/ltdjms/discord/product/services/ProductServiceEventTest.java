@@ -2,6 +2,7 @@ package ltdjms.discord.product.services;
 
 import ltdjms.discord.product.domain.Product;
 import ltdjms.discord.product.domain.ProductRepository;
+import ltdjms.discord.redemption.domain.RedemptionCodeRepository;
 import ltdjms.discord.shared.Result;
 import ltdjms.discord.shared.Unit;
 import ltdjms.discord.shared.events.DomainEvent;
@@ -23,14 +24,16 @@ import static org.mockito.Mockito.*;
 class ProductServiceEventTest {
 
     private ProductRepository productRepository;
+    private RedemptionCodeRepository redemptionCodeRepository;
     private DomainEventPublisher eventPublisher;
     private ProductService service;
 
     @BeforeEach
     void setUp() {
         productRepository = mock(ProductRepository.class);
+        redemptionCodeRepository = mock(RedemptionCodeRepository.class);
         eventPublisher = mock(DomainEventPublisher.class);
-        service = new ProductService(productRepository, eventPublisher);
+        service = new ProductService(productRepository, redemptionCodeRepository, eventPublisher);
     }
 
     @Test
@@ -108,6 +111,7 @@ class ProductServiceEventTest {
                 null, null, Instant.now(), Instant.now());
 
         when(productRepository.findById(productId)).thenReturn(Optional.of(existingProduct));
+        when(redemptionCodeRepository.invalidateByProductId(productId)).thenReturn(0);
         when(productRepository.deleteById(productId)).thenReturn(true);
 
         // When

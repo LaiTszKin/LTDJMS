@@ -115,12 +115,83 @@ class RedemptionCodeTest {
             Instant now = Instant.now();
             RedemptionCode code = new RedemptionCode(
                     1L, "ABCD1234EFGH5678", TEST_PRODUCT_ID, TEST_GUILD_ID,
-                    null, TEST_USER_ID, now, now);
+                    null, TEST_USER_ID, now, now, null);
 
             // When/Then
             assertThatThrownBy(() -> code.withRedeemed(TEST_USER_ID))
                     .isInstanceOf(IllegalStateException.class)
                     .hasMessageContaining("already been redeemed");
+        }
+    }
+
+    @Nested
+    @DisplayName("Invalidation operations")
+    class InvalidationOperationsTests {
+
+        @Test
+        @DisplayName("should mark code as invalidated")
+        void shouldMarkCodeAsInvalidated() {
+            // Given
+            RedemptionCode code = RedemptionCode.create(
+                    "ABCD1234EFGH5678", TEST_PRODUCT_ID, TEST_GUILD_ID, null);
+
+            // When
+            RedemptionCode invalidated = code.withInvalidated();
+
+            // Then
+            assertThat(invalidated.isInvalidated()).isTrue();
+            assertThat(invalidated.invalidatedAt()).isNotNull();
+            assertThat(invalidated.productId()).isNull(); // Product ID should be null after invalidation
+            assertThat(invalidated.isValid()).isFalse();
+        }
+
+        @Test
+        @DisplayName("should reject invalidation of already invalidated code")
+        void shouldRejectInvalidationOfAlreadyInvalidatedCode() {
+            // Given
+            Instant now = Instant.now();
+            Instant redeemedAt = now.minusSeconds(100);
+            RedemptionCode code = new RedemptionCode(
+                    1L, "ABCD1234EFGH5678", null, TEST_GUILD_ID,
+                    null, TEST_USER_ID, redeemedAt, now, now);
+
+            // When/Then
+            assertThatThrownBy(() -> code.withInvalidated())
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("already been invalidated");
+        }
+
+        @Test
+        @DisplayName("should detect invalidated code")
+        void shouldDetectInvalidatedCode() {
+            // Given
+            Instant now = Instant.now();
+            Instant redeemedAt = now.minusSeconds(100);
+            RedemptionCode code = new RedemptionCode(
+                    1L, "ABCD1234EFGH5678", null, TEST_GUILD_ID,
+                    null, TEST_USER_ID, redeemedAt, now, now);
+
+            // Then
+            assertThat(code.isInvalidated()).isTrue();
+            assertThat(code.isValid()).isFalse();
+        }
+
+        @Test
+        @DisplayName("should consider invalidated code as invalid even if not redeemed or expired")
+        void shouldConsiderInvalidatedCodeAsInvalidEvenIfNotRedeemedOrExpired() {
+            // Given - code is invalidated but not redeemed or expired
+            Instant now = Instant.now();
+            Instant createdAt = now.minusSeconds(100);
+            Instant redeemedAt = now.minusSeconds(50);
+            RedemptionCode code = new RedemptionCode(
+                    1L, "ABCD1234EFGH5678", null, TEST_GUILD_ID,
+                    null, TEST_USER_ID, redeemedAt, createdAt, now);
+
+            // Then
+            assertThat(code.isInvalidated()).isTrue();
+            assertThat(code.isRedeemed()).isTrue();
+            assertThat(code.isExpired()).isFalse();
+            assertThat(code.isValid()).isFalse(); // Invalid because it's invalidated
         }
     }
 
@@ -215,7 +286,7 @@ class RedemptionCodeTest {
             Instant now = Instant.now();
             RedemptionCode code = new RedemptionCode(
                     1L, "ABCD1234", TEST_PRODUCT_ID, TEST_GUILD_ID,
-                    null, null, null, now);
+                    null, null, null, now, null);
 
             // Then
             assertThat(code.getMaskedCode()).isEqualTo("ABCD1234");

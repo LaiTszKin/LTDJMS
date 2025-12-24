@@ -143,6 +143,12 @@ public class RedemptionService {
             return Result.err(DomainError.invalidInput("兌換碼無效"));
         }
 
+        // Check if code has been invalidated
+        if (code.isInvalidated()) {
+            LOG.debug("Redemption code {} has been invalidated", codeStr);
+            return Result.err(DomainError.invalidInput("此兌換碼已失效"));
+        }
+
         // Check if already redeemed
         if (code.isRedeemed()) {
             LOG.debug("Redemption code {} already redeemed", codeStr);
@@ -156,6 +162,12 @@ public class RedemptionService {
         }
 
         // Find product
+        // If productId is null (product was deleted), treat as invalid code
+        if (code.productId() == null) {
+            LOG.error("Product ID is null for redemption code: codeId={}", code.id());
+            return Result.err(DomainError.invalidInput("此兌換碼已失效"));
+        }
+
         Optional<Product> productOpt = productRepository.findById(code.productId());
         if (productOpt.isEmpty()) {
             LOG.error("Product not found for redemption code: productId={}", code.productId());
