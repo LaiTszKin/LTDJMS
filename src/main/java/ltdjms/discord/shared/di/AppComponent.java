@@ -26,6 +26,9 @@ import ltdjms.discord.panel.commands.UserPanelButtonHandler;
 import ltdjms.discord.panel.services.AdminPanelUpdateListener;
 import ltdjms.discord.shared.DatabaseConfig;
 import ltdjms.discord.shared.EnvironmentConfig;
+import ltdjms.discord.shared.cache.CacheInvalidationListener;
+import ltdjms.discord.shared.cache.CacheKeyGenerator;
+import ltdjms.discord.shared.cache.CacheService;
 import ltdjms.discord.shared.events.DomainEventPublisher;
 import ltdjms.discord.panel.services.UserPanelUpdateListener;
 import ltdjms.discord.shop.commands.ShopButtonHandler;
@@ -47,6 +50,7 @@ import javax.sql.DataSource;
 @Singleton
 @Component(modules = {
         DatabaseModule.class,
+        CacheModule.class,
         CurrencyRepositoryModule.class,
         CurrencyServiceModule.class,
         GameTokenRepositoryModule.class,
@@ -61,6 +65,11 @@ public interface AppComponent {
     // Configuration
     EnvironmentConfig environmentConfig();
     DatabaseConfig databaseConfig();
+
+    // Cache
+    CacheService cacheService();
+    CacheKeyGenerator cacheKeyGenerator();
+    CacheInvalidationListener cacheInvalidationListener();
 
     // Events
     DomainEventPublisher domainEventPublisher();

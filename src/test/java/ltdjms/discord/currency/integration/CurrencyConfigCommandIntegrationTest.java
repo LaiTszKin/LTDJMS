@@ -10,6 +10,10 @@ import ltdjms.discord.currency.services.CurrencyConfigService;
 import ltdjms.discord.currency.services.DefaultBalanceService;
 import ltdjms.discord.currency.services.EmojiValidator;
 import ltdjms.discord.currency.services.NoOpEmojiValidator;
+import ltdjms.discord.shared.cache.CacheKeyGenerator;
+import ltdjms.discord.shared.cache.CacheService;
+import ltdjms.discord.shared.cache.DefaultCacheKeyGenerator;
+import ltdjms.discord.shared.cache.NoOpCacheService;
 import ltdjms.discord.shared.events.DomainEventPublisher;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -41,7 +45,9 @@ class CurrencyConfigCommandIntegrationTest extends PostgresIntegrationTestBase {
         emojiValidator = new NoOpEmojiValidator();
         DomainEventPublisher eventPublisher = new DomainEventPublisher();
         configService = new CurrencyConfigService(configRepository, emojiValidator, eventPublisher);
-        balanceService = new DefaultBalanceService(accountRepository, configRepository);
+        CacheService cacheService = NoOpCacheService.getInstance();
+        CacheKeyGenerator cacheKeyGenerator = new DefaultCacheKeyGenerator();
+        balanceService = new DefaultBalanceService(accountRepository, configRepository, cacheService, cacheKeyGenerator);
     }
 
     @Test

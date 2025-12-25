@@ -10,6 +10,8 @@ import ltdjms.discord.gametoken.services.DiceGame1Service;
 import ltdjms.discord.gametoken.services.DiceGame2Service;
 import ltdjms.discord.gametoken.services.GameTokenService;
 import ltdjms.discord.gametoken.services.GameTokenTransactionService;
+import ltdjms.discord.shared.cache.CacheKeyGenerator;
+import ltdjms.discord.shared.cache.CacheService;
 import ltdjms.discord.shared.events.DomainEventPublisher;
 
 import javax.inject.Singleton;
@@ -24,8 +26,10 @@ public class GameTokenServiceModule {
     @Singleton
     public GameTokenService provideGameTokenService(
             GameTokenAccountRepository accountRepository,
-            DomainEventPublisher eventPublisher) {
-        return new GameTokenService(accountRepository, eventPublisher);
+            DomainEventPublisher eventPublisher,
+            CacheService cacheService,
+            CacheKeyGenerator cacheKeyGenerator) {
+        return new GameTokenService(accountRepository, eventPublisher, cacheService, cacheKeyGenerator);
     }
 
     @Provides

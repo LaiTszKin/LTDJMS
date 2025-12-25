@@ -38,10 +38,12 @@ public final class EnvironmentConfig {
     private static final String ENV_DB_POOL_CONNECTION_TIMEOUT = "DB_POOL_CONNECTION_TIMEOUT";
     private static final String ENV_DB_POOL_IDLE_TIMEOUT = "DB_POOL_IDLE_TIMEOUT";
     private static final String ENV_DB_POOL_MAX_LIFETIME = "DB_POOL_MAX_LIFETIME";
+    private static final String ENV_REDIS_URI = "REDIS_URI";
 
     // Config paths for Typesafe Config
     private static final String CFG_DISCORD_BOT_TOKEN = "discord.bot.token";
     private static final String CFG_DB_URL = "db.url";
+    private static final String CFG_REDIS_URI = "redis.uri";
     private static final String CFG_DB_USERNAME = "db.username";
     private static final String CFG_DB_PASSWORD = "db.password";
     private static final String CFG_DB_POOL_MAX_SIZE = "db.pool.maximum-pool-size";
@@ -51,6 +53,7 @@ public final class EnvironmentConfig {
     private static final String CFG_DB_POOL_MAX_LIFETIME = "db.pool.max-lifetime";
 
     // Default values
+    private static final String DEFAULT_REDIS_URI = "redis://localhost:6379";
     private static final String DEFAULT_DB_URL = "jdbc:postgresql://localhost:5432/currency_bot";
     private static final String DEFAULT_DB_USERNAME = "postgres";
     private static final String DEFAULT_DB_PASSWORD = "postgres";
@@ -90,6 +93,7 @@ public final class EnvironmentConfig {
     private Config buildConfig() {
         // Build defaults config
         Map<String, Object> defaults = new HashMap<>();
+        defaults.put(CFG_REDIS_URI, DEFAULT_REDIS_URI);
         defaults.put(CFG_DB_URL, DEFAULT_DB_URL);
         defaults.put(CFG_DB_USERNAME, DEFAULT_DB_USERNAME);
         defaults.put(CFG_DB_PASSWORD, DEFAULT_DB_PASSWORD);
@@ -106,6 +110,7 @@ public final class EnvironmentConfig {
         // Build .env values as config (mapped to config paths)
         Map<String, Object> dotEnvMapped = new HashMap<>();
         mapEnvToConfig(dotEnvMapped, ENV_DISCORD_BOT_TOKEN, CFG_DISCORD_BOT_TOKEN);
+        mapEnvToConfig(dotEnvMapped, ENV_REDIS_URI, CFG_REDIS_URI);
         mapEnvToConfig(dotEnvMapped, ENV_DB_URL, CFG_DB_URL);
         mapEnvToConfig(dotEnvMapped, ENV_DB_USERNAME, CFG_DB_USERNAME);
         mapEnvToConfig(dotEnvMapped, ENV_DB_PASSWORD, CFG_DB_PASSWORD);
@@ -119,6 +124,7 @@ public final class EnvironmentConfig {
         // Build system env vars as config (highest priority)
         Map<String, Object> sysEnvMapped = new HashMap<>();
         mapSysEnvToConfig(sysEnvMapped, ENV_DISCORD_BOT_TOKEN, CFG_DISCORD_BOT_TOKEN);
+        mapSysEnvToConfig(sysEnvMapped, ENV_REDIS_URI, CFG_REDIS_URI);
         mapSysEnvToConfig(sysEnvMapped, ENV_DB_URL, CFG_DB_URL);
         mapSysEnvToConfig(sysEnvMapped, ENV_DB_USERNAME, CFG_DB_USERNAME);
         mapSysEnvToConfig(sysEnvMapped, ENV_DB_PASSWORD, CFG_DB_PASSWORD);
@@ -281,5 +287,14 @@ public final class EnvironmentConfig {
      */
     public long getPoolMaxLifetime() {
         return config.getLong(CFG_DB_POOL_MAX_LIFETIME);
+    }
+
+    /**
+     * Gets the Redis connection URI.
+     *
+     * @return the Redis URI (e.g., redis://localhost:6379)
+     */
+    public String getRedisUri() {
+        return config.getString(CFG_REDIS_URI);
     }
 }

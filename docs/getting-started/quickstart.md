@@ -96,6 +96,7 @@ DISCORD_BOT_TOKEN=your-bot-token-here
 DB_URL=jdbc:postgresql://localhost:5432/currency_bot
 DB_USERNAME=postgres
 DB_PASSWORD=postgres
+REDIS_URI=redis://localhost:6379
 ```
 
 ### 4.2 直接使用環境變數（CI / Docker Compose 常見）
@@ -114,6 +115,7 @@ export DB_PASSWORD="postgres"
 - `DB_POOL_CONNECTION_TIMEOUT`
 - `DB_POOL_IDLE_TIMEOUT`
 - `DB_POOL_MAX_LIFETIME`
+- `REDIS_URI`（預設：`redis://localhost:6379`）
 
 詳細說明可參考 `docs/development/configuration.md`。
 
@@ -130,7 +132,7 @@ export DB_PASSWORD="postgres"
    此指令會：
 
    - 透過 Docker layer cache 建置映像（只重建有變更的層）
-   - 啟動 PostgreSQL 與 Bot 容器
+   - 啟動 PostgreSQL、Redis 與 Bot 容器
    - 在 Bot 啟動時自動比對並套用與 `src/main/resources/db/schema.sql` 一致的**非破壞性** schema 變更
 
 2. 如只需重新啟動既有容器而不重建映像：

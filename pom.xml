@@ -6,7 +6,7 @@
 
     <groupId>ltdjms</groupId>
     <artifactId>ltdjms</artifactId>
-    <version>0.11.1</version>
+    <version>0.12.0</version>
     <packaging>jar</packaging>
 
     <name>LTDJ Management System</name>
@@ -27,6 +27,7 @@
         <jooq.version>3.19.15</jooq.version>
         <dagger.version>2.52</dagger.version>
         <typesafe-config.version>1.4.3</typesafe-config.version>
+        <lettuce.version>6.3.2.RELEASE</lettuce.version>
 
         <!-- Database Migration -->
         <flyway.version>10.21.0</flyway.version>
@@ -77,6 +78,13 @@
             <groupId>com.typesafe</groupId>
             <artifactId>config</artifactId>
             <version>${typesafe-config.version}</version>
+        </dependency>
+
+        <!-- Redis / Cache -->
+        <dependency>
+            <groupId>io.lettuce</groupId>
+            <artifactId>lettuce-core</artifactId>
+            <version>${lettuce.version}</version>
         </dependency>
 
         <!-- Database Migration -->
@@ -221,6 +229,9 @@
                         <exclude>**/AppComponentFactory.class</exclude>
                         <exclude>**/DaggerAppComponent*.class</exclude>
                         <exclude>**/*Module.class</exclude>
+                        <!-- Exclude cache infrastructure (not yet integrated, to be covered in future) -->
+                        <exclude>**/RedisCacheService.class</exclude>
+                        <exclude>**/CacheInvalidationListener.class</exclude>
                     </excludes>
                 </configuration>
                 <executions>

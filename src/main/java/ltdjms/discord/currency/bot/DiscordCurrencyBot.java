@@ -39,6 +39,7 @@ public class DiscordCurrencyBot {
         // Register domain event listeners
         this.appComponent.domainEventPublisher().register(this.appComponent.userPanelUpdateListener());
         this.appComponent.domainEventPublisher().register(this.appComponent.adminPanelUpdateListener());
+        this.appComponent.domainEventPublisher().register(this.appComponent.cacheInvalidationListener());
 
         // Get database config from Dagger
         this.databaseConfig = appComponent.databaseConfig();

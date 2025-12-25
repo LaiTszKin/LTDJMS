@@ -47,6 +47,9 @@ PostgreSQL (currency_bot 資料庫)
 - `architecture/sequence-diagrams.md`
   核心業務流程的時序圖（Sequence Diagrams），包括產品刪除、兌換碼生成、兌換流程、貨幣購買商品、事件發布等。**（V009 更新：新增貨幣購買商品時序圖）**
 
+- `architecture/cache-architecture.md`
+  緩存系統的深入架構說明，包括一致性模型、事件驅動失效、TTL 策略與效能考量。
+
 - `modules/currency-system.md`
   Discord 伺服器貨幣系統模組的設計與實作概觀，包括餘額查詢、調整與貨幣設定相關的服務與指令處理器。
 
@@ -62,6 +65,9 @@ PostgreSQL (currency_bot 資料庫)
 - `modules/redemption.md`
    兌換系統模組的說明，包括兌換碼生成、驗證、兌換流程、狀態機與失效機制。**（V005 更新：新增失效狀態說明與狀態圖）**
 
+- `modules/cache.md`
+   緩存模組的設計與實作概觀，包括 Redis 緩存抽象層、緩存鍵格式、事件驅動失效、TTL 設定與故障降級策略。
+
 - `modules/shop.md`
    商店模組的設計與實作概觀，包括商店頁面、產品列表瀏覽、分頁功能與貨幣購買商品流程。**（V009 更新：新增貨幣購買功能與 CurrencyPurchaseService）**
 
@@ -76,11 +82,17 @@ PostgreSQL (currency_bot 資料庫)
 - `development/testing.md`  
   測試策略與分類（單元測試、整合測試、契約測試、效能測試），以及對應的 Maven／Make 指令。
 
-- `development/configuration.md`  
+- `development/configuration.md`
   設定管理說明：`EnvironmentConfig` 的載入優先順序、支援的環境變數與 `.env` 檔案範例。
 
-- `operations/deployment-and-maintenance.md`  
+- `development/debugging.md`
+  開發者除錯指南，包括日誌分析技巧、IDE 除錯設定、常見開發問題解決方案與測試除錯方法。
+
+- `operations/deployment-and-maintenance.md`
   使用 Docker Compose 部署、重啟、查看日誌與升級版本的建議流程，並說明啟動時的自動 schema migration 行為與注意事項。
+
+- `operations/performance-tuning.md`
+  效能調優指南，涵蓋 JVM 設定、資料庫連線池優化、Redis 緩存調整與應用層效能優化建議。
 
 ## 建議閱讀順序
 
@@ -93,10 +105,13 @@ PostgreSQL (currency_bot 資料庫)
   2. `architecture/overview.md`
   3. `architecture/data-model.md`
   4. `architecture/sequence-diagrams.md`（理解核心流程互動）
-  5. 對應模組文件（`modules/*.md`）
-  6. `modules/event-system.md`（理解事件驅動架構）
+  5. `architecture/cache-architecture.md`（理解緩存架構）
+  6. 對應模組文件（`modules/*.md`）
+  7. `modules/event-system.md`（理解事件驅動架構）
+  8. `development/debugging.md`（除錯技巧）
 
 - **負責部署與維運：**
   1. `getting-started/quickstart.md`
   2. `development/configuration.md`
   3. `operations/deployment-and-maintenance.md`
+  4. `operations/performance-tuning.md`（效能優化）

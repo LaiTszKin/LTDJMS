@@ -8,6 +8,8 @@ import ltdjms.discord.currency.persistence.MemberCurrencyAccountRepository;
 import ltdjms.discord.currency.persistence.NegativeBalanceException;
 import ltdjms.discord.shared.DomainError;
 import ltdjms.discord.shared.Result;
+import ltdjms.discord.shared.cache.CacheKeyGenerator;
+import ltdjms.discord.shared.cache.CacheService;
 import ltdjms.discord.shared.events.BalanceChangedEvent;
 import ltdjms.discord.shared.events.DomainEventPublisher;
 import org.slf4j.Logger;
@@ -20,21 +22,28 @@ import org.slf4j.LoggerFactory;
 public class BalanceAdjustmentService {
 
     private static final Logger LOG = LoggerFactory.getLogger(BalanceAdjustmentService.class);
+    private static final int BALANCE_TTL_SECONDS = 300;
 
     private final MemberCurrencyAccountRepository accountRepository;
     private final GuildCurrencyConfigRepository configRepository;
     private final CurrencyTransactionService transactionService;
     private final DomainEventPublisher eventPublisher;
+    private final CacheService cacheService;
+    private final CacheKeyGenerator cacheKeyGenerator;
 
     public BalanceAdjustmentService(
             MemberCurrencyAccountRepository accountRepository,
             GuildCurrencyConfigRepository configRepository,
             CurrencyTransactionService transactionService,
-            DomainEventPublisher eventPublisher) {
+            DomainEventPublisher eventPublisher,
+            CacheService cacheService,
+            CacheKeyGenerator cacheKeyGenerator) {
         this.accountRepository = accountRepository;
         this.configRepository = configRepository;
         this.transactionService = transactionService;
         this.eventPublisher = eventPublisher;
+        this.cacheService = cacheService;
+        this.cacheKeyGenerator = cacheKeyGenerator;
     }
 
     /**
@@ -64,6 +73,9 @@ public class BalanceAdjustmentService {
 
         // Apply adjustment
         MemberCurrencyAccount updated = accountRepository.adjustBalance(guildId, userId, amount);
+
+        // Update cache
+        updateCachedBalance(guildId, userId, updated.balance());
 
         // Publish event
         eventPublisher.publish(new BalanceChangedEvent(guildId, userId, updated.balance()));
@@ -118,7 +130,10 @@ public class BalanceAdjustmentService {
         }
 
         MemberCurrencyAccount updated = adjustResult.getValue();
-        
+
+        // Update cache
+        updateCachedBalance(guildId, userId, updated.balance());
+
         // Publish event
         eventPublisher.publish(new BalanceChangedEvent(guildId, userId, updated.balance()));
 
@@ -198,6 +213,9 @@ public class BalanceAdjustmentService {
 
         MemberCurrencyAccount updated = adjustResult.getValue();
 
+        // Update cache
+        updateCachedBalance(guildId, userId, updated.balance());
+
         // Publish event
         eventPublisher.publish(new BalanceChangedEvent(guildId, userId, updated.balance()));
 
@@ -273,6 +291,9 @@ public class BalanceAdjustmentService {
         // Apply adjustment
         MemberCurrencyAccount updated = accountRepository.adjustBalance(guildId, userId, delta);
 
+        // Update cache
+        updateCachedBalance(guildId, userId, updated.balance());
+
         // Publish event
         eventPublisher.publish(new BalanceChangedEvent(guildId, userId, updated.balance()));
 
@@ -318,5 +339,18 @@ public class BalanceAdjustmentService {
                     action, currencyIcon, displayAmount, currencyName, targetUserMention,
                     currencyIcon, newBalance, currencyName);
         }
+    }
+
+    /**
+     * Updates the cached balance.
+     *
+     * @param guildId the Discord guild ID
+     * @param userId  the Discord user ID
+     * @param balance the new balance to cache
+     */
+    private void updateCachedBalance(long guildId, long userId, long balance) {
+        String cacheKey = cacheKeyGenerator.balanceKey(guildId, userId);
+        cacheService.put(cacheKey, balance, BALANCE_TTL_SECONDS);
+        LOG.debug("Updated cached balance: guildId={}, userId={}, balance={}", guildId, userId, balance);
     }
 }

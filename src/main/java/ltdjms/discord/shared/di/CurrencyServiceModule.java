@@ -12,6 +12,8 @@ import ltdjms.discord.currency.services.CurrencyTransactionService;
 import ltdjms.discord.currency.services.DefaultBalanceService;
 import ltdjms.discord.currency.services.EmojiValidator;
 import ltdjms.discord.currency.services.JdaEmojiValidator;
+import ltdjms.discord.shared.cache.CacheKeyGenerator;
+import ltdjms.discord.shared.cache.CacheService;
 import ltdjms.discord.shared.events.DomainEventPublisher;
 
 import javax.inject.Singleton;
@@ -32,8 +34,10 @@ public class CurrencyServiceModule {
     @Singleton
     public BalanceService provideBalanceService(
             MemberCurrencyAccountRepository accountRepository,
-            GuildCurrencyConfigRepository configRepository) {
-        return new DefaultBalanceService(accountRepository, configRepository);
+            GuildCurrencyConfigRepository configRepository,
+            CacheService cacheService,
+            CacheKeyGenerator cacheKeyGenerator) {
+        return new DefaultBalanceService(accountRepository, configRepository, cacheService, cacheKeyGenerator);
     }
 
     @Provides
@@ -58,7 +62,10 @@ public class CurrencyServiceModule {
             MemberCurrencyAccountRepository accountRepository,
             GuildCurrencyConfigRepository configRepository,
             CurrencyTransactionService transactionService,
-            DomainEventPublisher eventPublisher) {
-        return new BalanceAdjustmentService(accountRepository, configRepository, transactionService, eventPublisher);
+            DomainEventPublisher eventPublisher,
+            CacheService cacheService,
+            CacheKeyGenerator cacheKeyGenerator) {
+        return new BalanceAdjustmentService(accountRepository, configRepository, transactionService, eventPublisher,
+                cacheService, cacheKeyGenerator);
     }
 }

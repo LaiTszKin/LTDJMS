@@ -15,6 +15,10 @@ import ltdjms.discord.currency.services.CurrencyTransactionService;
 import ltdjms.discord.currency.services.DefaultBalanceService;
 import ltdjms.discord.currency.services.EmojiValidator;
 import ltdjms.discord.currency.services.NoOpEmojiValidator;
+import ltdjms.discord.shared.cache.CacheKeyGenerator;
+import ltdjms.discord.shared.cache.CacheService;
+import ltdjms.discord.shared.cache.DefaultCacheKeyGenerator;
+import ltdjms.discord.shared.cache.NoOpCacheService;
 import ltdjms.discord.shared.events.DomainEventPublisher;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -64,8 +68,12 @@ class SlashCommandPerformanceTest extends PostgresIntegrationTestBase {
         CurrencyTransactionService transactionService = new CurrencyTransactionService(transactionRepo);
         DomainEventPublisher eventPublisher = new DomainEventPublisher();
 
-        balanceService = new DefaultBalanceService(accountRepo, configRepo);
-        adjustmentService = new BalanceAdjustmentService(accountRepo, configRepo, transactionService, eventPublisher);
+        CacheService cacheService = NoOpCacheService.getInstance();
+        CacheKeyGenerator cacheKeyGenerator = new DefaultCacheKeyGenerator();
+
+        balanceService = new DefaultBalanceService(accountRepo, configRepo, cacheService, cacheKeyGenerator);
+        adjustmentService = new BalanceAdjustmentService(accountRepo, configRepo, transactionService, eventPublisher,
+                cacheService, cacheKeyGenerator);
         EmojiValidator emojiValidator = new NoOpEmojiValidator();
         configService = new CurrencyConfigService(configRepo, emojiValidator, eventPublisher);
         metrics = new SlashCommandMetrics();

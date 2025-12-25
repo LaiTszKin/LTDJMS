@@ -7,6 +7,8 @@ import ltdjms.discord.gametoken.services.GameTokenService;
 import ltdjms.discord.gametoken.services.GameTokenService.TokenAdjustmentResult;
 import ltdjms.discord.shared.DomainError;
 import ltdjms.discord.shared.Result;
+import ltdjms.discord.shared.cache.CacheKeyGenerator;
+import ltdjms.discord.shared.cache.CacheService;
 import ltdjms.discord.shared.events.DomainEventPublisher;
 import ltdjms.discord.shared.events.GameTokenChangedEvent;
 import org.junit.jupiter.api.BeforeEach;
@@ -16,6 +18,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 
 import java.time.Instant;
 import java.util.Optional;
@@ -27,6 +31,7 @@ import static org.mockito.Mockito.*;
  * Unit tests for GameTokenService.
  */
 @ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 class GameTokenServiceTest {
 
     private static final long TEST_GUILD_ID = 123456789012345678L;
@@ -34,15 +39,29 @@ class GameTokenServiceTest {
 
     @Mock
     private GameTokenAccountRepository accountRepository;
-    
+
     @Mock
     private DomainEventPublisher eventPublisher;
+
+    @Mock
+    private CacheService cacheService;
+
+    @Mock
+    private CacheKeyGenerator cacheKeyGenerator;
 
     private GameTokenService tokenService;
 
     @BeforeEach
     void setUp() {
-        tokenService = new GameTokenService(accountRepository, eventPublisher);
+        // Setup cache key generator to return proper keys
+        when(cacheKeyGenerator.gameTokenKey(TEST_GUILD_ID, TEST_USER_ID))
+                .thenReturn("cache:gametoken:" + TEST_GUILD_ID + ":" + TEST_USER_ID);
+
+        // CacheService returns empty by default (cache miss)
+        when(cacheService.get(any(String.class), any(Class.class))).thenReturn(Optional.empty());
+
+        tokenService = new GameTokenService(accountRepository, eventPublisher,
+                cacheService, cacheKeyGenerator);
     }
 
     @Test

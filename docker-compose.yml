@@ -1,4 +1,17 @@
 services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
   postgres:
     image: postgres:16-alpine
     environment:
@@ -23,11 +36,14 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     environment:
       DISCORD_BOT_TOKEN: ${DISCORD_BOT_TOKEN}
       DB_URL: jdbc:postgresql://postgres:5432/currency_bot
       DB_USERNAME: postgres
       DB_PASSWORD: postgres
+      REDIS_URI: redis://redis:6379
       JAVA_OPTS: >-
         -XX:+UseContainerSupport
         -XX:MaxRAMPercentage=75.0
@@ -37,4 +53,5 @@ services:
     restart: unless-stopped
 
 volumes:
+  redis_data:
   postgres_data:

@@ -15,6 +15,10 @@ import ltdjms.discord.currency.services.CurrencyTransactionService;
 import ltdjms.discord.currency.services.DefaultBalanceService;
 import ltdjms.discord.currency.services.EmojiValidator;
 import ltdjms.discord.currency.services.NoOpEmojiValidator;
+import ltdjms.discord.shared.cache.CacheKeyGenerator;
+import ltdjms.discord.shared.cache.CacheService;
+import ltdjms.discord.shared.cache.DefaultCacheKeyGenerator;
+import ltdjms.discord.shared.cache.NoOpCacheService;
 import ltdjms.discord.shared.events.DomainEventPublisher;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -45,8 +49,14 @@ class BalanceAdjustmentCommandIntegrationTest extends PostgresIntegrationTestBas
         CurrencyTransactionRepository transactionRepository = new JdbcCurrencyTransactionRepository(dataSource);
         CurrencyTransactionService transactionService = new CurrencyTransactionService(transactionRepository);
         DomainEventPublisher eventPublisher = new DomainEventPublisher();
-        adjustmentService = new BalanceAdjustmentService(accountRepository, configRepository, transactionService, eventPublisher);
-        balanceService = new DefaultBalanceService(accountRepository, configRepository);
+
+        // Create cache dependencies
+        CacheService cacheService = NoOpCacheService.getInstance(); // Use no-op cache for integration tests
+        CacheKeyGenerator cacheKeyGenerator = new DefaultCacheKeyGenerator();
+
+        adjustmentService = new BalanceAdjustmentService(accountRepository, configRepository, transactionService,
+                eventPublisher, cacheService, cacheKeyGenerator);
+        balanceService = new DefaultBalanceService(accountRepository, configRepository, cacheService, cacheKeyGenerator);
         EmojiValidator emojiValidator = new NoOpEmojiValidator();
         configService = new CurrencyConfigService(configRepository, emojiValidator, eventPublisher);
     }

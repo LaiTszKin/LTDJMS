@@ -22,6 +22,7 @@ public final class AppComponentFactory {
     public static AppComponent create(EnvironmentConfig envConfig) {
         return DaggerAppComponent.builder()
                 .databaseModule(new DatabaseModule(envConfig))
+                .cacheModule(new CacheModule(envConfig))
                 .build();
     }
 }

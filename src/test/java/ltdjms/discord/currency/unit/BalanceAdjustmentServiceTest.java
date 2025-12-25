@@ -11,6 +11,8 @@ import ltdjms.discord.currency.services.BalanceAdjustmentService.BalanceAdjustme
 import ltdjms.discord.currency.services.CurrencyTransactionService;
 import ltdjms.discord.shared.DomainError;
 import ltdjms.discord.shared.Result;
+import ltdjms.discord.shared.cache.CacheKeyGenerator;
+import ltdjms.discord.shared.cache.CacheService;
 import ltdjms.discord.shared.events.BalanceChangedEvent;
 import ltdjms.discord.shared.events.DomainEventPublisher;
 import org.junit.jupiter.api.BeforeEach;
@@ -20,6 +22,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 
 import java.time.Instant;
 import java.util.Optional;
@@ -32,6 +36,7 @@ import static org.mockito.Mockito.*;
  * Tests credit, debit, and error handling including non-negative balance enforcement.
  */
 @ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 @SuppressWarnings("deprecation") // covers both legacy exception-based API and new Result-based API
 class BalanceAdjustmentServiceTest {
 
@@ -50,12 +55,19 @@ class BalanceAdjustmentServiceTest {
     @Mock
     private DomainEventPublisher eventPublisher;
 
+    @Mock
+    private CacheService cacheService;
+
+    @Mock
+    private CacheKeyGenerator cacheKeyGenerator;
+
     private BalanceAdjustmentService adjustmentService;
 
     @BeforeEach
     void setUp() {
         adjustmentService = new BalanceAdjustmentService(
-                accountRepository, configRepository, transactionService, eventPublisher);
+                accountRepository, configRepository, transactionService, eventPublisher,
+                cacheService, cacheKeyGenerator);
     }
 
     @Test

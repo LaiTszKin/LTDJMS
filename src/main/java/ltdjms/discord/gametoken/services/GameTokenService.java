@@ -5,10 +5,14 @@ import ltdjms.discord.gametoken.persistence.GameTokenAccountRepository;
 import ltdjms.discord.gametoken.persistence.InsufficientTokensException;
 import ltdjms.discord.shared.DomainError;
 import ltdjms.discord.shared.Result;
+import ltdjms.discord.shared.cache.CacheKeyGenerator;
+import ltdjms.discord.shared.cache.CacheService;
 import ltdjms.discord.shared.events.DomainEventPublisher;
 import ltdjms.discord.shared.events.GameTokenChangedEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.util.Optional;
 
 /**
  * Service for managing game token accounts.
@@ -17,13 +21,22 @@ import org.slf4j.LoggerFactory;
 public class GameTokenService {
 
     private static final Logger LOG = LoggerFactory.getLogger(GameTokenService.class);
+    private static final int TOKEN_TTL_SECONDS = 300;
 
     private final GameTokenAccountRepository accountRepository;
     private final DomainEventPublisher eventPublisher;
+    private final CacheService cacheService;
+    private final CacheKeyGenerator cacheKeyGenerator;
 
-    public GameTokenService(GameTokenAccountRepository accountRepository, DomainEventPublisher eventPublisher) {
+    public GameTokenService(
+            GameTokenAccountRepository accountRepository,
+            DomainEventPublisher eventPublisher,
+            CacheService cacheService,
+            CacheKeyGenerator cacheKeyGenerator) {
         this.accountRepository = accountRepository;
         this.eventPublisher = eventPublisher;
+        this.cacheService = cacheService;
+        this.cacheKeyGenerator = cacheKeyGenerator;
     }
 
     /**
@@ -34,9 +47,17 @@ public class GameTokenService {
      * @return the token balance (0 if account doesn't exist)
      */
     public long getBalance(long guildId, long userId) {
-        return accountRepository.findByGuildIdAndUserId(guildId, userId)
+        Long cachedBalance = getCachedBalance(guildId, userId);
+        if (cachedBalance != null) {
+            return cachedBalance;
+        }
+
+        // Cache miss - get from database
+        long balance = accountRepository.findByGuildIdAndUserId(guildId, userId)
                 .map(GameTokenAccount::tokens)
                 .orElse(0L);
+        putCachedBalance(guildId, userId, balance);
+        return balance;
     }
 
     /**
@@ -57,6 +78,9 @@ public class GameTokenService {
 
         // Apply adjustment
         GameTokenAccount updated = accountRepository.adjustTokens(guildId, userId, amount);
+
+        // Update cache
+        updateCachedBalance(guildId, userId, updated.tokens());
 
         // Publish event
         eventPublisher.publish(new GameTokenChangedEvent(guildId, userId, updated.tokens()));
@@ -102,7 +126,10 @@ public class GameTokenService {
             throw new IllegalArgumentException("Tokens to deduct must be positive: " + tokens);
         }
         GameTokenAccount updated = accountRepository.adjustTokens(guildId, userId, -tokens);
-        
+
+        // Update cache
+        updateCachedBalance(guildId, userId, updated.tokens());
+
         // Publish event
         eventPublisher.publish(new GameTokenChangedEvent(guildId, userId, updated.tokens()));
         
@@ -133,7 +160,10 @@ public class GameTokenService {
         }
 
         GameTokenAccount updated = adjustResult.getValue();
-        
+
+        // Update cache
+        updateCachedBalance(guildId, userId, updated.tokens());
+
         // Publish event
         eventPublisher.publish(new GameTokenChangedEvent(guildId, userId, updated.tokens()));
 
@@ -166,6 +196,9 @@ public class GameTokenService {
         Result<GameTokenAccount, DomainError> result = accountRepository.tryAdjustTokens(guildId, userId, -tokens);
         
         if (result.isOk()) {
+            // Update cache
+            updateCachedBalance(guildId, userId, result.getValue().tokens());
+
             // Publish event
             eventPublisher.publish(new GameTokenChangedEvent(guildId, userId, result.getValue().tokens()));
         }
@@ -192,5 +225,49 @@ public class GameTokenService {
             return String.format("%s %,d game tokens to/from %s\nNew balance: %,d game tokens",
                     action, displayAmount, targetUserMention, newTokens);
         }
+    }
+
+    /**
+     * Gets the token balance from cache.
+     *
+     * @param guildId the Discord guild ID
+     * @param userId  the Discord user ID
+     * @return the cached balance, or null if not in cache
+     */
+    private Long getCachedBalance(long guildId, long userId) {
+        String cacheKey = cacheKeyGenerator.gameTokenKey(guildId, userId);
+        Optional<Long> cached = cacheService.get(cacheKey, Long.class);
+        if (cached.isPresent()) {
+            LOG.debug("Cache hit for game token: guildId={}, userId={}", guildId, userId);
+            return cached.get();
+        }
+        LOG.debug("Cache miss for game token: guildId={}, userId={}", guildId, userId);
+        return null;
+    }
+
+    /**
+     * Puts the token balance into cache.
+     *
+     * @param guildId the Discord guild ID
+     * @param userId  the Discord user ID
+     * @param balance the balance to cache
+     */
+    private void putCachedBalance(long guildId, long userId, long balance) {
+        String cacheKey = cacheKeyGenerator.gameTokenKey(guildId, userId);
+        cacheService.put(cacheKey, balance, TOKEN_TTL_SECONDS);
+        LOG.debug("Cached game token: guildId={}, userId={}, balance={}", guildId, userId, balance);
+    }
+
+    /**
+     * Updates the cached token balance.
+     *
+     * @param guildId the Discord guild ID
+     * @param userId  the Discord user ID
+     * @param balance the new balance to cache
+     */
+    private void updateCachedBalance(long guildId, long userId, long balance) {
+        String cacheKey = cacheKeyGenerator.gameTokenKey(guildId, userId);
+        cacheService.put(cacheKey, balance, TOKEN_TTL_SECONDS);
+        LOG.debug("Updated cached game token: guildId={}, userId={}, balance={}", guildId, userId, balance);
     }
 }

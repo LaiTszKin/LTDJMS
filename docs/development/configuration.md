@@ -70,6 +70,15 @@
   - 預設：`1800000`（毫秒）
   - 對應：`db.pool.max-lifetime`
 
+### 2.4 Redis / 緩存設定
+
+以下設定對應 `RedisCacheService` 與緩存行為：
+
+- `REDIS_URI`
+  - 預設：`redis://localhost:6379`
+  - 對應 config key：`redis.uri`
+  - 格式：`redis://[host]:[port]`
+
 ## 3. `.env` 檔案範例
 
 在專案根目錄建立 `.env` 檔案，可填入：
@@ -89,6 +98,9 @@ DB_POOL_MIN_IDLE=2
 DB_POOL_CONNECTION_TIMEOUT=30000
 DB_POOL_IDLE_TIMEOUT=600000
 DB_POOL_MAX_LIFETIME=1800000
+
+# Redis / Cache (optional, has default)
+REDIS_URI=redis://localhost:6379
 ```
 
 `DotEnvLoader` 會從指定目錄（預設為 `user.dir`）讀取 `.env`，並將其中的 key 映射到對應的 config key。
@@ -119,6 +131,10 @@ db {
     idle-timeout = ${?DB_POOL_IDLE_TIMEOUT}
     max-lifetime = ${?DB_POOL_MAX_LIFETIME}
   }
+}
+
+redis {
+  uri = ${?REDIS_URI}
 }
 ```
 

@@ -4,6 +4,35 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.12.0] - 2025-12-25
+
+### Added
+- **Redis 緩存系統**：新增統一的快取抽象層，基於 Redis 實現，為高頻查詢場景提供效能優化
+- **CacheService 介面**：統一的緩存操作介面，支援泛型 get/put/invalidate 操作
+- **RedisCacheService**：使用 Lettuce 用戶端的 Redis 實作，非阻塞 I/O
+- **NoOpCacheService**：Redis 不可用時的降級實作，確保服務可用性
+- **CacheKeyGenerator**：統一的緩存鍵格式管理（`cache:balance:guildId:userId`）
+- **CacheInvalidationListener**：監聽 BalanceChangedEvent 與 GameTokenChangedEvent，實現事件驅動的緩存失效
+- **服務整合**：DefaultBalanceService、GameTokenService 與 BalanceAdjustmentService 整合緩存查詢與更新
+- **Docker Compose**：新增 Redis 7-alpine 服務，包含健康檢查與資料持久化
+- **環境配置**：REDIS_URI 環境變數支援（預設：`redis://localhost:6379`）
+
+### Technical
+- pom.xml 新增 Lettuce 6.3.2.RELEASE 依賴
+- 新增 CacheModule DI 模組，提供所有緩存相關依賴
+- DiscordCurrencyBot 啟動時註冊 CacheInvalidationListener 到 DomainEventPublisher
+- 緩存 TTL 設定為 300 秒（5 分鐘），平衡效能與最終一致性
+- 完整測試覆蓋：新增 7 個緩存相關測試類（單元測試 + 整合測試）
+
+### Documentation
+- **docs/architecture/cache-architecture.md**：緩存架構深度解析（一致性模型、事件失效、TTL 策略、效能考量）
+- **docs/modules/cache.md**：緩存模組使用指南（API 使用、配置、故障排除）
+- **docs/development/debugging.md**：開發除錯指南（日誌分析、IDE 除錯、常見問題解決）
+- **docs/operations/performance-tuning.md**：效能調優指南（JVM、資料庫、緩存、應用層優化）
+- docs/README.md 新增緩存相關文檔索引與閱讀順序建議
+- docs/development/configuration.md 新增 REDIS_URI 配置說明
+- docs/getting-started/quickstart.md 更新 Redis 服務啟動說明
+
 ## [0.11.1] - 2025-12-25
 
 ### Fixed

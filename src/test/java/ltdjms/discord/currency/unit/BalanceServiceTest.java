@@ -10,12 +10,16 @@ import ltdjms.discord.currency.services.BalanceService;
 import ltdjms.discord.currency.services.DefaultBalanceService;
 import ltdjms.discord.shared.DomainError;
 import ltdjms.discord.shared.Result;
+import ltdjms.discord.shared.cache.CacheKeyGenerator;
+import ltdjms.discord.shared.cache.CacheService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 
 import java.time.Instant;
 import java.util.Optional;
@@ -28,6 +32,7 @@ import static org.mockito.Mockito.*;
  * Tests balance retrieval logic, auto-creation of accounts, and currency configuration handling.
  */
 @ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 @SuppressWarnings("deprecation") // exercises deprecated getBalance alongside new tryGetBalance API
 class BalanceServiceTest {
 
@@ -40,11 +45,21 @@ class BalanceServiceTest {
     @Mock
     private GuildCurrencyConfigRepository configRepository;
 
+    @Mock
+    private CacheService cacheService;
+
+    @Mock
+    private CacheKeyGenerator cacheKeyGenerator;
+
     private BalanceService balanceService;
 
     @BeforeEach
     void setUp() {
-        balanceService = new DefaultBalanceService(accountRepository, configRepository);
+        // CacheService returns empty by default (cache miss)
+        when(cacheService.get(any(), any(Class.class))).thenReturn(Optional.empty());
+
+        balanceService = new DefaultBalanceService(accountRepository, configRepository,
+                cacheService, cacheKeyGenerator);
     }
 
     @Test

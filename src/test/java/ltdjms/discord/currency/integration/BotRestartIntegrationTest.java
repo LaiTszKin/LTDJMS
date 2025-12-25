@@ -15,6 +15,10 @@ import ltdjms.discord.currency.services.CurrencyTransactionService;
 import ltdjms.discord.currency.services.DefaultBalanceService;
 import ltdjms.discord.currency.services.EmojiValidator;
 import ltdjms.discord.currency.services.NoOpEmojiValidator;
+import ltdjms.discord.shared.cache.CacheKeyGenerator;
+import ltdjms.discord.shared.cache.CacheService;
+import ltdjms.discord.shared.cache.DefaultCacheKeyGenerator;
+import ltdjms.discord.shared.cache.NoOpCacheService;
 import ltdjms.discord.shared.events.DomainEventPublisher;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -39,7 +43,10 @@ class BotRestartIntegrationTest extends PostgresIntegrationTestBase {
         CurrencyTransactionRepository transactionRepo = new JdbcCurrencyTransactionRepository(dataSource);
         CurrencyTransactionService transactionService = new CurrencyTransactionService(transactionRepo);
         DomainEventPublisher eventPublisher = new DomainEventPublisher();
-        return new BalanceAdjustmentService(accountRepo, configRepo, transactionService, eventPublisher);
+        CacheService cacheService = NoOpCacheService.getInstance();
+        CacheKeyGenerator cacheKeyGenerator = new DefaultCacheKeyGenerator();
+        return new BalanceAdjustmentService(accountRepo, configRepo, transactionService, eventPublisher,
+                cacheService, cacheKeyGenerator);
     }
 
     // ============================================================
@@ -56,7 +63,7 @@ class BotRestartIntegrationTest extends PostgresIntegrationTestBase {
             // Given - set up initial state with services
             GuildCurrencyConfigRepository configRepo1 = new JdbcGuildCurrencyConfigRepository(dataSource);
             MemberCurrencyAccountRepository accountRepo1 = new JdbcMemberCurrencyAccountRepository(dataSource);
-            DefaultBalanceService balanceService1 = new DefaultBalanceService(accountRepo1, configRepo1);
+            DefaultBalanceService balanceService1 = new DefaultBalanceService(accountRepo1, configRepo1, NoOpCacheService.getInstance(), new DefaultCacheKeyGenerator());
             BalanceAdjustmentService adjustmentService1 = createAdjustmentService(accountRepo1, configRepo1);
 
             // Create account and set balance
@@ -70,7 +77,7 @@ class BotRestartIntegrationTest extends PostgresIntegrationTestBase {
             // When - simulate restart by creating new service instances (new connections)
             GuildCurrencyConfigRepository configRepo2 = new JdbcGuildCurrencyConfigRepository(dataSource);
             MemberCurrencyAccountRepository accountRepo2 = new JdbcMemberCurrencyAccountRepository(dataSource);
-            DefaultBalanceService balanceService2 = new DefaultBalanceService(accountRepo2, configRepo2);
+            DefaultBalanceService balanceService2 = new DefaultBalanceService(accountRepo2, configRepo2, NoOpCacheService.getInstance(), new DefaultCacheKeyGenerator());
 
             // Then - balance should be preserved
             BalanceView preservedBalance = balanceService2.getBalance(TEST_GUILD_ID, TEST_USER_ID);
@@ -96,7 +103,7 @@ class BotRestartIntegrationTest extends PostgresIntegrationTestBase {
             // When - simulate restart
             GuildCurrencyConfigRepository newConfigRepo = new JdbcGuildCurrencyConfigRepository(dataSource);
             MemberCurrencyAccountRepository newAccountRepo = new JdbcMemberCurrencyAccountRepository(dataSource);
-            DefaultBalanceService newBalanceService = new DefaultBalanceService(newAccountRepo, newConfigRepo);
+            DefaultBalanceService newBalanceService = new DefaultBalanceService(newAccountRepo, newConfigRepo, NoOpCacheService.getInstance(), new DefaultCacheKeyGenerator());
 
             // Then - all balances preserved
             assertThat(newBalanceService.getBalance(TEST_GUILD_ID, user1).balance()).isEqualTo(100L);
@@ -121,7 +128,7 @@ class BotRestartIntegrationTest extends PostgresIntegrationTestBase {
             // When - simulate restart
             GuildCurrencyConfigRepository newConfigRepo = new JdbcGuildCurrencyConfigRepository(dataSource);
             MemberCurrencyAccountRepository newAccountRepo = new JdbcMemberCurrencyAccountRepository(dataSource);
-            DefaultBalanceService newBalanceService = new DefaultBalanceService(newAccountRepo, newConfigRepo);
+            DefaultBalanceService newBalanceService = new DefaultBalanceService(newAccountRepo, newConfigRepo, NoOpCacheService.getInstance(), new DefaultCacheKeyGenerator());
 
             // Then
             assertThat(newBalanceService.getBalance(guild1, TEST_USER_ID).balance()).isEqualTo(300L);
@@ -213,7 +220,7 @@ class BotRestartIntegrationTest extends PostgresIntegrationTestBase {
             // When - simulate restart and verify
             GuildCurrencyConfigRepository newConfigRepo = new JdbcGuildCurrencyConfigRepository(dataSource);
             MemberCurrencyAccountRepository newAccountRepo = new JdbcMemberCurrencyAccountRepository(dataSource);
-            DefaultBalanceService newBalanceService = new DefaultBalanceService(newAccountRepo, newConfigRepo);
+            DefaultBalanceService newBalanceService = new DefaultBalanceService(newAccountRepo, newConfigRepo, NoOpCacheService.getInstance(), new DefaultCacheKeyGenerator());
 
             // Then - balance should be exactly 100, not duplicated
             assertThat(newBalanceService.getBalance(TEST_GUILD_ID, TEST_USER_ID).balance()).isEqualTo(100L);
@@ -241,7 +248,7 @@ class BotRestartIntegrationTest extends PostgresIntegrationTestBase {
             newAdjustmentService.adjustBalance(TEST_GUILD_ID, TEST_USER_ID, 80L);
 
             // Final verification
-            DefaultBalanceService finalBalanceService = new DefaultBalanceService(newAccountRepo, newConfigRepo);
+            DefaultBalanceService finalBalanceService = new DefaultBalanceService(newAccountRepo, newConfigRepo, NoOpCacheService.getInstance(), new DefaultCacheKeyGenerator());
             // Expected: 100 + 50 - 30 + 80 = 200
             assertThat(finalBalanceService.getBalance(TEST_GUILD_ID, TEST_USER_ID).balance()).isEqualTo(200L);
         }
@@ -253,7 +260,7 @@ class BotRestartIntegrationTest extends PostgresIntegrationTestBase {
             GuildCurrencyConfigRepository configRepo = new JdbcGuildCurrencyConfigRepository(dataSource);
             MemberCurrencyAccountRepository accountRepo = new JdbcMemberCurrencyAccountRepository(dataSource);
             BalanceAdjustmentService adjustmentService = createAdjustmentService(accountRepo, configRepo);
-            DefaultBalanceService balanceService = new DefaultBalanceService(accountRepo, configRepo);
+            DefaultBalanceService balanceService = new DefaultBalanceService(accountRepo, configRepo, NoOpCacheService.getInstance(), new DefaultCacheKeyGenerator());
 
             // Initial adjustment
             adjustmentService.adjustBalance(TEST_GUILD_ID, TEST_USER_ID, 1000L);
@@ -264,7 +271,7 @@ class BotRestartIntegrationTest extends PostgresIntegrationTestBase {
             // Simulate restart
             GuildCurrencyConfigRepository newConfigRepo = new JdbcGuildCurrencyConfigRepository(dataSource);
             MemberCurrencyAccountRepository newAccountRepo = new JdbcMemberCurrencyAccountRepository(dataSource);
-            DefaultBalanceService newBalanceService = new DefaultBalanceService(newAccountRepo, newConfigRepo);
+            DefaultBalanceService newBalanceService = new DefaultBalanceService(newAccountRepo, newConfigRepo, NoOpCacheService.getInstance(), new DefaultCacheKeyGenerator());
             BalanceAdjustmentService newAdjustmentService = createAdjustmentService(newAccountRepo, newConfigRepo);;
 
             // Check balance after restart
@@ -296,7 +303,7 @@ class BotRestartIntegrationTest extends PostgresIntegrationTestBase {
             DomainEventPublisher eventPublisher = new DomainEventPublisher();
             CurrencyConfigService configService = new CurrencyConfigService(configRepo, emojiValidator, eventPublisher);
             BalanceAdjustmentService adjustmentService = createAdjustmentService(accountRepo, configRepo);
-            DefaultBalanceService balanceService = new DefaultBalanceService(accountRepo, configRepo);
+            DefaultBalanceService balanceService = new DefaultBalanceService(accountRepo, configRepo, NoOpCacheService.getInstance(), new DefaultCacheKeyGenerator());
 
             configService.updateConfig(TEST_GUILD_ID, "鑽石", "💎");
             adjustmentService.adjustBalance(TEST_GUILD_ID, TEST_USER_ID, 999L);
@@ -310,7 +317,7 @@ class BotRestartIntegrationTest extends PostgresIntegrationTestBase {
             // When - simulate restart
             GuildCurrencyConfigRepository newConfigRepo = new JdbcGuildCurrencyConfigRepository(dataSource);
             MemberCurrencyAccountRepository newAccountRepo = new JdbcMemberCurrencyAccountRepository(dataSource);
-            DefaultBalanceService newBalanceService = new DefaultBalanceService(newAccountRepo, newConfigRepo);
+            DefaultBalanceService newBalanceService = new DefaultBalanceService(newAccountRepo, newConfigRepo, NoOpCacheService.getInstance(), new DefaultCacheKeyGenerator());
 
             // Then - both balance and config should be preserved
             BalanceView after = newBalanceService.getBalance(TEST_GUILD_ID, TEST_USER_ID);
@@ -338,7 +345,7 @@ class BotRestartIntegrationTest extends PostgresIntegrationTestBase {
             MemberCurrencyAccountRepository newAccountRepo = new JdbcMemberCurrencyAccountRepository(dataSource);
             DomainEventPublisher newEventPublisher = new DomainEventPublisher();
             CurrencyConfigService newConfigService = new CurrencyConfigService(newConfigRepo, emojiValidator, newEventPublisher);
-            DefaultBalanceService newBalanceService = new DefaultBalanceService(newAccountRepo, newConfigRepo);
+            DefaultBalanceService newBalanceService = new DefaultBalanceService(newAccountRepo, newConfigRepo, NoOpCacheService.getInstance(), new DefaultCacheKeyGenerator());
 
             // Update config after restart
             newConfigService.updateConfig(TEST_GUILD_ID, "Emerald", "💚");
