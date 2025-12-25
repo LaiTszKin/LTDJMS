@@ -25,7 +25,9 @@ WORKDIR /app
 COPY --from=builder /app/app.jar app.jar
 
 # Create non-root user for security
-RUN groupadd -r botuser && useradd -r -g botuser botuser
+RUN groupadd -r botuser 2>/dev/null || true && \
+    useradd -r -u 1000 -g botuser botuser 2>/dev/null || \
+    useradd -r -u 1001 -g botuser botuser
 USER botuser
 
 # Set default environment variables

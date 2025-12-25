@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.11.1] - 2025-12-25
+
+### Fixed
+- **Docker UID 衝突**：修正容器中非 root 使用者建立邏輯，當 UID 1000 已被佔用時自動回退到 1001，避免容器啟動失敗
+- **JVM 記憶體配置**：新增容器感知的 JVM 記憶體管理設定，使用 `-XX:MaxRAMPercentage=75.0` 與 `-XX:InitialRAMPercentage=50.0`
+- 垃圾收集器優化：在容器化環境中使用 G1GC (`-XX:+UseG1GC`) 提升效能
+
 ## [0.11.0] - 2025-12-25
 
 ### Added

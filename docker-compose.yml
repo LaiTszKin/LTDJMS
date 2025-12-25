@@ -28,6 +28,12 @@ services:
       DB_URL: jdbc:postgresql://postgres:5432/currency_bot
       DB_USERNAME: postgres
       DB_PASSWORD: postgres
+      JAVA_OPTS: >-
+        -XX:+UseContainerSupport
+        -XX:MaxRAMPercentage=75.0
+        -XX:InitialRAMPercentage=50.0
+        -XX:+UseG1GC
+    entrypoint: ["/bin/bash", "-c", "java $$JAVA_OPTS -jar app.jar"]
     restart: unless-stopped
 
 volumes:
