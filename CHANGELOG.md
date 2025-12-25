@@ -4,6 +4,29 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.11.0] - 2025-12-25
+
+### Added
+- **貨幣購買商品**：新增商品貨幣價格（`currency_price`）欄位，允許使用者直接使用貨幣購買商品
+- **商店購買按鈕**：商店頁面新增「💰 購買商品」按鈕，僅在有可購買商品時顯示
+- **購買選單**：使用者可從下拉選單選擇商品並確認購買（顯示商品資訊、價格、餘額）
+- **購買交易記錄**：新增 `PRODUCT_PURCHASE` 交易來源，記錄貨幣購買交易
+- **CurrencyPurchaseService**：新增專門的購買服務，處理餘額驗證、貨幣扣除、獎勵發放
+- **ShopSelectMenuHandler**：新增購買選單事件處理器
+
+### Changed
+- `Product` 新增 `currencyPrice` 欄位與 `hasCurrencyPrice()`、`formatCurrencyPrice()` 方法
+- `ProductService` 支援建立與更新商品時設定貨幣價格
+- `ProductService` 新增 `getProductsForPurchase()` 方法，返回可購買商品清單
+- 管理面板商品編輯 Modal 新增「貨幣價格」輸入欄位
+- 商店頁面商品顯示新增貨幣價格資訊（💰 價格：X 貨幣）
+
+### Technical
+- 新增 `V009__add_currency_price_to_product.sql` 資料庫遷移
+- 新增 `CurrencyPurchaseService` 處理購買邏輯
+- 新增 `ShopSelectMenuHandler` 處理購買選單事件
+- 更新 `ShopView` 支援購買按鈕、購買選單、價格顯示
+
 ## [0.10.0] - 2025-12-25
 
 ### Added

@@ -2,6 +2,7 @@ package ltdjms.discord.product.services;
 
 import ltdjms.discord.product.domain.Product;
 import ltdjms.discord.product.domain.ProductRepository;
+import ltdjms.discord.product.persistence.JdbcProductRepository;
 import ltdjms.discord.redemption.domain.RedemptionCodeRepository;
 import ltdjms.discord.shared.DomainError;
 import ltdjms.discord.shared.Result;
@@ -42,6 +43,7 @@ public class ProductService {
      * @param description  the product description (can be null)
      * @param rewardType   the type of reward (can be null for no automatic reward)
      * @param rewardAmount the reward amount (can be null for no automatic reward)
+     * @param currencyPrice the currency price for direct purchase (can be null for currency purchase not available)
      * @return Result containing the created product or an error
      */
     public Result<Product, DomainError> createProduct(
@@ -49,7 +51,8 @@ public class ProductService {
             String name,
             String description,
             Product.RewardType rewardType,
-            Long rewardAmount) {
+            Long rewardAmount,
+            Long currencyPrice) {
 
         // Validate name
         if (name == null || name.isBlank()) {
@@ -75,11 +78,16 @@ public class ProductService {
             return Result.err(DomainError.invalidInput("獎勵金額必須大於 0"));
         }
 
+        // Validate currency price
+        if (currencyPrice != null && currencyPrice <= 0) {
+            return Result.err(DomainError.invalidInput("貨幣價格必須大於 0"));
+        }
+
         try {
-            Product product = Product.create(guildId, name, description, rewardType, rewardAmount);
+            Product product = Product.create(guildId, name, description, rewardType, rewardAmount, currencyPrice);
             Product saved = productRepository.save(product);
-            LOG.info("Created product: guildId={}, name={}, rewardType={}, rewardAmount={}",
-                    guildId, name, rewardType, rewardAmount);
+            LOG.info("Created product: guildId={}, name={}, rewardType={}, rewardAmount={}, currencyPrice={}",
+                    guildId, name, rewardType, rewardAmount, currencyPrice);
 
             // Publish event after successful save
             eventPublisher.publish(new ProductChangedEvent(
@@ -100,6 +108,7 @@ public class ProductService {
      * @param description  the new description
      * @param rewardType   the new reward type
      * @param rewardAmount the new reward amount
+     * @param currencyPrice the new currency price
      * @return Result containing the updated product or an error
      */
     public Result<Product, DomainError> updateProduct(
@@ -107,7 +116,8 @@ public class ProductService {
             String name,
             String description,
             Product.RewardType rewardType,
-            Long rewardAmount) {
+            Long rewardAmount,
+            Long currencyPrice) {
 
         // Validate name
         if (name == null || name.isBlank()) {
@@ -141,8 +151,13 @@ public class ProductService {
             return Result.err(DomainError.invalidInput("獎勵金額必須大於 0"));
         }
 
+        // Validate currency price
+        if (currencyPrice != null && currencyPrice <= 0) {
+            return Result.err(DomainError.invalidInput("貨幣價格必須大於 0"));
+        }
+
         try {
-            Product updated = existing.withUpdatedDetails(name, description, rewardType, rewardAmount);
+            Product updated = existing.withUpdatedDetails(name, description, rewardType, rewardAmount, currencyPrice);
             Product saved = productRepository.update(updated);
             LOG.info("Updated product: id={}, name={}", productId, name);
 
@@ -226,5 +241,22 @@ public class ProductService {
      */
     public long getProductCount(long guildId) {
         return productRepository.countByGuildId(guildId);
+    }
+
+    /**
+     * Gets products available for purchase with currency.
+     * Only products with a currency price set (greater than 0) are returned.
+     *
+     * @param guildId the Discord guild ID
+     * @return a list of products that can be purchased with currency
+     */
+    public List<Product> getProductsForPurchase(long guildId) {
+        if (productRepository instanceof JdbcProductRepository jdbcRepo) {
+            return jdbcRepo.findByGuildIdWithCurrencyPrice(guildId);
+        }
+        // Fallback to filtering all products if not using JdbcProductRepository
+        return productRepository.findByGuildId(guildId).stream()
+                .filter(Product::hasCurrencyPrice)
+                .toList();
     }
 }

@@ -1,5 +1,6 @@
 package ltdjms.discord.shop.commands;
 
+import ltdjms.discord.product.services.ProductService;
 import ltdjms.discord.shop.services.ShopService;
 import ltdjms.discord.shop.services.ShopView;
 import net.dv8tion.jda.api.EmbedBuilder;
@@ -7,22 +8,25 @@ import net.dv8tion.jda.api.entities.MessageEmbed;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import net.dv8tion.jda.api.interactions.components.ActionRow;
+import net.dv8tion.jda.api.interactions.components.selections.StringSelectMenu;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.List;
 
 /**
- * Handles button interactions for shop pagination.
+ * Handles button interactions for shop pagination and purchase.
  */
 public class ShopButtonHandler extends ListenerAdapter {
 
     private static final Logger LOG = LoggerFactory.getLogger(ShopButtonHandler.class);
 
     private final ShopService shopService;
+    private final ProductService productService;
 
-    public ShopButtonHandler(ShopService shopService) {
+    public ShopButtonHandler(ShopService shopService, ProductService productService) {
         this.shopService = shopService;
+        this.productService = productService;
     }
 
     @Override
@@ -49,6 +53,8 @@ public class ShopButtonHandler extends ListenerAdapter {
             } else if (buttonId.startsWith(ShopView.BUTTON_NEXT_PAGE)) {
                 int page = parsePageFromButtonId(buttonId, ShopView.BUTTON_NEXT_PAGE);
                 showShopPage(event, guildId, page);
+            } else if (buttonId.equals(ShopView.BUTTON_PURCHASE)) {
+                showPurchaseMenu(event, guildId);
             }
         } catch (Exception e) {
             LOG.error("Error handling shop button: {}", buttonId, e);
@@ -58,7 +64,8 @@ public class ShopButtonHandler extends ListenerAdapter {
 
     private boolean isShopButton(String buttonId) {
         return buttonId.startsWith(ShopView.BUTTON_PREV_PAGE) ||
-               buttonId.startsWith(ShopView.BUTTON_NEXT_PAGE);
+               buttonId.startsWith(ShopView.BUTTON_NEXT_PAGE) ||
+               buttonId.equals(ShopView.BUTTON_PURCHASE);
     }
 
     private int parsePageFromButtonId(String buttonId, String prefix) {
@@ -81,13 +88,33 @@ public class ShopButtonHandler extends ListenerAdapter {
             );
         }
 
+        // Get products available for purchase
+        var productsForPurchase = productService.getProductsForPurchase(guildId);
+
         List<ActionRow> components = ShopView.buildShopComponents(
                 shopPage.currentPage(),
-                shopPage.totalPages()
+                shopPage.totalPages(),
+                productsForPurchase
         );
 
         event.editMessageEmbeds(embed)
                 .setComponents(components)
+                .queue();
+    }
+
+    private void showPurchaseMenu(ButtonInteractionEvent event, long guildId) {
+        var productsForPurchase = productService.getProductsForPurchase(guildId);
+
+        if (productsForPurchase.isEmpty()) {
+            event.reply("目前沒有可用貨幣購買的商品").setEphemeral(true).queue();
+            return;
+        }
+
+        StringSelectMenu purchaseMenu = ShopView.buildPurchaseMenu(productsForPurchase);
+
+        event.reply("請選擇要購買的商品")
+                .setEphemeral(true)
+                .addActionRow(purchaseMenu)
                 .queue();
     }
 }

@@ -36,6 +36,8 @@ import ltdjms.discord.product.domain.ProductRepository;
 import ltdjms.discord.shared.events.DomainEventPublisher;
 import ltdjms.discord.shop.commands.ShopButtonHandler;
 import ltdjms.discord.shop.commands.ShopCommandHandler;
+import ltdjms.discord.shop.commands.ShopSelectMenuHandler;
+import ltdjms.discord.shop.services.CurrencyPurchaseService;
 import ltdjms.discord.shop.services.ShopService;
 
 import javax.inject.Singleton;
@@ -194,14 +196,38 @@ public class CommandHandlerModule {
 
     @Provides
     @Singleton
-    public ShopCommandHandler provideShopCommandHandler(ShopService shopService) {
-        return new ShopCommandHandler(shopService);
+    public ShopCommandHandler provideShopCommandHandler(
+            ShopService shopService,
+            ProductService productService) {
+        return new ShopCommandHandler(shopService, productService);
     }
 
     @Provides
     @Singleton
-    public ShopButtonHandler provideShopButtonHandler(ShopService shopService) {
-        return new ShopButtonHandler(shopService);
+    public ShopButtonHandler provideShopButtonHandler(
+            ShopService shopService,
+            ProductService productService) {
+        return new ShopButtonHandler(shopService, productService);
+    }
+
+    @Provides
+    @Singleton
+    public ltdjms.discord.shop.services.CurrencyPurchaseService provideCurrencyPurchaseService(
+            ProductService productService,
+            BalanceService balanceService,
+            BalanceAdjustmentService balanceAdjustmentService,
+            CurrencyTransactionService currencyTransactionService) {
+        return new ltdjms.discord.shop.services.CurrencyPurchaseService(
+                productService, balanceService, balanceAdjustmentService, currencyTransactionService);
+    }
+
+    @Provides
+    @Singleton
+    public ShopSelectMenuHandler provideShopSelectMenuHandler(
+            ProductService productService,
+            BalanceService balanceService,
+            ltdjms.discord.shop.services.CurrencyPurchaseService currencyPurchaseService) {
+        return new ShopSelectMenuHandler(productService, balanceService, currencyPurchaseService);
     }
 
     @Provides

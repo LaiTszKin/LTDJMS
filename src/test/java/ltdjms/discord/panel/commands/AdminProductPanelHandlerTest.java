@@ -47,7 +47,7 @@ class AdminProductPanelHandlerTest {
         sessionManager.registerSession(guildId, adminId, hook);
 
         productService = mock(ltdjms.discord.product.services.ProductService.class);
-        var product = new Product(productId, guildId, "Test Product", null, null, null, Instant.now(), Instant.now());
+        var product = new Product(Long.valueOf(productId), guildId, "Test Product", null, null, null, null, Instant.now(), Instant.now());
         when(productService.getProduct(productId)).thenReturn(Optional.of(product));
         when(productService.getProducts(guildId)).thenReturn(List.of(product));
 
@@ -102,8 +102,8 @@ class AdminProductPanelHandlerTest {
         when(reply.setEphemeral(true)).thenReturn(reply);
         doAnswer(invocation -> null).when(reply).queue();
 
-        var newProduct = new Product(productId, guildId, "New Product", null, null, null, Instant.now(), Instant.now());
-        when(productService.createProduct(eq(guildId), anyString(), any(), any(), any()))
+        var newProduct = new Product(Long.valueOf(productId), guildId, "New Product", null, null, null, null, Instant.now(), Instant.now());
+        when(productService.createProduct(eq(guildId), anyString(), any(), any(), any(), any()))
                 .thenReturn(ltdjms.discord.shared.Result.ok(newProduct));
         when(productService.getProducts(guildId)).thenReturn(List.of(newProduct));
         when(redemptionService.getCodeStats(newProduct.id()))

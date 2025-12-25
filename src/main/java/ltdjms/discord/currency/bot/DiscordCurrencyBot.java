@@ -9,6 +9,7 @@ import ltdjms.discord.shared.EnvironmentConfig;
 import ltdjms.discord.shared.di.AppComponent;
 import ltdjms.discord.shared.di.AppComponentFactory;
 import ltdjms.discord.shop.commands.ShopButtonHandler;
+import ltdjms.discord.shop.commands.ShopSelectMenuHandler;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
 import org.slf4j.Logger;
@@ -56,6 +57,7 @@ public class DiscordCurrencyBot {
         AdminPanelButtonHandler adminPanelButtonHandler = appComponent.adminPanelButtonHandler();
         AdminProductPanelHandler adminProductPanelHandler = appComponent.adminProductPanelHandler();
         ShopButtonHandler shopButtonHandler = appComponent.shopButtonHandler();
+        ShopSelectMenuHandler shopSelectMenuHandler = appComponent.shopSelectMenuHandler();
 
         // Build JDA instance with default non-privileged gateway intents to avoid
         // DISALLOWED_INTENTS (4014) errors when the bot token does not have
@@ -65,7 +67,8 @@ public class DiscordCurrencyBot {
                 userPanelButtonHandler,
                 adminPanelButtonHandler,
                 adminProductPanelHandler,
-                shopButtonHandler
+                shopButtonHandler,
+                shopSelectMenuHandler
         );
 
         this.jda = JDABuilder.createLight(envConfig.getDiscordBotToken())
@@ -141,14 +144,16 @@ public class DiscordCurrencyBot {
             UserPanelButtonHandler userPanelButtonHandler,
             AdminPanelButtonHandler adminPanelButtonHandler,
             AdminProductPanelHandler adminProductPanelHandler,
-            ShopButtonHandler shopButtonHandler
+            ShopButtonHandler shopButtonHandler,
+            ShopSelectMenuHandler shopSelectMenuHandler
     ) {
         return List.of(
                 slashCommandListener,
                 userPanelButtonHandler,
                 adminPanelButtonHandler,
                 adminProductPanelHandler,
-                shopButtonHandler
+                shopButtonHandler,
+                shopSelectMenuHandler
         );
     }
 }

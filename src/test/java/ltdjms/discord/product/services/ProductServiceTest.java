@@ -59,12 +59,12 @@ class ProductServiceTest {
             when(productRepository.save(any(Product.class))).thenAnswer(invocation -> {
                 Product p = invocation.getArgument(0);
                 return new Product(1L, p.guildId(), p.name(), p.description(),
-                        p.rewardType(), p.rewardAmount(), p.createdAt(), p.updatedAt());
+                        p.rewardType(), p.rewardAmount(), p.currencyPrice(), p.createdAt(), p.updatedAt());
             });
 
             // When
             Result<Product, DomainError> result = productService.createProduct(
-                    TEST_GUILD_ID, "VIP 服務", "專人服務", null, null);
+                    TEST_GUILD_ID, "VIP 服務", "專人服務", null, null, null);
 
             // Then
             assertThat(result.isOk()).isTrue();
@@ -81,12 +81,12 @@ class ProductServiceTest {
             when(productRepository.save(any(Product.class))).thenAnswer(invocation -> {
                 Product p = invocation.getArgument(0);
                 return new Product(1L, p.guildId(), p.name(), p.description(),
-                        p.rewardType(), p.rewardAmount(), p.createdAt(), p.updatedAt());
+                        p.rewardType(), p.rewardAmount(), p.currencyPrice(), p.createdAt(), p.updatedAt());
             });
 
             // When
             Result<Product, DomainError> result = productService.createProduct(
-                    TEST_GUILD_ID, "新手禮包", "歡迎", Product.RewardType.CURRENCY, 1000L);
+                    TEST_GUILD_ID, "新手禮包", "歡迎", Product.RewardType.CURRENCY, 1000L, null);
 
             // Then
             assertThat(result.isOk()).isTrue();
@@ -99,7 +99,7 @@ class ProductServiceTest {
         void shouldRejectBlankName() {
             // When
             Result<Product, DomainError> result = productService.createProduct(
-                    TEST_GUILD_ID, "   ", "desc", null, null);
+                    TEST_GUILD_ID, "   ", "desc", null, null, null);
 
             // Then
             assertThat(result.isErr()).isTrue();
@@ -115,7 +115,7 @@ class ProductServiceTest {
 
             // When
             Result<Product, DomainError> result = productService.createProduct(
-                    TEST_GUILD_ID, "已存在", "desc", null, null);
+                    TEST_GUILD_ID, "已存在", "desc", null, null, null);
 
             // Then
             assertThat(result.isErr()).isTrue();
@@ -130,7 +130,7 @@ class ProductServiceTest {
 
             // When - reward type without amount
             Result<Product, DomainError> result = productService.createProduct(
-                    TEST_GUILD_ID, "Test", "desc", Product.RewardType.CURRENCY, null);
+                    TEST_GUILD_ID, "Test", "desc", Product.RewardType.CURRENCY, null, null);
 
             // Then
             assertThat(result.isErr()).isTrue();
@@ -145,7 +145,7 @@ class ProductServiceTest {
 
             // When
             Result<Product, DomainError> result = productService.createProduct(
-                    TEST_GUILD_ID, "Test", "desc", Product.RewardType.CURRENCY, 0L);
+                    TEST_GUILD_ID, "Test", "desc", Product.RewardType.CURRENCY, 0L, null);
 
             // Then
             assertThat(result.isErr()).isTrue();
@@ -163,7 +163,7 @@ class ProductServiceTest {
             // Given
             Instant now = Instant.now();
             Product existing = new Product(1L, TEST_GUILD_ID, "舊名稱", "舊描述",
-                    null, null, now, now);
+                    null, null, null, now, now);
 
             when(productRepository.findById(1L)).thenReturn(Optional.of(existing));
             when(productRepository.existsByGuildIdAndNameExcludingId(TEST_GUILD_ID, "新名稱", 1L))
@@ -172,7 +172,7 @@ class ProductServiceTest {
 
             // When
             Result<Product, DomainError> result = productService.updateProduct(
-                    1L, "新名稱", "新描述", Product.RewardType.CURRENCY, 500L);
+                    1L, "新名稱", "新描述", Product.RewardType.CURRENCY, 500L, null);
 
             // Then
             assertThat(result.isOk()).isTrue();
@@ -188,7 +188,7 @@ class ProductServiceTest {
 
             // When
             Result<Product, DomainError> result = productService.updateProduct(
-                    999L, "Test", "desc", null, null);
+                    999L, "Test", "desc", null, null, null);
 
             // Then
             assertThat(result.isErr()).isTrue();
@@ -201,7 +201,7 @@ class ProductServiceTest {
             // Given
             Instant now = Instant.now();
             Product existing = new Product(1L, TEST_GUILD_ID, "舊名稱", null,
-                    null, null, now, now);
+                    null, null, null, now, now);
 
             when(productRepository.findById(1L)).thenReturn(Optional.of(existing));
             when(productRepository.existsByGuildIdAndNameExcludingId(TEST_GUILD_ID, "已存在", 1L))
@@ -209,7 +209,7 @@ class ProductServiceTest {
 
             // When
             Result<Product, DomainError> result = productService.updateProduct(
-                    1L, "已存在", null, null, null);
+                    1L, "已存在", null, null, null, null);
 
             // Then
             assertThat(result.isErr()).isTrue();
@@ -227,7 +227,7 @@ class ProductServiceTest {
             // Given
             Instant now = Instant.now();
             Product existing = new Product(1L, TEST_GUILD_ID, "Test", null,
-                    null, null, now, now);
+                    null, null, null, now, now);
 
             when(productRepository.findById(1L)).thenReturn(Optional.of(existing));
             when(redemptionCodeRepository.invalidateByProductId(1L)).thenReturn(0);
@@ -248,7 +248,7 @@ class ProductServiceTest {
             // Given
             Instant now = Instant.now();
             Product existing = new Product(1L, TEST_GUILD_ID, "Test", null,
-                    null, null, now, now);
+                    null, null, null, now, now);
 
             when(productRepository.findById(1L)).thenReturn(Optional.of(existing));
             when(redemptionCodeRepository.invalidateByProductId(1L)).thenReturn(5);
@@ -289,8 +289,8 @@ class ProductServiceTest {
             // Given
             Instant now = Instant.now();
             List<Product> products = List.of(
-                    new Product(1L, TEST_GUILD_ID, "Product 1", null, null, null, now, now),
-                    new Product(2L, TEST_GUILD_ID, "Product 2", null, null, null, now, now)
+                    new Product(1L, TEST_GUILD_ID, "Product 1", null, null, null, null, now, now),
+                    new Product(2L, TEST_GUILD_ID, "Product 2", null, null, null, null, now, now)
             );
             when(productRepository.findByGuildId(TEST_GUILD_ID)).thenReturn(products);
 

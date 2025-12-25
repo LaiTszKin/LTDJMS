@@ -38,7 +38,7 @@ class ShopServiceTest {
 
     private Product createProduct(long id, String name, String description, Product.RewardType rewardType, Long rewardAmount) {
         Instant now = Instant.now();
-        return new Product(id, TEST_GUILD_ID, name, description, rewardType, rewardAmount, now, now);
+        return new Product(Long.valueOf(id), TEST_GUILD_ID, name, description, rewardType, rewardAmount, null, now, now);
     }
 
     @Nested

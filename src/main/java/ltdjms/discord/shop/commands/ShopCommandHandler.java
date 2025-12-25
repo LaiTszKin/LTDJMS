@@ -1,6 +1,7 @@
 package ltdjms.discord.shop.commands;
 
 import ltdjms.discord.currency.bot.SlashCommandListener;
+import ltdjms.discord.product.services.ProductService;
 import ltdjms.discord.shop.services.ShopService;
 import ltdjms.discord.shop.services.ShopView;
 import net.dv8tion.jda.api.entities.MessageEmbed;
@@ -19,9 +20,11 @@ public class ShopCommandHandler implements SlashCommandListener.CommandHandler {
     private static final Logger LOG = LoggerFactory.getLogger(ShopCommandHandler.class);
 
     private final ShopService shopService;
+    private final ProductService productService;
 
-    public ShopCommandHandler(ShopService shopService) {
+    public ShopCommandHandler(ShopService shopService, ProductService productService) {
         this.shopService = shopService;
+        this.productService = productService;
     }
 
     @Override
@@ -51,14 +54,20 @@ public class ShopCommandHandler implements SlashCommandListener.CommandHandler {
                         shopPage.totalPages(),
                         guildId
                 );
+
+                // Get products available for purchase
+                var productsForPurchase = productService.getProductsForPurchase(guildId);
+
                 components = ShopView.buildShopComponents(
                         shopPage.currentPage(),
-                        shopPage.totalPages()
+                        shopPage.totalPages(),
+                        productsForPurchase
                 );
             }
 
             event.replyEmbeds(embed)
                     .addComponents(components)
+                    .setEphemeral(true)
                     .queue();
 
             LOG.debug("Shop page displayed: {} products, page {}/{}",

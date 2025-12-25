@@ -4,6 +4,7 @@ import ltdjms.discord.panel.commands.AdminPanelButtonHandler;
 import ltdjms.discord.panel.commands.AdminProductPanelHandler;
 import ltdjms.discord.panel.commands.UserPanelButtonHandler;
 import ltdjms.discord.shop.commands.ShopButtonHandler;
+import ltdjms.discord.shop.commands.ShopSelectMenuHandler;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -25,13 +26,15 @@ class DiscordCurrencyBotTest {
         AdminPanelButtonHandler adminPanelButtonHandler = mock(AdminPanelButtonHandler.class);
         AdminProductPanelHandler adminProductPanelHandler = mock(AdminProductPanelHandler.class);
         ShopButtonHandler shopButtonHandler = mock(ShopButtonHandler.class);
+        ShopSelectMenuHandler shopSelectMenuHandler = mock(ShopSelectMenuHandler.class);
 
         List<Object> listeners = DiscordCurrencyBot.buildEventListeners(
                 slashCommandListener,
                 userPanelButtonHandler,
                 adminPanelButtonHandler,
                 adminProductPanelHandler,
-                shopButtonHandler
+                shopButtonHandler,
+                shopSelectMenuHandler
         );
 
         assertThat(listeners)
@@ -40,7 +43,8 @@ class DiscordCurrencyBotTest {
                         userPanelButtonHandler,
                         adminPanelButtonHandler,
                         adminProductPanelHandler,
-                        shopButtonHandler
+                        shopButtonHandler,
+                        shopSelectMenuHandler
                 );
     }
 }

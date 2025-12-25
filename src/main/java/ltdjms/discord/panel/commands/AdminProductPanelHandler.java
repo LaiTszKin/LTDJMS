@@ -301,6 +301,13 @@ public class AdminProductPanelHandler extends ListenerAdapter {
             builder.addField("獎勵", "無自動獎勵（僅限人工處理）", false);
         }
 
+        // Currency price info
+        if (product.hasCurrencyPrice()) {
+            builder.addField("貨幣價格", product.formatCurrencyPrice(), true);
+        } else {
+            builder.addField("貨幣價格", "不可用貨幣購買", true);
+        }
+
         // Code stats
         RedemptionCodeRepository.CodeStats stats = redemptionService.getCodeStats(product.id());
         builder.addField("兌換碼統計",
@@ -357,12 +364,19 @@ public class AdminProductPanelHandler extends ListenerAdapter {
                 .setMaxLength(15)
                 .build();
 
+        TextInput currencyPriceInput = TextInput.create("currency_price", "貨幣價格", TextInputStyle.SHORT)
+                .setPlaceholder("輸入貨幣購買價格（留空表示不可用貨幣購買）")
+                .setRequired(false)
+                .setMaxLength(15)
+                .build();
+
         Modal modal = Modal.create(MODAL_CREATE_PRODUCT, "建立商品")
                 .addComponents(
                         ActionRow.of(nameInput),
                         ActionRow.of(descInput),
                         ActionRow.of(rewardTypeInput),
-                        ActionRow.of(rewardAmountInput)
+                        ActionRow.of(rewardAmountInput),
+                        ActionRow.of(currencyPriceInput)
                 )
                 .build();
 
@@ -376,6 +390,7 @@ public class AdminProductPanelHandler extends ListenerAdapter {
         String description = getModalValueOrNull(event, "description");
         String rewardTypeStr = getModalValueOrNull(event, "reward_type");
         String rewardAmountStr = getModalValueOrNull(event, "reward_amount");
+        String currencyPriceStr = getModalValueOrNull(event, "currency_price");
 
         // Parse reward type and amount
         Product.RewardType rewardType = null;
@@ -399,8 +414,19 @@ public class AdminProductPanelHandler extends ListenerAdapter {
             }
         }
 
+        // Parse currency price
+        Long currencyPrice = null;
+        if (currencyPriceStr != null && !currencyPriceStr.isBlank()) {
+            try {
+                currencyPrice = Long.parseLong(currencyPriceStr);
+            } catch (NumberFormatException e) {
+                event.reply("貨幣價格格式錯誤，請輸入有效數字").setEphemeral(true).queue();
+                return;
+            }
+        }
+
         Result<Product, DomainError> result = productService.createProduct(
-                guildId, name, description, rewardType, rewardAmount);
+                guildId, name, description, rewardType, rewardAmount, currencyPrice);
 
         if (result.isErr()) {
             event.reply("建立失敗：" + result.getError().message()).setEphemeral(true).queue();
@@ -474,12 +500,28 @@ public class AdminProductPanelHandler extends ListenerAdapter {
                                 .build();
                     }
 
+                    String currencyPriceValue = product.currencyPrice() != null ? String.valueOf(product.currencyPrice()) : "";
+                    TextInput currencyPriceInput = TextInput.create("currency_price", "貨幣價格", TextInputStyle.SHORT)
+                            .setPlaceholder("輸入貨幣購買價格（留空表示不可用貨幣購買）")
+                            .setRequired(false)
+                            .setMaxLength(15)
+                            .build();
+                    if (!currencyPriceValue.isBlank()) {
+                        currencyPriceInput = TextInput.create("currency_price", "貨幣價格", TextInputStyle.SHORT)
+                                .setPlaceholder("輸入貨幣購買價格（留空表示不可用貨幣購買）")
+                                .setValue(currencyPriceValue)
+                                .setRequired(false)
+                                .setMaxLength(15)
+                                .build();
+                    }
+
                     Modal modal = Modal.create(MODAL_EDIT_PRODUCT + productId, "編輯商品")
                             .addComponents(
                                     ActionRow.of(nameInput),
                                     ActionRow.of(descInput),
                                     ActionRow.of(rewardTypeInput),
-                                    ActionRow.of(rewardAmountInput)
+                                    ActionRow.of(rewardAmountInput),
+                                    ActionRow.of(currencyPriceInput)
                             )
                             .build();
 
@@ -497,6 +539,7 @@ public class AdminProductPanelHandler extends ListenerAdapter {
         String description = getModalValueOrNull(event, "description");
         String rewardTypeStr = getModalValueOrNull(event, "reward_type");
         String rewardAmountStr = getModalValueOrNull(event, "reward_amount");
+        String currencyPriceStr = getModalValueOrNull(event, "currency_price");
 
         // Parse reward type and amount
         Product.RewardType rewardType = null;
@@ -520,8 +563,19 @@ public class AdminProductPanelHandler extends ListenerAdapter {
             }
         }
 
+        // Parse currency price
+        Long currencyPrice = null;
+        if (currencyPriceStr != null && !currencyPriceStr.isBlank()) {
+            try {
+                currencyPrice = Long.parseLong(currencyPriceStr);
+            } catch (NumberFormatException e) {
+                event.reply("貨幣價格格式錯誤，請輸入有效數字").setEphemeral(true).queue();
+                return;
+            }
+        }
+
         Result<Product, DomainError> result = productService.updateProduct(
-                productId, name, description, rewardType, rewardAmount);
+                productId, name, description, rewardType, rewardAmount, currencyPrice);
 
         if (result.isErr()) {
             event.reply("更新失敗：" + result.getError().message()).setEphemeral(true).queue();

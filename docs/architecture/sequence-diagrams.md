@@ -345,7 +345,101 @@ sequenceDiagram
 
 ---
 
-## 7. 錯誤處理模式
+## 7. 貨幣購買商品流程（V009 新增）
+
+當使用者使用貨幣直接購買商品時：
+
+```mermaid
+sequenceDiagram
+    actor User as 使用者
+    participant ShopView as ShopView
+    participant SelectHandler as ShopSelectMenuHandler
+    participant PurchaseSvc as CurrencyPurchaseService
+    participant ProductSvc as ProductService
+    participant BalanceSvc as BalanceService
+    participant AdjustSvc as BalanceAdjustmentService
+    participant TxnService as CurrencyTransactionService
+    participant DB as 資料庫
+
+    User->>ShopView: 輸入 /shop 指令
+    ShopView->>ShopView: 顯示商店頁面（含購買按鈕）
+    ShopView-->>User: 顯示商品列表
+
+    User->>SelectHandler: 點擊「💰 購買商品」
+    SelectHandler->>SelectHandler: 查詢可購買商品（currency_price IS NOT NULL）
+    SelectHandler->>ShopView: 顯示商品選單（StringSelectMenu）
+    ShopView-->>User: 選擇商品
+
+    User->>SelectHandler: 選擇商品
+    SelectHandler->>ProductSvc: getProduct(productId)
+    ProductSvc-->>SelectHandler: Optional<Product>
+
+    alt 商品不存在或無價格
+        SelectHandler-->>User: 顯示錯誤訊息
+    else 商品存在且有價格
+        SelectHandler->>BalanceSvc: tryGetBalance(guildId, userId)
+        BalanceSvc->>DB: SELECT * FROM member_currency_account
+        DB-->>BalanceSvc: Optional<MemberCurrencyAccount>
+        BalanceSvc-->>SelectHandler: Result.ok(account)
+
+        SelectHandler->>ShopView: buildPurchaseConfirmEmbed(product, balance)
+        ShopView-->>User: 顯示購買確認介面
+
+        User->>SelectHandler: 點擊「確認購買」
+        SelectHandler->>PurchaseSvc: purchaseProduct(guildId, userId, productId)
+
+        PurchaseSvc->>ProductSvc: getProduct(productId)
+        ProductSvc-->>PurchaseSvc: Optional<Product>
+
+        alt 商品無效
+            PurchaseSvc-->>SelectHandler: Result.err(商品不可購買)
+        else 商品有效
+            PurchaseSvc->>BalanceSvc: tryGetBalance(guildId, userId)
+            BalanceSvc-->>PurchaseSvc: Result.ok(account)
+
+            alt 餘額不足
+                PurchaseSvc-->>SelectHandler: Result.err(餘額不足)
+                SelectHandler-->>User: 顯示錯誤訊息
+            else 餘額足夠
+                PurchaseSvc->>AdjustSvc: tryAdjustBalance(guildId, userId, -price)
+                AdjustSvc->>DB: UPDATE member_currency_account<br/>SET balance = balance - ?<br/>WHERE guild_id = ? AND user_id = ?
+                DB-->>AdjustSvc: Result.ok(adjustment)
+                AdjustSvc-->>PurchaseSvc: Result.ok(newBalance)
+
+                PurchaseSvc->>TxnService: recordTransaction(...)
+                TxnService->>DB: INSERT INTO currency_transaction<br/>(guild_id, user_id, amount,<br/>balance, source, description)<br/>VALUES (..., 'PRODUCT_PURCHASE', ...)
+                DB-->>TxnService: saved
+                TxnService-->>PurchaseSvc: void
+
+                alt 商品有獎勵
+                    alt 獎勵類型 = CURRENCY
+                        PurchaseSvc->>AdjustSvc: tryAdjustBalance(guildId, userId, +rewardAmount)
+                        AdjustSvc-->>PurchaseSvc: Result.ok(adjustment)
+                        PurchaseSvc->>TxnService: recordTransaction(...)
+                        TxnService->>DB: INSERT INTO currency_transaction<br/>(..., 'REDEMPTION_CODE', ...)
+                    else 獎勵類型 = TOKEN
+                        Note over PurchaseSvc: 代幣獎勵處理（待實作）
+                    end
+                end
+
+                PurchaseSvc-->>SelectHandler: Result.ok(PurchaseResult)
+                SelectHandler-->>User: 顯示成功訊息（含獎勵）
+            end
+        end
+    end
+```
+
+**關鍵點**（V009 新增）：
+1. **商品篩選**：只顯示 `currency_price IS NOT NULL` 的商品
+2. **餘額檢查**：購買前顯示當前餘額與購買後餘額
+3. **交易記錄**：購買交易記錄為 `Source.PRODUCT_PURCHASE`
+4. **獎勵發放**：若商品有獎勵，購買後自動發放至使用者帳戶
+5. **獎勵交易**：獎勵發放記錄為 `Source.REDEMPTION_CODE`（重用現有來源）
+6. **代幣獎勵**：目前僅支援貨幣獎勵，代幣獎勵待實作
+
+---
+
+## 8. 錯誤處理模式
 
 系統統一使用 `Result<T, DomainError>` 處理錯誤：
 

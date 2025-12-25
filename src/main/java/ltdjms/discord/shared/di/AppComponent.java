@@ -29,6 +29,8 @@ import ltdjms.discord.shared.EnvironmentConfig;
 import ltdjms.discord.shared.events.DomainEventPublisher;
 import ltdjms.discord.panel.services.UserPanelUpdateListener;
 import ltdjms.discord.shop.commands.ShopButtonHandler;
+import ltdjms.discord.shop.commands.ShopSelectMenuHandler;
+import ltdjms.discord.shop.services.CurrencyPurchaseService;
 import org.jooq.DSLContext;
 
 import javax.inject.Singleton;
@@ -59,7 +61,7 @@ public interface AppComponent {
     // Configuration
     EnvironmentConfig environmentConfig();
     DatabaseConfig databaseConfig();
-    
+
     // Events
     DomainEventPublisher domainEventPublisher();
     UserPanelUpdateListener userPanelUpdateListener();
@@ -108,6 +110,8 @@ public interface AppComponent {
 
     // Shop Handlers
     ShopButtonHandler shopButtonHandler();
+    ShopSelectMenuHandler shopSelectMenuHandler();
+    CurrencyPurchaseService currencyPurchaseService();
 
     // Slash Command Listener
     SlashCommandListener slashCommandListener();

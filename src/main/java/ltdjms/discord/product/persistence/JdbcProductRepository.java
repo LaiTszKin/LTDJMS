@@ -28,8 +28,8 @@ public class JdbcProductRepository implements ProductRepository {
     @Override
     public Product save(Product product) {
         String sql = "INSERT INTO product " +
-                "(guild_id, name, description, reward_type, reward_amount, created_at, updated_at) " +
-                "VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING id";
+                "(guild_id, name, description, reward_type, reward_amount, currency_price, created_at, updated_at) " +
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING id";
 
         try (Connection conn = dataSource.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
@@ -43,8 +43,13 @@ public class JdbcProductRepository implements ProductRepository {
             } else {
                 stmt.setNull(5, Types.BIGINT);
             }
-            stmt.setTimestamp(6, Timestamp.from(product.createdAt()));
-            stmt.setTimestamp(7, Timestamp.from(product.updatedAt()));
+            if (product.currencyPrice() != null) {
+                stmt.setLong(6, product.currencyPrice());
+            } else {
+                stmt.setNull(6, Types.BIGINT);
+            }
+            stmt.setTimestamp(7, Timestamp.from(product.createdAt()));
+            stmt.setTimestamp(8, Timestamp.from(product.updatedAt()));
 
             try (ResultSet rs = stmt.executeQuery()) {
                 if (rs.next()) {
@@ -56,6 +61,7 @@ public class JdbcProductRepository implements ProductRepository {
                             product.description(),
                             product.rewardType(),
                             product.rewardAmount(),
+                            product.currencyPrice(),
                             product.createdAt(),
                             product.updatedAt()
                     );
@@ -80,7 +86,7 @@ public class JdbcProductRepository implements ProductRepository {
         }
 
         String sql = "UPDATE product SET " +
-                "name = ?, description = ?, reward_type = ?, reward_amount = ?, updated_at = ? " +
+                "name = ?, description = ?, reward_type = ?, reward_amount = ?, currency_price = ?, updated_at = ? " +
                 "WHERE id = ?";
 
         try (Connection conn = dataSource.getConnection();
@@ -94,8 +100,13 @@ public class JdbcProductRepository implements ProductRepository {
             } else {
                 stmt.setNull(4, Types.BIGINT);
             }
-            stmt.setTimestamp(5, Timestamp.from(product.updatedAt()));
-            stmt.setLong(6, product.id());
+            if (product.currencyPrice() != null) {
+                stmt.setLong(5, product.currencyPrice());
+            } else {
+                stmt.setNull(5, Types.BIGINT);
+            }
+            stmt.setTimestamp(6, Timestamp.from(product.updatedAt()));
+            stmt.setLong(7, product.id());
 
             int affected = stmt.executeUpdate();
             if (affected == 0) {
@@ -113,7 +124,7 @@ public class JdbcProductRepository implements ProductRepository {
 
     @Override
     public Optional<Product> findById(long id) {
-        String sql = "SELECT id, guild_id, name, description, reward_type, reward_amount, " +
+        String sql = "SELECT id, guild_id, name, description, reward_type, reward_amount, currency_price, " +
                 "created_at, updated_at FROM product WHERE id = ?";
 
         try (Connection conn = dataSource.getConnection();
@@ -135,7 +146,7 @@ public class JdbcProductRepository implements ProductRepository {
 
     @Override
     public Optional<Product> findByGuildIdAndName(long guildId, String name) {
-        String sql = "SELECT id, guild_id, name, description, reward_type, reward_amount, " +
+        String sql = "SELECT id, guild_id, name, description, reward_type, reward_amount, currency_price, " +
                 "created_at, updated_at FROM product WHERE guild_id = ? AND name = ?";
 
         try (Connection conn = dataSource.getConnection();
@@ -158,7 +169,7 @@ public class JdbcProductRepository implements ProductRepository {
 
     @Override
     public List<Product> findByGuildId(long guildId) {
-        String sql = "SELECT id, guild_id, name, description, reward_type, reward_amount, " +
+        String sql = "SELECT id, guild_id, name, description, reward_type, reward_amount, currency_price, " +
                 "created_at, updated_at FROM product WHERE guild_id = ? ORDER BY created_at DESC";
 
         List<Product> products = new ArrayList<>();
@@ -185,7 +196,7 @@ public class JdbcProductRepository implements ProductRepository {
 
     @Override
     public List<Product> findByGuildIdPaginated(long guildId, int page, int size) {
-        String sql = "SELECT id, guild_id, name, description, reward_type, reward_amount, " +
+        String sql = "SELECT id, guild_id, name, description, reward_type, reward_amount, currency_price, " +
                 "created_at, updated_at FROM product WHERE guild_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?";
 
         List<Product> products = new ArrayList<>();
@@ -304,6 +315,9 @@ public class JdbcProductRepository implements ProductRepository {
         long rewardAmountValue = rs.getLong("reward_amount");
         Long rewardAmount = rs.wasNull() ? null : rewardAmountValue;
 
+        long currencyPriceValue = rs.getLong("currency_price");
+        Long currencyPrice = rs.wasNull() ? null : currencyPriceValue;
+
         return new Product(
                 rs.getLong("id"),
                 rs.getLong("guild_id"),
@@ -311,8 +325,43 @@ public class JdbcProductRepository implements ProductRepository {
                 rs.getString("description"),
                 rewardType,
                 rewardAmount,
+                currencyPrice,
                 rs.getTimestamp("created_at").toInstant(),
                 rs.getTimestamp("updated_at").toInstant()
         );
+    }
+
+    /**
+     * Finds all products with a currency price set for the given guild.
+     * Only products where currency_price is not null and greater than 0 are returned.
+     *
+     * @param guildId the guild ID
+     * @return list of products available for currency purchase
+     */
+    public List<Product> findByGuildIdWithCurrencyPrice(long guildId) {
+        String sql = "SELECT id, guild_id, name, description, reward_type, reward_amount, currency_price, " +
+                "created_at, updated_at FROM product WHERE guild_id = ? AND currency_price IS NOT NULL AND currency_price > 0 " +
+                "ORDER BY name ASC";
+
+        List<Product> products = new ArrayList<>();
+
+        try (Connection conn = dataSource.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setLong(1, guildId);
+
+            try (ResultSet rs = stmt.executeQuery()) {
+                while (rs.next()) {
+                    products.add(mapRow(rs));
+                }
+            }
+
+            LOG.debug("Found {} products with currency price for guildId={}", products.size(), guildId);
+            return products;
+
+        } catch (SQLException e) {
+            LOG.error("Failed to find products with currency price for guildId={}", guildId, e);
+            throw new RepositoryException("Failed to find products with currency price", e);
+        }
     }
 }

@@ -78,8 +78,8 @@ class RedemptionServiceTest {
         void shouldGenerateCodesSuccessfully() {
             // Given
             Instant now = Instant.now();
-            Product product = new Product(TEST_PRODUCT_ID, TEST_GUILD_ID, "Test", null,
-                    null, null, now, now);
+            Product product = new Product(Long.valueOf(TEST_PRODUCT_ID), TEST_GUILD_ID, "Test", null,
+                    null, null, null, now, now);
 
             when(productRepository.findById(TEST_PRODUCT_ID)).thenReturn(Optional.of(product));
             when(codeGenerator.generate())
@@ -152,8 +152,8 @@ class RedemptionServiceTest {
         void shouldRedeemCodeWithoutReward() {
             // Given
             Instant now = Instant.now();
-            Product product = new Product(TEST_PRODUCT_ID, TEST_GUILD_ID, "VIP 服務", "專人服務",
-                    null, null, now, now);
+            Product product = new Product(Long.valueOf(TEST_PRODUCT_ID), TEST_GUILD_ID, "VIP 服務", "專人服務",
+                    null, null, null, now, now);
             RedemptionCode code = new RedemptionCode(1L, "ABCD1234EFGH5678", TEST_PRODUCT_ID,
                     TEST_GUILD_ID, null, null, null, now, null, 1);
             ProductRedemptionTransaction transaction = ProductRedemptionTransaction.create(
@@ -186,8 +186,8 @@ class RedemptionServiceTest {
         void shouldRedeemCodeWithCurrencyReward() {
             // Given
             Instant now = Instant.now();
-            Product product = new Product(TEST_PRODUCT_ID, TEST_GUILD_ID, "禮包", null,
-                    Product.RewardType.CURRENCY, 1000L, now, now);
+            Product product = new Product(Long.valueOf(TEST_PRODUCT_ID), TEST_GUILD_ID, "禮包", null,
+                    Product.RewardType.CURRENCY, 1000L, null, now, now);
             RedemptionCode code = new RedemptionCode(1L, "ABCD1234EFGH5678", TEST_PRODUCT_ID,
                     TEST_GUILD_ID, null, null, null, now, null, 1);
             ProductRedemptionTransaction transaction = ProductRedemptionTransaction.create(
@@ -223,8 +223,8 @@ class RedemptionServiceTest {
         void shouldRedeemCodeWithTokenReward() {
             // Given
             Instant now = Instant.now();
-            Product product = new Product(TEST_PRODUCT_ID, TEST_GUILD_ID, "代幣包", null,
-                    Product.RewardType.TOKEN, 50L, now, now);
+            Product product = new Product(Long.valueOf(TEST_PRODUCT_ID), TEST_GUILD_ID, "代幣包", null,
+                    Product.RewardType.TOKEN, 50L, null, now, now);
             RedemptionCode code = new RedemptionCode(1L, "ABCD1234EFGH5678", TEST_PRODUCT_ID,
                     TEST_GUILD_ID, null, null, null, now, null, 1);
             ProductRedemptionTransaction transaction = ProductRedemptionTransaction.create(
@@ -260,8 +260,8 @@ class RedemptionServiceTest {
         void shouldConvertCodeToUppercase() {
             // Given
             Instant now = Instant.now();
-            Product product = new Product(TEST_PRODUCT_ID, TEST_GUILD_ID, "Test", null,
-                    null, null, now, now);
+            Product product = new Product(Long.valueOf(TEST_PRODUCT_ID), TEST_GUILD_ID, "Test", null,
+                    null, null, null, now, now);
             RedemptionCode code = new RedemptionCode(1L, "ABCD1234EFGH5678", TEST_PRODUCT_ID,
                     TEST_GUILD_ID, null, null, null, now, null, 1);
             ProductRedemptionTransaction transaction = ProductRedemptionTransaction.create(
@@ -405,7 +405,7 @@ class RedemptionServiceTest {
             // Given
             Instant now = Instant.now();
             Product product = new Product(1L, TEST_GUILD_ID, "VIP 服務", "專人服務",
-                    null, null, now, now);
+                    null, null, null, now, now);
             RedemptionCode code = new RedemptionCode(1L, "ABCD1234EFGH5678", 1L,
                     TEST_GUILD_ID, null, TEST_USER_ID, now, now, null, 1);
 
@@ -427,7 +427,7 @@ class RedemptionServiceTest {
             // Given
             Instant now = Instant.now();
             Product product = new Product(1L, TEST_GUILD_ID, "禮包", null,
-                    Product.RewardType.CURRENCY, 1000L, now, now);
+                    Product.RewardType.CURRENCY, 1000L, null, now, now);
             RedemptionCode code = new RedemptionCode(1L, "ABCD1234EFGH5678", 1L,
                     TEST_GUILD_ID, null, TEST_USER_ID, now, now, null, 1);
 

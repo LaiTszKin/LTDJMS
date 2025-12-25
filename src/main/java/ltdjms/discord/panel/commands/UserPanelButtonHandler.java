@@ -4,6 +4,7 @@ import ltdjms.discord.currency.domain.CurrencyTransaction;
 import ltdjms.discord.currency.services.CurrencyTransactionService;
 import ltdjms.discord.gametoken.domain.GameTokenTransaction;
 import ltdjms.discord.gametoken.services.GameTokenTransactionService.TransactionPage;
+import ltdjms.discord.panel.services.UserPanelEmbedBuilder;
 import ltdjms.discord.panel.services.UserPanelService;
 import ltdjms.discord.panel.services.UserPanelView;
 import ltdjms.discord.redemption.domain.ProductRedemptionTransaction;
@@ -195,33 +196,19 @@ public class UserPanelButtonHandler extends ListenerAdapter {
         }
 
         UserPanelView panelView = result.getValue();
-        MessageEmbed embed = buildPanelEmbed(panelView, event.getUser().getAsMention());
+        MessageEmbed embed = UserPanelEmbedBuilder.buildPanelEmbed(panelView, event.getUser().getAsMention());
 
         event.editMessageEmbeds(embed)
-                .setComponents(
-                        ActionRow.of(
-                                Button.secondary(BUTTON_PREFIX_CURRENCY_HISTORY, "💰 查看貨幣流水"),
-                                Button.secondary(BUTTON_PREFIX_HISTORY, "📜 查看遊戲代幣流水"),
-                                Button.secondary(BUTTON_PREFIX_PRODUCT_REDEMPTION_HISTORY, "🛒 查看商品流水")
-                        ),
-                        ActionRow.of(
-                                Button.success(BUTTON_REDEEM, "🎫 兌換碼")
-                        )
-                )
+                .setComponents(UserPanelEmbedBuilder.buildPanelComponents(
+                        BUTTON_PREFIX_CURRENCY_HISTORY,
+                        BUTTON_PREFIX_HISTORY,
+                        BUTTON_PREFIX_PRODUCT_REDEMPTION_HISTORY,
+                        BUTTON_REDEEM,
+                        panelView.getCurrencyHistoryButtonLabel()
+                ))
                 .queue();
 
         LOG.debug("Navigated back to main panel for guildId={}, userId={}", guildId, userId);
-    }
-
-    private MessageEmbed buildPanelEmbed(UserPanelView view, String userMention) {
-        return new EmbedBuilder()
-                .setTitle(view.getEmbedTitle())
-                .setDescription(userMention + " 的帳戶資訊")
-                .setColor(EMBED_COLOR)
-                .addField(view.getCurrencyFieldName(), view.formatCurrencyField(), true)
-                .addField(view.getGameTokensFieldName(), view.formatGameTokensField(), true)
-                .setFooter("點擊下方按鈕查看流水紀錄或兌換碼")
-                .build();
     }
 
     private void showTokenHistoryPage(ButtonInteractionEvent event, long guildId, long userId, int page) {

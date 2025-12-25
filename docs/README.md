@@ -45,7 +45,7 @@ PostgreSQL (currency_bot 資料庫)
   資料模型與資料表設計說明，涵蓋伺服器貨幣、成員帳戶、遊戲代幣、遊戲設定、產品與代幣交易紀錄等。**（V005/V006 更新：新增兌換碼失效機制）**
 
 - `architecture/sequence-diagrams.md`
-  核心業務流程的時序圖（Sequence Diagrams），包括產品刪除、兌換碼生成、兌換流程、事件發布等。
+  核心業務流程的時序圖（Sequence Diagrams），包括產品刪除、兌換碼生成、兌換流程、貨幣購買商品、事件發布等。**（V009 更新：新增貨幣購買商品時序圖）**
 
 - `modules/currency-system.md`
   Discord 伺服器貨幣系統模組的設計與實作概觀，包括餘額查詢、調整與貨幣設定相關的服務與指令處理器。
@@ -63,7 +63,7 @@ PostgreSQL (currency_bot 資料庫)
    兌換系統模組的說明，包括兌換碼生成、驗證、兌換流程、狀態機與失效機制。**（V005 更新：新增失效狀態說明與狀態圖）**
 
 - `modules/shop.md`
-   商店模組的設計與實作概觀，包括商店頁面、產品列表瀏覽與分頁功能。
+   商店模組的設計與實作概觀，包括商店頁面、產品列表瀏覽、分頁功能與貨幣購買商品流程。**（V009 更新：新增貨幣購買功能與 CurrencyPurchaseService）**
 
 - `modules/shared-module.md`
    共用模組的說明，包括 Result 型別、DomainError 處理與通用工具類別。

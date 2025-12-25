@@ -41,7 +41,7 @@ class ProductTest {
             // When
             Product product = Product.create(
                     TEST_GUILD_ID, "新手禮包", "歡迎新手",
-                    Product.RewardType.CURRENCY, 1000L);
+                    Product.RewardType.CURRENCY, 1000L, null);
 
             // Then
             assertThat(product.name()).isEqualTo("新手禮包");
@@ -56,7 +56,7 @@ class ProductTest {
             // When
             Product product = Product.create(
                     TEST_GUILD_ID, "代幣包", "50 代幣",
-                    Product.RewardType.TOKEN, 50L);
+                    Product.RewardType.TOKEN, 50L, null);
 
             // Then
             assertThat(product.rewardType()).isEqualTo(Product.RewardType.TOKEN);
@@ -67,7 +67,7 @@ class ProductTest {
         @DisplayName("should reject null name")
         void shouldRejectNullName() {
             assertThatThrownBy(() ->
-                    Product.create(TEST_GUILD_ID, null, "desc", null, null))
+                    Product.create(TEST_GUILD_ID, null, "desc", null, null, null))
                     .isInstanceOf(NullPointerException.class);
         }
 
@@ -75,7 +75,7 @@ class ProductTest {
         @DisplayName("should reject blank name")
         void shouldRejectBlankName() {
             assertThatThrownBy(() ->
-                    Product.create(TEST_GUILD_ID, "   ", "desc", null, null))
+                    Product.create(TEST_GUILD_ID, "   ", "desc", null, null, null))
                     .isInstanceOf(IllegalArgumentException.class)
                     .hasMessageContaining("blank");
         }
@@ -85,7 +85,7 @@ class ProductTest {
         void shouldRejectNameExceeding100Characters() {
             String longName = "a".repeat(101);
             assertThatThrownBy(() ->
-                    Product.create(TEST_GUILD_ID, longName, "desc", null, null))
+                    Product.create(TEST_GUILD_ID, longName, "desc", null, null, null))
                     .isInstanceOf(IllegalArgumentException.class)
                     .hasMessageContaining("100");
         }
@@ -95,7 +95,7 @@ class ProductTest {
         void shouldRejectNegativeRewardAmount() {
             assertThatThrownBy(() ->
                     Product.create(TEST_GUILD_ID, "Test", "desc",
-                            Product.RewardType.CURRENCY, -100L))
+                            Product.RewardType.CURRENCY, -100L, null))
                     .isInstanceOf(IllegalArgumentException.class)
                     .hasMessageContaining("negative");
         }
@@ -105,7 +105,7 @@ class ProductTest {
         void shouldRejectRewardTypeWithoutAmount() {
             assertThatThrownBy(() ->
                     Product.create(TEST_GUILD_ID, "Test", "desc",
-                            Product.RewardType.CURRENCY, null))
+                            Product.RewardType.CURRENCY, null, null))
                     .isInstanceOf(IllegalArgumentException.class)
                     .hasMessageContaining("both");
         }
@@ -114,7 +114,7 @@ class ProductTest {
         @DisplayName("should reject reward amount without type")
         void shouldRejectRewardAmountWithoutType() {
             assertThatThrownBy(() ->
-                    Product.create(TEST_GUILD_ID, "Test", "desc", null, 100L))
+                    Product.create(TEST_GUILD_ID, "Test", "desc", null, 100L, null))
                     .isInstanceOf(IllegalArgumentException.class)
                     .hasMessageContaining("both");
         }
@@ -130,11 +130,11 @@ class ProductTest {
             // Given
             Instant now = Instant.now();
             Product original = new Product(1L, TEST_GUILD_ID, "舊名稱", "舊描述",
-                    Product.RewardType.CURRENCY, 500L, now, now);
+                    Product.RewardType.CURRENCY, 500L, null, now, now);
 
             // When
             Product updated = original.withUpdatedDetails(
-                    "新名稱", "新描述", Product.RewardType.TOKEN, 100L);
+                    "新名稱", "新描述", Product.RewardType.TOKEN, 100L, null);
 
             // Then
             assertThat(updated.id()).isEqualTo(1L);
@@ -153,10 +153,10 @@ class ProductTest {
             // Given
             Instant now = Instant.now();
             Product original = new Product(1L, TEST_GUILD_ID, "名稱", "描述",
-                    Product.RewardType.CURRENCY, 500L, now, now);
+                    Product.RewardType.CURRENCY, 500L, null, now, now);
 
             // When
-            Product updated = original.withUpdatedDetails("名稱", "描述", null, null);
+            Product updated = original.withUpdatedDetails("名稱", "描述", null, null, null);
 
             // Then
             assertThat(updated.rewardType()).isNull();
@@ -174,7 +174,7 @@ class ProductTest {
         void shouldFormatCurrencyReward() {
             // Given
             Product product = Product.create(TEST_GUILD_ID, "Test", null,
-                    Product.RewardType.CURRENCY, 1000L);
+                    Product.RewardType.CURRENCY, 1000L, null);
 
             // When
             String formatted = product.formatReward();
@@ -188,7 +188,7 @@ class ProductTest {
         void shouldFormatTokenReward() {
             // Given
             Product product = Product.create(TEST_GUILD_ID, "Test", null,
-                    Product.RewardType.TOKEN, 50L);
+                    Product.RewardType.TOKEN, 50L, null);
 
             // When
             String formatted = product.formatReward();

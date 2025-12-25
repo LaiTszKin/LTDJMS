@@ -5,6 +5,7 @@ import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.entities.MessageEmbed;
 import net.dv8tion.jda.api.interactions.components.ActionRow;
 import net.dv8tion.jda.api.interactions.components.buttons.Button;
+import net.dv8tion.jda.api.interactions.components.selections.StringSelectMenu;
 
 import java.awt.Color;
 import java.util.List;
@@ -20,6 +21,8 @@ public class ShopView {
 
     public static final String BUTTON_PREV_PAGE = "shop_prev_";
     public static final String BUTTON_NEXT_PAGE = "shop_next_";
+    public static final String BUTTON_PURCHASE = "shop_purchase";
+    public static final String SELECT_PURCHASE_PRODUCT = "shop_purchase_select";
 
     private ShopView() {
         // Utility class
@@ -55,6 +58,10 @@ public class ShopView {
             }
 
             sb.append("**").append(number).append(". ").append(product.name()).append("**");
+
+            if (product.hasCurrencyPrice()) {
+                sb.append("\n💰 價格：").append(product.formatCurrencyPrice());
+            }
 
             if (product.description() != null && !product.description().isBlank()) {
                 sb.append("\n商品描述：").append(product.description());
@@ -101,6 +108,89 @@ public class ShopView {
         }
 
         return List.of(ActionRow.of(prevButton, nextButton));
+    }
+
+    /**
+     * Builds action rows for shop page navigation with purchase button.
+     * Only includes purchase button if there are products available for purchase.
+     */
+    public static List<ActionRow> buildShopComponents(int currentPage, int totalPages, List<Product> productsForPurchase) {
+        Button prevButton;
+        Button nextButton;
+
+        if (currentPage == 1) {
+            prevButton = Button.secondary(BUTTON_PREV_PAGE + (currentPage - 1), "⬅️ 上一頁")
+                    .asDisabled();
+        } else {
+            prevButton = Button.secondary(BUTTON_PREV_PAGE + (currentPage - 1), "⬅️ 上一頁");
+        }
+
+        if (currentPage >= totalPages) {
+            nextButton = Button.secondary(BUTTON_NEXT_PAGE + (currentPage + 1), "下一頁 ➡️")
+                    .asDisabled();
+        } else {
+            nextButton = Button.secondary(BUTTON_NEXT_PAGE + (currentPage + 1), "下一頁 ➡️");
+        }
+
+        if (productsForPurchase.isEmpty()) {
+            return List.of(ActionRow.of(prevButton, nextButton));
+        }
+
+        Button purchaseButton = Button.success(BUTTON_PURCHASE, "💰 購買商品");
+        return List.of(
+                ActionRow.of(prevButton, nextButton),
+                ActionRow.of(purchaseButton)
+        );
+    }
+
+    /**
+     * Builds a purchase menu with products available for currency purchase.
+     */
+    public static StringSelectMenu buildPurchaseMenu(List<Product> productsForPurchase) {
+        StringSelectMenu.Builder menuBuilder = StringSelectMenu.create(SELECT_PURCHASE_PRODUCT)
+                .setPlaceholder("選擇要購買的商品");
+
+        for (Product product : productsForPurchase) {
+            String label = product.name();
+            String description = product.formatCurrencyPrice();
+            menuBuilder.addOption(label, String.valueOf(product.id()), description);
+        }
+
+        return menuBuilder.build();
+    }
+
+    /**
+     * Builds an embed for purchase confirmation.
+     */
+    public static MessageEmbed buildPurchaseConfirmEmbed(Product product, long userBalance) {
+        EmbedBuilder builder = new EmbedBuilder()
+                .setTitle("💰 確認購買")
+                .setColor(EMBED_COLOR);
+
+        StringBuilder sb = new StringBuilder();
+        sb.append("**商品：** ").append(product.name()).append("\n");
+        sb.append("**價格：** ").append(product.formatCurrencyPrice()).append("\n");
+        sb.append("**您的餘額：** ").append(String.format("%,d", userBalance)).append(" 貨幣\n");
+
+        if (userBalance < product.currencyPrice()) {
+            sb.append("\n⚠️ **餘額不足！**");
+            builder.setColor(new Color(0xED4245));
+        } else {
+            long remaining = userBalance - product.currencyPrice();
+            sb.append("**購買後餘額：** ").append(String.format("%,d", remaining)).append(" 貨幣");
+        }
+
+        if (product.description() != null && !product.description().isBlank()) {
+            sb.append("\n\n**商品描述：**\n").append(product.description());
+        }
+
+        if (product.hasReward()) {
+            sb.append("\n\n**獎勵：** ").append(product.formatReward());
+        }
+
+        builder.setDescription(sb.toString());
+
+        return builder.build();
     }
 
     /**

@@ -6,6 +6,7 @@ import java.util.Objects;
 /**
  * Represents a product that can be redeemed with redemption codes within a specific Discord guild.
  * Products can optionally provide rewards (currency or tokens) when redeemed.
+ * Products can also be purchased directly with currency if a currency price is set.
  */
 public record Product(
         Long id,
@@ -14,6 +15,7 @@ public record Product(
         String description,
         RewardType rewardType,
         Long rewardAmount,
+        Long currencyPrice,
         Instant createdAt,
         Instant updatedAt
 ) {
@@ -39,6 +41,9 @@ public record Product(
         if (rewardAmount != null && rewardAmount < 0) {
             throw new IllegalArgumentException("rewardAmount must not be negative");
         }
+        if (currencyPrice != null && currencyPrice < 0) {
+            throw new IllegalArgumentException("currencyPrice must not be negative");
+        }
         // Ensure reward_type and reward_amount are consistent
         if ((rewardType == null) != (rewardAmount == null)) {
             throw new IllegalArgumentException(
@@ -55,12 +60,13 @@ public record Product(
      * @param description  the product description (can be null)
      * @param rewardType   the type of reward (can be null for no automatic reward)
      * @param rewardAmount the reward amount (can be null for no automatic reward)
+     * @param currencyPrice the currency price for direct purchase (can be null for currency purchase not available)
      * @return a new Product instance
      */
     public static Product create(long guildId, String name, String description,
-                                 RewardType rewardType, Long rewardAmount) {
+                                 RewardType rewardType, Long rewardAmount, Long currencyPrice) {
         Instant now = Instant.now();
-        return new Product(null, guildId, name, description, rewardType, rewardAmount, now, now);
+        return new Product(null, guildId, name, description, rewardType, rewardAmount, currencyPrice, now, now);
     }
 
     /**
@@ -72,7 +78,20 @@ public record Product(
      * @return a new Product instance without rewards
      */
     public static Product createWithoutReward(long guildId, String name, String description) {
-        return create(guildId, name, description, null, null);
+        return create(guildId, name, description, null, null, null);
+    }
+
+    /**
+     * Creates a new product without any automatic reward, with a specified currency price.
+     *
+     * @param guildId      the Discord guild ID
+     * @param name         the product name
+     * @param description  the product description (can be null)
+     * @param currencyPrice the currency price for direct purchase
+     * @return a new Product instance with currency price but no automatic reward
+     */
+    public static Product createWithCurrencyPrice(long guildId, String name, String description, long currencyPrice) {
+        return create(guildId, name, description, null, null, currencyPrice);
     }
 
     /**
@@ -82,10 +101,11 @@ public record Product(
      * @param description  the new description
      * @param rewardType   the new reward type
      * @param rewardAmount the new reward amount
+     * @param currencyPrice the new currency price
      * @return a new Product instance with updated values
      */
     public Product withUpdatedDetails(String name, String description,
-                                      RewardType rewardType, Long rewardAmount) {
+                                      RewardType rewardType, Long rewardAmount, Long currencyPrice) {
         return new Product(
                 this.id,
                 this.guildId,
@@ -93,6 +113,7 @@ public record Product(
                 description,
                 rewardType,
                 rewardAmount,
+                currencyPrice,
                 this.createdAt,
                 Instant.now()
         );
@@ -120,5 +141,26 @@ public record Product(
             case CURRENCY -> String.format("%,d 貨幣", rewardAmount);
             case TOKEN -> String.format("%,d 代幣", rewardAmount);
         };
+    }
+
+    /**
+     * Checks if this product has a currency price set for direct purchase.
+     *
+     * @return true if the product can be purchased with currency
+     */
+    public boolean hasCurrencyPrice() {
+        return currencyPrice != null && currencyPrice > 0;
+    }
+
+    /**
+     * Formats the currency price for display.
+     *
+     * @return a formatted string describing the currency price, or null if no price is set
+     */
+    public String formatCurrencyPrice() {
+        if (!hasCurrencyPrice()) {
+            return null;
+        }
+        return String.format("%,d 貨幣", currencyPrice);
     }
 }

@@ -55,7 +55,7 @@ class RedemptionServiceEventTest {
 
     @Test
     void generateCodes_shouldPublishEventOnSuccess() {
-        Product product = new Product(productId, guildId, "P1", null, null, null, Instant.now(), Instant.now());
+        Product product = new Product(Long.valueOf(productId), guildId, "P1", null, null, null, null, Instant.now(), Instant.now());
         when(productRepository.findById(productId)).thenReturn(Optional.of(product));
         when(codeGenerator.generate()).thenReturn("ABCDEFGH");
         when(codeRepository.existsByCode("ABCDEFGH")).thenReturn(false);

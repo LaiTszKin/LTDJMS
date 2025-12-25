@@ -49,11 +49,11 @@ class ProductServiceEventTest {
         when(productRepository.save(any(Product.class))).thenAnswer(invocation -> {
             Product p = invocation.getArgument(0);
             return new Product(1L, p.guildId(), p.name(), p.description(),
-                    p.rewardType(), p.rewardAmount(), p.createdAt(), p.updatedAt());
+                    p.rewardType(), p.rewardAmount(), p.currencyPrice(), p.createdAt(), p.updatedAt());
         });
 
         // When
-        Result<Product, ?> result = service.createProduct(guildId, name, description, rewardType, rewardAmount);
+        Result<Product, ?> result = service.createProduct(guildId, name, description, rewardType, rewardAmount, null);
 
         // Then
         assertThat(result.isOk()).isTrue();
@@ -78,7 +78,7 @@ class ProductServiceEventTest {
         String newDescription = "更新後的描述";
 
         Product existingProduct = new Product(productId, guildId, "原始商品", "原始描述",
-                Product.RewardType.CURRENCY, 100L, Instant.now(), Instant.now());
+                Product.RewardType.CURRENCY, 100L, null, Instant.now(), Instant.now());
 
         when(productRepository.findById(productId)).thenReturn(Optional.of(existingProduct));
         when(productRepository.existsByGuildIdAndNameExcludingId(anyLong(), anyString(), anyLong()))
@@ -87,7 +87,7 @@ class ProductServiceEventTest {
 
         // When
         Result<Product, ?> result = service.updateProduct(productId, newName, newDescription,
-                Product.RewardType.CURRENCY, 150L);
+                Product.RewardType.CURRENCY, 150L, null);
 
         // Then
         assertThat(result.isOk()).isTrue();
@@ -108,7 +108,7 @@ class ProductServiceEventTest {
         long guildId = 123L;
 
         Product existingProduct = new Product(productId, guildId, "待刪除商品", null,
-                null, null, Instant.now(), Instant.now());
+                null, null, null, Instant.now(), Instant.now());
 
         when(productRepository.findById(productId)).thenReturn(Optional.of(existingProduct));
         when(redemptionCodeRepository.invalidateByProductId(productId)).thenReturn(0);
@@ -136,7 +136,7 @@ class ProductServiceEventTest {
         String invalidName = "";
 
         // When
-        Result<Product, ?> result = service.createProduct(guildId, invalidName, null, null, null);
+        Result<Product, ?> result = service.createProduct(guildId, invalidName, null, null, null, null);
 
         // Then
         assertThat(result.isErr()).isTrue();
@@ -152,7 +152,7 @@ class ProductServiceEventTest {
         when(productRepository.existsByGuildIdAndName(guildId, name)).thenReturn(true);
 
         // When
-        Result<Product, ?> result = service.createProduct(guildId, name, null, null, null);
+        Result<Product, ?> result = service.createProduct(guildId, name, null, null, null, null);
 
         // Then
         assertThat(result.isErr()).isTrue();
