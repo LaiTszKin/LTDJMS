@@ -319,5 +319,24 @@ class EnvironmentConfigDotEnvIntegrationTest {
       assertThat(config.getPoolIdleTimeout()).isEqualTo(120000L);
       assertThat(config.getPoolMaxLifetime()).isEqualTo(3600000L);
     }
+
+    @Test
+    @DisplayName("should load AI service api key from .env")
+    void shouldLoadAIServiceApiKeyFromDotEnv() throws IOException {
+      // Skip if env var is set (would override .env)
+      if (System.getenv("AI_SERVICE_API_KEY") != null) {
+        return;
+      }
+
+      // Given .env with AI service API key
+      Path envFile = tempDir.resolve(".env");
+      Files.writeString(envFile, "AI_SERVICE_API_KEY=test-ai-key\n");
+
+      // When
+      EnvironmentConfig config = new EnvironmentConfig(tempDir);
+
+      // Then
+      assertThat(config.getAIServiceApiKey()).isEqualTo("test-ai-key");
+    }
   }
 }

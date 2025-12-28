@@ -41,6 +41,19 @@
         <!-- Adapters - DEBUG for troubleshooting event flow -->
     </logger>
 
+    <!-- AI Chat 模組日誌 -->
+    <logger name="ltdjms.discord.aichat" level="INFO">
+        <!-- AI Chat module - INFO for operational visibility -->
+    </logger>
+
+    <logger name="ltdjms.discord.aichat.commands" level="INFO">
+        <!-- AI Chat commands - INFO for tracking AI mentions -->
+    </logger>
+
+    <logger name="ltdjms.discord.aichat.services" level="INFO">
+        <!-- AI Chat services - INFO for AI service interaction tracking -->
+    </logger>
+
     <!-- JDA logging - INFO for connection events, WARN to reduce noise -->
     <logger name="net.dv8tion.jda" level="INFO"/>
     <logger name="net.dv8tion.jda.internal.requests" level="WARN"/>

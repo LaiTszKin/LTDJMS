@@ -79,6 +79,52 @@
   - 對應 config key：`redis.uri`
   - 格式：`redis://[host]:[port]`
 
+### 2.5 AI 服務設定（V010 新增）
+
+以下設定對應 AI Chat 功能的 AI 服務連線與參數：
+
+- `AI_SERVICE_BASE_URL`（必填）
+  - 預設：`https://api.openai.com/v1`
+  - 對應 config key：`aichat.base-url`
+  - 格式：有效的 HTTPS URL
+  - 範例：`https://api.openai.com/v1`、`https://your-resource.openai.azure.com/openai/deployments/your-deployment`、`http://localhost:11434/v1`
+
+- `AI_SERVICE_API_KEY`（必填）
+  - 對應 config key：`aichat.api-key`
+  - 說明：AI 服務的 API 金鑰或認證 Token
+  - 若未設定，程式啟動時會丟出 `IllegalStateException` 並中止
+
+- `AI_SERVICE_MODEL`
+  - 預設：`gpt-3.5-turbo`
+  - 對應 config key：`aichat.model`
+  - 說明：使用的 AI 模型名稱
+
+- `AI_SERVICE_TEMPERATURE`
+  - 預設：`0.7`
+  - 對應 config key：`aichat.temperature`
+  - 驗證範圍：`0.0` - `2.0`
+  - 說明：控制 AI 回應的隨機性（0.0 = 確定性，2.0 = 高隨機性）
+
+- `AI_SERVICE_MAX_TOKENS`
+  - 預設：`500`
+  - 對應 config key：`aichat.max-tokens`
+  - 驗證範圍：`1` - `4096`
+  - 說明：AI 生成的最大 Token 數
+
+- `AI_SERVICE_TIMEOUT_SECONDS`
+  - 預設：`30`
+  - 對應 config key：`aichat.timeout-seconds`
+  - 驗證範圍：`1` - `120`
+  - 說明：AI 服務請求逾時秒數
+
+**AI 服務供應商範例**：
+
+| 供應商 | BASE_URL | MODEL |
+|--------|----------|-------|
+| OpenAI | `https://api.openai.com/v1` | `gpt-3.5-turbo`、`gpt-4` |
+| Azure OpenAI | `https://[resource].openai.azure.com/openai/deployments/[deployment]` | `gpt-35-turbo` |
+| Ollama（本地） | `http://localhost:11434/v1` | `llama2`、`mistral` |
+
 ## 3. `.env` 檔案範例
 
 在專案根目錄建立 `.env` 檔案，可填入：
@@ -101,6 +147,14 @@ DB_POOL_MAX_LIFETIME=1800000
 
 # Redis / Cache (optional, has default)
 REDIS_URI=redis://localhost:6379
+
+# AI Service (V010 新增)
+AI_SERVICE_BASE_URL=https://api.openai.com/v1
+AI_SERVICE_API_KEY=your-ai-service-api-key-here
+AI_SERVICE_MODEL=gpt-3.5-turbo
+AI_SERVICE_TEMPERATURE=0.7
+AI_SERVICE_MAX_TOKENS=500
+AI_SERVICE_TIMEOUT_SECONDS=30
 ```
 
 `DotEnvLoader` 會從指定目錄（預設為 `user.dir`）讀取 `.env`，並將其中的 key 映射到對應的 config key。
@@ -135,6 +189,15 @@ db {
 
 redis {
   uri = ${?REDIS_URI}
+}
+
+aichat {
+  base-url = ${?AI_SERVICE_BASE_URL}
+  api-key = ${?AI_SERVICE_API_KEY}
+  model = ${?AI_SERVICE_MODEL}
+  temperature = ${?AI_SERVICE_TEMPERATURE}
+  max-tokens = ${?AI_SERVICE_MAX_TOKENS}
+  timeout-seconds = ${?AI_SERVICE_TIMEOUT_SECONDS}
 }
 ```
 
@@ -183,12 +246,15 @@ export DB_PASSWORD=...
 在 `DiscordCurrencyBot` 的建構過程中：
 
 - 若 `EnvironmentConfig` 未取得有效的 `DISCORD_BOT_TOKEN`，會直接丟出錯誤並中止啟動。
+- 若 `EnvironmentConfig` 未取得有效的 `AI_SERVICE_API_KEY`（V010 新增），會直接丟出錯誤並中止啟動。
+- 若 AI 服務配置參數超出有效範圍（如 `AI_SERVICE_TEMPERATURE` > 2.0），會直接丟出錯誤並中止啟動。
 - 若資料庫連線設定錯誤，會在建立 `DataSource` 或執行 schema migration 時發生例外。
 
 建議在部署前先於目標環境實際啟動一次，並檢查日誌以確認：
 
 - Bot 成功連線 Discord（JDA 日誌顯示 READY）。
 - 資料庫 schema migration 成功或被明確阻擋（遇到破壞性變更時）。
+- AI 服務配置驗證成功（V010 新增）。
 
 ## 7. 快速檢查設定是否生效
 

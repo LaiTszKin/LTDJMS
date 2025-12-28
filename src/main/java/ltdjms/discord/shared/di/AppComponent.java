@@ -6,6 +6,8 @@ import javax.sql.DataSource;
 import org.jooq.DSLContext;
 
 import dagger.Component;
+import ltdjms.discord.aichat.commands.AIChatMentionListener;
+import ltdjms.discord.aichat.services.AIChatService;
 import ltdjms.discord.currency.bot.SlashCommandListener;
 import ltdjms.discord.currency.commands.CurrencyConfigCommandHandler;
 import ltdjms.discord.currency.persistence.GuildCurrencyConfigRepository;
@@ -60,7 +62,8 @@ import ltdjms.discord.shop.services.CurrencyPurchaseService;
       ProductRepositoryModule.class,
       ProductServiceModule.class,
       CommandHandlerModule.class,
-      EventModule.class
+      EventModule.class,
+      AIChatModule.class
     })
 public interface AppComponent {
 
@@ -144,6 +147,11 @@ public interface AppComponent {
   ShopSelectMenuHandler shopSelectMenuHandler();
 
   CurrencyPurchaseService currencyPurchaseService();
+
+  // AI Chat
+  AIChatService aiChatService();
+
+  AIChatMentionListener aiChatMentionListener();
 
   // Slash Command Listener
   SlashCommandListener slashCommandListener();

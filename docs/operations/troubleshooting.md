@@ -10,6 +10,7 @@
 - [ ] **資料庫連線** 正常（PostgreSQL 服務正在運行，連線資訊正確）
 - [ ] **網路連線** 正常（Bot 能存取 Discord API）
 - [ ] **權限設定** 正確（Bot 有適當的 Discord 權限）
+- [ ] **AI 服務配置** 已正確設定（若使用 AI Chat 功能）
 - [ ] **最新版本** 已使用最新程式碼或 Docker 映像
 
 ## 常見問題與解決方案
@@ -219,6 +220,131 @@ LIMIT 10;
 1. 調整 JVM 參數（`-Xmx`、`-Xms`）
 2. 監控容器資源使用情況
 3. 水平擴展（多個 Bot 實例）
+
+### 6. AI Chat 功能問題（V010 新增）
+
+#### 症狀
+- 提及機器人後沒有回應
+- AI 回應顯示錯誤訊息
+- Bot 啟動時提示 AI 配置錯誤
+
+#### 可能原因與解決方案
+
+**A. AI 服務配置未設定或無效**
+
+```
+ERROR IllegalStateException: AI_SERVICE_API_KEY is required but not configured
+```
+
+**解決方案：**
+```bash
+# 檢查 AI 服務配置
+cat .env | grep AI_SERVICE
+
+# 確認以下變數已設定：
+# - AI_SERVICE_BASE_URL
+# - AI_SERVICE_API_KEY
+```
+
+**B. AI 服務認證失敗**
+
+使用者看到：`:x: AI 服務認證失敗，請聯絡管理員`
+
+**解決方案：**
+1. 確認 `AI_SERVICE_API_KEY` 正確
+2. 檢查 API 金鑰是否已過期
+3. 若使用 OpenAI，確認帳戶餘額充足
+4. 測試 API 連線：
+   ```bash
+   curl -X POST https://api.openai.com/v1/chat/completions \
+     -H "Content-Type: application/json" \
+     -H "Authorization: Bearer $AI_SERVICE_API_KEY" \
+     -d '{"model":"gpt-3.5-turbo","messages":[{"role":"user","content":"test"}]}'
+   ```
+
+**C. AI 服務速率限制**
+
+使用者看到：`:timer: AI 服務暫時忙碌，請稍後再試`
+
+**解決方案：**
+1. 等待一段時間後重試
+2. 降低 AI 溫度（`AI_SERVICE_TEMPERATURE`）以減少複雜度
+3. 減少最大 Token 數（`AI_SERVICE_MAX_TOKENS`）
+4. 考慮升級 AI 服務方案
+
+**D. AI 服務逾時**
+
+使用者看到：`:hourglass: AI 服務暫時無法使用`
+
+**解決方案：**
+1. 檢查網路連線是否正常
+2. 調整逾時設定（`AI_SERVICE_TIMEOUT_SECONDS`），預設 30 秒
+3. 確認 AI 服務端點是否可達：
+   ```bash
+   curl -I $AI_SERVICE_BASE_URL
+   ```
+
+**E. AI 服務回應空內容**
+
+使用者看到：`:question: AI 沒有產生回應`
+
+**解決方案：**
+1. 嘗試重新發送訊息
+2. 調整 AI 溫度參數
+3. 檢查 AI 服務日誌確認問題
+
+**F. 機器人提及無回應**
+
+**解決方案：**
+1. 確認機器人在該頻道有「傳送訊息」權限
+2. 檢查訊息格式是否正確（如 `@BotName 你好`）
+3. 查看日誌確認事件是否被觸發：
+   ```bash
+   make logs | grep -i aichat
+   ```
+
+**G. AI 回應速度慢**
+
+**解決方案：**
+1. 調整逾時設定（`AI_SERVICE_TIMEOUT_SECONDS`）
+2. 減少最大 Token 數（`AI_SERVICE_MAX_TOKENS`）
+3. 選擇更快的模型（如 `gpt-3.5-turbo` 而非 `gpt-4`）
+4. 檢查 AI 服務的地理位置延遲
+
+#### AI Chat 故障排除檢查清單
+
+```bash
+# 1. 確認 AI 服務配置
+echo "Base URL: $AI_SERVICE_BASE_URL"
+echo "API Key: ${AI_SERVICE_API_KEY:0:10}..."  # 僅顯示前 10 字元
+
+# 2. 測試 AI 服務連線
+curl -X POST $AI_SERVICE_BASE_URL/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $AI_SERVICE_API_KEY" \
+  -d '{"model":"'"$AI_SERVICE_MODEL"'","messages":[{"role":"user","content":"Hello"}],"max_tokens":10}'
+
+# 3. 檢查 Bot 日誌
+make logs | grep -i aichat
+
+# 4. 檢查 AI Chat 事件
+make logs | grep "AI chat request"
+
+# 5. 驗證配置參數範圍
+# - Temperature: 0.0 - 2.0
+# - Max Tokens: 1 - 4096
+# - Timeout Seconds: 1 - 120
+```
+
+#### AI Chat 常見錯誤訊息對照表
+
+| 使用者看到訊息 | 原因 | 解決方案 |
+|--------------|------|---------|
+| `:x: AI 服務認證失敗，請聯絡管理員` | HTTP 401 | 更新有效的 API 金鑰 |
+| `:timer: AI 服務暫時忙碌，請稍後再試` | HTTP 429 | 等待後重試或升級方案 |
+| `:hourglass: AI 服務暫時無法使用` | 逾時/連線失敗 | 檢查網路或調整逾時 |
+| `:warning: AI 回應格式錯誤` | JSON 解析失敗 | 檢查 AI 服務回應格式 |
+| `:question: AI 沒有產生回應` | 空回應 | 重新發送或調整參數 |
 
 ## 資料庫遷移處理
 

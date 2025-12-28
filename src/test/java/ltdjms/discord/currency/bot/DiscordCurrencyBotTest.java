@@ -8,6 +8,7 @@ import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import ltdjms.discord.aichat.commands.AIChatMentionListener;
 import ltdjms.discord.panel.commands.AdminPanelButtonHandler;
 import ltdjms.discord.panel.commands.AdminProductPanelHandler;
 import ltdjms.discord.panel.commands.UserPanelButtonHandler;
@@ -26,6 +27,7 @@ class DiscordCurrencyBotTest {
     AdminProductPanelHandler adminProductPanelHandler = mock(AdminProductPanelHandler.class);
     ShopButtonHandler shopButtonHandler = mock(ShopButtonHandler.class);
     ShopSelectMenuHandler shopSelectMenuHandler = mock(ShopSelectMenuHandler.class);
+    AIChatMentionListener aiChatMentionListener = mock(AIChatMentionListener.class);
 
     List<Object> listeners =
         DiscordCurrencyBot.buildEventListeners(
@@ -34,7 +36,8 @@ class DiscordCurrencyBotTest {
             adminPanelButtonHandler,
             adminProductPanelHandler,
             shopButtonHandler,
-            shopSelectMenuHandler);
+            shopSelectMenuHandler,
+            aiChatMentionListener);
 
     assertThat(listeners)
         .containsExactly(
@@ -43,6 +46,7 @@ class DiscordCurrencyBotTest {
             adminPanelButtonHandler,
             adminProductPanelHandler,
             shopButtonHandler,
-            shopSelectMenuHandler);
+            shopSelectMenuHandler,
+            aiChatMentionListener);
   }
 }

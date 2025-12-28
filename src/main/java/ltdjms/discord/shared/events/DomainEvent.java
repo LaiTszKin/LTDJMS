@@ -10,7 +10,8 @@ public sealed interface DomainEvent
         DiceGameConfigChangedEvent,
         ProductChangedEvent,
         RedemptionCodesGeneratedEvent,
-        ProductRedemptionCompletedEvent {
+        ProductRedemptionCompletedEvent,
+        AIMessageEvent {
   /**
    * @return the Discord guild ID where the event occurred
    */

@@ -34,6 +34,74 @@
 
 ---
 
+## AI Chat 訊息功能
+
+AI Chat 功能透過**提及機器人**觸發，而非使用傳統的 slash commands。
+
+### 使用方式
+
+在任何 Discord 頻道中提及機器人即可觸發 AI 回應：
+
+```text
+@LTDJMSBot 你好
+```
+
+### 權限
+
+- **所有成員**都可以使用 AI Chat 功能
+- 機器人需要在該頻道有「傳送訊息」權限
+
+### 行為說明
+
+1. **提及檢測**：系統會檢測訊息是否包含機器人提及（`@BotName` 或 `<@BotId>`）
+2. **訊息提取**：移除提及部分後，提取使用者的實際訊息
+3. **預設問候**：如果訊息為空（僅提及機器人），會使用預設問候語「你好」
+4. **AI 回應**：呼叫 AI 服務生成回應
+5. **訊息發送**：將 AI 回應發送到同一頻道
+6. **長訊息分割**：如果 AI 回應超過 Discord 2000 字元限制，會自動分割為多則訊息
+
+### 錯誤處理
+
+當 AI 服務發生錯誤時，會顯示友善的錯誤訊息：
+
+| 錯誤類型 | 使用者看到的訊息 |
+|---------|-----------------|
+| 認證失敗 | `:x: AI 服務認證失敗，請聯絡管理員` |
+| 速率限制 | `:timer: AI 服務暫時忙碌，請稍後再試` |
+| 逾時 | `:hourglass: AI 服務回應逾時，請稍後再試` |
+| 服務不可用 | `:warning: AI 服務暫時無法使用` |
+| 空回應 | `:question: AI 沒有產生回應` |
+| 格式錯誤 | `:warning: AI 回應格式錯誤` |
+
+### 配置
+
+AI Chat 功能由管理員透過 `.env` 檔案配置：
+
+```bash
+# AI 服務配置
+AI_SERVICE_BASE_URL=https://api.openai.com/v1
+AI_SERVICE_API_KEY=your_api_key_here
+AI_SERVICE_MODEL=gpt-3.5-turbo
+AI_SERVICE_TEMPERATURE=0.7
+AI_SERVICE_MAX_TOKENS=500
+AI_SERVICE_TIMEOUT_SECONDS=30
+```
+
+### 限制
+
+- **無對話歷史**：系統不保存對話歷史，每次請求都是獨立的
+- **訊息長度**：單則訊息限制 2000 字元（Discord 限制），超過會自動分割
+- **逾時**：AI 服務逾時設定為 30 秒（可配置）
+- **僅限伺服器**：AI Chat 僅在伺服器頻道中有效，私人訊息不會觸發
+
+### 相關文件
+
+- [AI Chat 模組文件](../modules/aichat.md)
+- [AI Chat 規格](../../specs/003-ai-chat/spec.md)
+- [AI Chat 快速入門](../../specs/003-ai-chat/quickstart.md)
+
+---
+
 ## `/currency-config` – 設定／查看伺服器貨幣
 
 - **權限**：需具備 Administrator 權限

@@ -1,0 +1,286 @@
+openapi: 3.0.3
+info:
+  title: AI Chat Service API
+  description: |
+    AI Chat 功能使用的 AI 服務 API 契約。
+    此 API 相容 OpenAI Chat Completions API 標準。
+  version: 1.0.0
+  contact:
+    name: LTDJMS Project
+    url: https://github.com/LaiTszKin/LTDJMS
+
+servers:
+  - url: {AI_SERVICE_BASE_URL}
+    description: AI 服務 Base URL (透過 .env 配置)
+
+paths:
+  /chat/completions:
+    post:
+      summary: 創建聊天完成
+      description: |
+        根據使用者的訊息生成 AI 回應。
+        此端點相容 OpenAI Chat Completions API 格式。
+      operationId: createChatCompletion
+      tags:
+        - Chat
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatCompletionRequest'
+            examples:
+              userMessage:
+                summary: 使用者訊息
+                description: 簡單的使用者訊息請求
+                value:
+                  model: "gpt-3.5-turbo"
+                  messages:
+                    - role: "user"
+                      content: "你好，今天天氣如何？"
+                  temperature: 0.7
+                  max_tokens: 500
+      responses:
+        '200':
+          description: 成功生成回應
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatCompletionResponse'
+              examples:
+                success:
+                  summary: 成功回應
+                  value:
+                    id: "chatcmpl-123"
+                    object: "chat.completion"
+                    created: 1677652288
+                    model: "gpt-3.5-turbo"
+                    choices:
+                      - index: 0
+                        message:
+                          role: "assistant"
+                          content: "我是一個 AI 助手，無法獲取即時天氣資訊。建議您查詢天氣應用程式。"
+                        finish_reason: "stop"
+                    usage:
+                      prompt_tokens: 10
+                      completion_tokens: 20
+                      total_tokens: 30
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '500':
+          $ref: '#/components/responses/ServerError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      description: |
+        使用 AI 服務的 API 金鑰進行認證。
+        格式：`Bearer {AI_SERVICE_API_KEY}`
+
+  schemas:
+    ChatCompletionRequest:
+      type: object
+      required:
+        - model
+        - messages
+      properties:
+        model:
+          type: string
+          description: 要使用的模型名稱
+          example: "gpt-3.5-turbo"
+        messages:
+          type: array
+          description: 訊息列表（目前僅支援單則 user 訊息）
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/ChatMessage'
+        temperature:
+          type: number
+          description: 溫度（0.0-2.0），控制回應的隨機性
+          minimum: 0.0
+          maximum: 2.0
+          default: 0.7
+          example: 0.7
+        max_tokens:
+          type: integer
+          description: 最大生成 Token 數
+          minimum: 1
+          maximum: 4096
+          default: 500
+          example: 500
+
+    ChatMessage:
+      type: object
+      required:
+        - role
+        - content
+      properties:
+        role:
+          type: string
+          description: 訊息角色
+          enum: ["user", "assistant", "system"]
+          example: "user"
+        content:
+          type: string
+          description: 訊息內容
+          minLength: 1
+          example: "你好，今天天氣如何？"
+
+    ChatCompletionResponse:
+      type: object
+      required:
+        - id
+        - object
+        - created
+        - model
+        - choices
+      properties:
+        id:
+          type: string
+          description: 回應的唯一識別符
+          example: "chatcmpl-123"
+        object:
+          type: string
+          description: 物件類型
+          enum: ["chat.completion"]
+          example: "chat.completion"
+        created:
+          type: integer
+          format: int64
+          description: 建立時間戳（Unix 時間）
+          example: 1677652288
+        model:
+          type: string
+          description: 使用的模型名稱
+          example: "gpt-3.5-turbo"
+        choices:
+          type: array
+          description: 選擇列表
+          items:
+            $ref: '#/components/schemas/Choice'
+        usage:
+          $ref: '#/components/schemas/Usage'
+
+    Choice:
+      type: object
+      required:
+        - index
+        - message
+        - finish_reason
+      properties:
+        index:
+          type: integer
+          description: 選擇索引
+          example: 0
+        message:
+          $ref: '#/components/schemas/ChatMessage'
+        finish_reason:
+          type: string
+          description: 結束原因
+          enum: ["stop", "length", "content_filter"]
+          example: "stop"
+
+    Usage:
+      type: object
+      required:
+        - prompt_tokens
+        - completion_tokens
+        - total_tokens
+      properties:
+        prompt_tokens:
+          type: integer
+          description: 提示詞使用的 Token 數
+          example: 10
+        completion_tokens:
+          type: integer
+          description: 完成內容使用的 Token 數
+          example: 20
+        total_tokens:
+          type: integer
+          description: 總共使用的 Token 數
+          example: 30
+
+    Error:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: object
+          required:
+            - message
+            - type
+          properties:
+            message:
+              type: string
+              description: 錯誤訊息
+              example: "Invalid API key"
+            type:
+              type: string
+              description: 錯誤類型
+              example: "invalid_request_error"
+            code:
+              type: string
+              description: 錯誤代碼
+              example: "invalid_api_key"
+
+  responses:
+    Unauthorized:
+      description: 認證失敗（無效的 API 金鑰）
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error:
+              message: "Invalid API key"
+              type: "invalid_request_error"
+              code: "invalid_api_key"
+
+    RateLimited:
+      description: 速率限制（請求過於頻繁）
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error:
+              message: "Rate limit exceeded"
+              type: "rate_limit_error"
+              code: "rate_limit_exceeded"
+
+    ServerError:
+      description: 伺服器錯誤（AI 服務內部錯誤）
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error:
+              message: "Internal server error"
+              type: "server_error"
+              code: "internal_error"
+
+    ServiceUnavailable:
+      description: 服務不可用（AI 服務暫時無法使用）
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error:
+              message: "Service temporarily unavailable"
+              type: "service_unavailable"
+              code: "service_unavailable"
+
+tags:
+  - name: Chat
+    description: 聊天完成相關操作

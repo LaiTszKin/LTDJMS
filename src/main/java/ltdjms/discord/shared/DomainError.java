@@ -31,7 +31,19 @@ public record DomainError(Category category, String message, Throwable cause) {
     /** Discord bot missing required permissions */
     DISCORD_MISSING_PERMISSIONS,
     /** Discord invalid component ID */
-    DISCORD_INVALID_COMPONENT_ID
+    DISCORD_INVALID_COMPONENT_ID,
+    /** AI service timeout */
+    AI_SERVICE_TIMEOUT,
+    /** AI service authentication failed */
+    AI_SERVICE_AUTH_FAILED,
+    /** AI service rate limited */
+    AI_SERVICE_RATE_LIMITED,
+    /** AI service unavailable */
+    AI_SERVICE_UNAVAILABLE,
+    /** AI response empty */
+    AI_RESPONSE_EMPTY,
+    /** AI response invalid */
+    AI_RESPONSE_INVALID
   }
 
   public DomainError {

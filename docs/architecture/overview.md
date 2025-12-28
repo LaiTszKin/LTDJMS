@@ -95,6 +95,13 @@ flowchart LR
 - `shop/`
    商店模組：貨幣購買功能與商店管理。
 
+- `aichat/`
+   AI 聊天模組：提供 Discord 機器人的 AI 聊天功能。當使用者在 Discord 頻道中提及機器人時，會觸發 AI 服務生成回應。
+   - `domain/`：AI 服務配置、請求與回應模型
+   - `services/`：AI HTTP 客戶端與聊天服務實作
+   - `commands/`：AI 聊天提及監聽器
+   - 詳細說明請參閱 [AI Chat 模組文件](../modules/aichat.md)
+
 - `shared/`
   共用基礎設施：資料庫連線設定、Flyway schema migration、`Result<T, E>` 型別、`DomainError`、設定載入與 Dagger DI 定義。
 
@@ -182,6 +189,39 @@ flowchart LR
    - 以 ephemeral 訊息回覆。
 4. 後續按鈕互動由 `UserPanelButtonHandler` 處理，載入 `GameTokenTransactionService` 提供的交易分頁資料。
 
+### 5.4 AI Chat 提及處理流程（V010 新增）
+
+AI Chat 功能透過**提及機器人**觸發，而非使用傳統的 slash commands。
+
+1. 使用者在 Discord 頻道中提及機器人（如 `@LTDJMSBot 你好`）。
+2. `AIChatMentionListener`（JDA `GenericEventMonitor`）接收 `MessageReceivedEvent`。
+3. `AIChatMentionListener`：
+   - 檢查訊息是否包含機器人提及
+   - 移除提及部分，提取使用者實際輸入的訊息
+   - 若訊息為空（僅提及），使用預設問候語「你好」
+4. 呼叫 `DefaultAIChatService.processMention(guildId, channelId, userId, message)`：
+   - 讀取 AI 服務配置（`AIServiceConfig`）
+   - 建立請求物件（`AIChatRequest`）
+   - 呼叫 `AIClient.sendChatRequest` 執行 HTTP 請求
+5. `AIClient`：
+   - 使用 Java 17 `HttpClient` 發送 POST 請求至 AI 服務
+   - 請求格式符合 OpenAI Chat Completions API 標準
+   - 設定逾時（預設 30 秒，可配置）
+6. **AI 服務回應處理**：
+   - 若成功（HTTP 200）：解析 JSON 回應，提取 AI 生成內容
+   - 若失敗（4xx/5xx）：依狀態碼分類錯誤類型（401 認證失敗、429 速率限制等）
+7. `DefaultAIChatService`：
+   - 若回應內容不為空：呼叫 `MessageSplitter` 分割長訊息（Discord 2000 字元限制）
+   - 將每則訊息片段發送到同一頻道
+   - 若回應為空或失敗：發送友善的錯誤提示訊息
+8. 成功後發布 `AIMessageEvent`，供監控與日誌使用。
+
+**與傳統指令的差異**：
+- 無需使用者輸入 `/` 指令前綴
+- 事件觸發機制為 `GenericEventMonitor` 而非 `SlashCommandListener`
+- 無狀態設計：每次請求獨立，不保存對話歷史
+- 外部服務整合：需處理網路逾時、速率限制等 HTTP 特有錯誤
+
 ## 6. 錯誤處理與 Result 模式
 
 專案大量運用 `Result<T, DomainError>` 來處理可預期的業務錯誤：
@@ -222,6 +262,8 @@ Command handler 通常遵守以下模式：
 本文件的文字描述可搭配以下視覺化圖表閱讀：
 
 - **[系統架構圖](component-diagram.md)** - 完整的 Mermaid 架構圖、模組關係圖、資料庫 schema 圖與互動流程圖
+- **[AI Chat 流程架構](ai-chat-flow.md)** - AI Chat 功能的完整流程圖與元件互動說明（V010 新增）
+- **[時序圖說明](sequence-diagrams.md)** - 核心業務流程的時序圖，包含 AI Chat 提及回應流程
 
 ---
 
@@ -229,6 +271,7 @@ Command handler 通常遵守以下模式：
 
 - `docs/modules/discord-api-abstraction.md` - **Discord API 抽象層**（重要：了解如何與 Discord 互動）
 - `docs/modules/shared-module.md` - 共用模組（Result 模式、DomainError 等）
+- `docs/modules/aichat.md` - **AI Chat 模組**（V010 新增：提及觸發的 AI 聊天功能）
 - `docs/modules/currency-system.md` - 貨幣系統
 - `docs/modules/game-tokens-and-games.md` - 遊戲代幣與遊戲
 - `docs/modules/panels.md` - 使用者與管理面板
