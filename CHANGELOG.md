@@ -4,6 +4,45 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.14.0] - 2025-12-28
+
+### Added
+- **AI 聊天功能**：新增 Discord 機器人的 AI 對話功能，用戶可透過 @提及 與 AI 進行自然語言對話
+  - `AIChatService`：AI 聊天服務介面
+  - `DefaultAIChatService`：預設實作，整合 Anthropic Claude API
+  - `AIClient`：處理與 Claude API 的 HTTP 通訊
+  - `MessageSplitter`：自動分割長訊息以符合 Discord 2000 字元限制
+  - `AIChatMentionListener`：監聽 Discord 提及事件並觸發 AI 回應
+  - `AIServiceConfig`：AI 服務配置（API 金鑰、模型、溫度等）
+
+### Added
+- **領域事件**：新增 `AIMessageEvent`，在 AI 訊息發送時發布，支援事件驅動架構
+- **DI 模組**：新增 `AIChatModule`，提供 AI 聊天相關依賴注入
+- **環境配置**：擴展 `EnvironmentConfig`，支援 AI 服務配置（`ANTHROPIC_API_KEY`、`AI_MODEL`、`AI_TEMPERATURE` 等）
+
+### Added
+- **DevOps 改進**：
+  - 新增 `.git-hooks/pre-commit` 自動執行 Spotless 程式碼格式化
+  - 更新 Docker Compose 配置
+
+### Changed
+- `DomainError`：新增 AI 相關錯誤類型（`AI_SERVICE_UNAVAILABLE`、`AI_API_ERROR` 等）
+- `BotErrorHandler`：新增 AI 錯誤處理邏輯
+
+### Technical
+- pom.xml 維持 Java 17 + JDA 5.2.2 + Dagger 2.52
+- 新增 OkHttp 4.12.0 依賴用於 HTTP 通訊
+- 完整測試覆蓋：新增 9 個 AI 聊天相關測試類別（單元測試 + 整合測試）
+
+### Documentation
+- **docs/architecture/ai-chat-flow.md**：AI 聊天流程圖與時序圖
+- **docs/modules/aichat.md**：AI 聊天模組完整文檔
+- **specs/003-ai-chat/**：完整規格文檔（spec.md、plan.md、tasks.md、data-model.md、openapi.yaml 等）
+- **docs/api/slash-commands.md**、**docs/architecture/overview.md**、**docs/architecture/sequence-diagrams.md**：更新 AI 聊天相關說明
+- **docs/development/configuration.md**：新增 AI 服務配置說明
+- **docs/operations/troubleshooting.md**：新增 AI 聊天故障排除章節
+- **.env.example**：新增 AI 服務環境變數範例
+
 ## [0.13.1] - 2025-12-28
 
 ### Changed

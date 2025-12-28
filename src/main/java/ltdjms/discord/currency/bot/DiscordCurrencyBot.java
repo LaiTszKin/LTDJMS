@@ -6,6 +6,7 @@ import javax.sql.DataSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import ltdjms.discord.aichat.commands.AIChatMentionListener;
 import ltdjms.discord.panel.commands.AdminPanelButtonHandler;
 import ltdjms.discord.panel.commands.AdminProductPanelHandler;
 import ltdjms.discord.panel.commands.UserPanelButtonHandler;
@@ -62,6 +63,7 @@ public class DiscordCurrencyBot {
     AdminProductPanelHandler adminProductPanelHandler = appComponent.adminProductPanelHandler();
     ShopButtonHandler shopButtonHandler = appComponent.shopButtonHandler();
     ShopSelectMenuHandler shopSelectMenuHandler = appComponent.shopSelectMenuHandler();
+    AIChatMentionListener aiChatMentionListener = appComponent.aiChatMentionListener();
 
     // Build JDA instance with default non-privileged gateway intents to avoid
     // DISALLOWED_INTENTS (4014) errors when the bot token does not have
@@ -73,7 +75,8 @@ public class DiscordCurrencyBot {
             adminPanelButtonHandler,
             adminProductPanelHandler,
             shopButtonHandler,
-            shopSelectMenuHandler);
+            shopSelectMenuHandler,
+            aiChatMentionListener);
 
     this.jda =
         JDABuilder.createLight(envConfig.getDiscordBotToken())
@@ -149,13 +152,15 @@ public class DiscordCurrencyBot {
       AdminPanelButtonHandler adminPanelButtonHandler,
       AdminProductPanelHandler adminProductPanelHandler,
       ShopButtonHandler shopButtonHandler,
-      ShopSelectMenuHandler shopSelectMenuHandler) {
+      ShopSelectMenuHandler shopSelectMenuHandler,
+      AIChatMentionListener aiChatMentionListener) {
     return List.of(
         slashCommandListener,
         userPanelButtonHandler,
         adminPanelButtonHandler,
         adminProductPanelHandler,
         shopButtonHandler,
-        shopSelectMenuHandler);
+        shopSelectMenuHandler,
+        aiChatMentionListener);
   }
 }

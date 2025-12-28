@@ -188,6 +188,12 @@ public final class BotErrorHandler {
       case DISCORD_RATE_LIMITED -> error.message();
       case DISCORD_MISSING_PERMISSIONS -> error.message();
       case DISCORD_INVALID_COMPONENT_ID -> error.message();
+      case AI_SERVICE_TIMEOUT -> ":hourglass: AI 服務回應逾時，請稍後再試";
+      case AI_SERVICE_AUTH_FAILED -> ":x: AI 服務認證失敗，請聯絡管理員";
+      case AI_SERVICE_RATE_LIMITED -> ":timer: AI 服務暫時忙碌，請稍後再試";
+      case AI_SERVICE_UNAVAILABLE -> ":warning: AI 服務暫時無法使用";
+      case AI_RESPONSE_EMPTY -> ":question: AI 沒有產生回應";
+      case AI_RESPONSE_INVALID -> ":warning: AI 回應格式錯誤";
     };
   }
 
@@ -293,6 +299,39 @@ public final class BotErrorHandler {
             userId,
             error.message());
         interaction.reply("❌ " + error.message());
+      }
+
+      case AI_SERVICE_TIMEOUT -> {
+        LOG.warn("AI service timeout for guild={} user={}: {}", guildId, userId, error.message());
+        interaction.reply(":hourglass: AI 服務回應逾時，請稍後再試");
+      }
+
+      case AI_SERVICE_AUTH_FAILED -> {
+        LOG.error(
+            "AI service auth failed for guild={} user={}: {}", guildId, userId, error.message());
+        interaction.reply(":x: AI 服務認證失敗，請聯絡管理員");
+      }
+
+      case AI_SERVICE_RATE_LIMITED -> {
+        LOG.warn(
+            "AI service rate limited for guild={} user={}: {}", guildId, userId, error.message());
+        interaction.reply(":timer: AI 服務暫時忙碌，請稍後再試");
+      }
+
+      case AI_SERVICE_UNAVAILABLE -> {
+        LOG.error(
+            "AI service unavailable for guild={} user={}: {}", guildId, userId, error.message());
+        interaction.reply(":warning: AI 服務暫時無法使用");
+      }
+
+      case AI_RESPONSE_EMPTY -> {
+        LOG.warn("AI response empty for guild={} user={}: {}", guildId, userId, error.message());
+        interaction.reply(":question: AI 沒有產生回應");
+      }
+
+      case AI_RESPONSE_INVALID -> {
+        LOG.error("AI response invalid for guild={} user={}: {}", guildId, userId, error.message());
+        interaction.reply(":warning: AI 回應格式錯誤");
       }
     }
   }

@@ -41,6 +41,12 @@ public final class EnvironmentConfig {
   private static final String ENV_DB_POOL_IDLE_TIMEOUT = "DB_POOL_IDLE_TIMEOUT";
   private static final String ENV_DB_POOL_MAX_LIFETIME = "DB_POOL_MAX_LIFETIME";
   private static final String ENV_REDIS_URI = "REDIS_URI";
+  private static final String ENV_AI_SERVICE_BASE_URL = "AI_SERVICE_BASE_URL";
+  private static final String ENV_AI_SERVICE_API_KEY = "AI_SERVICE_API_KEY";
+  private static final String ENV_AI_SERVICE_MODEL = "AI_SERVICE_MODEL";
+  private static final String ENV_AI_SERVICE_TEMPERATURE = "AI_SERVICE_TEMPERATURE";
+  private static final String ENV_AI_SERVICE_MAX_TOKENS = "AI_SERVICE_MAX_TOKENS";
+  private static final String ENV_AI_SERVICE_TIMEOUT_SECONDS = "AI_SERVICE_TIMEOUT_SECONDS";
 
   // Config paths for Typesafe Config
   private static final String CFG_DISCORD_BOT_TOKEN = "discord.bot.token";
@@ -53,6 +59,12 @@ public final class EnvironmentConfig {
   private static final String CFG_DB_POOL_CONNECTION_TIMEOUT = "db.pool.connection-timeout";
   private static final String CFG_DB_POOL_IDLE_TIMEOUT = "db.pool.idle-timeout";
   private static final String CFG_DB_POOL_MAX_LIFETIME = "db.pool.max-lifetime";
+  private static final String CFG_AI_SERVICE_BASE_URL = "ai.service.base-url";
+  private static final String CFG_AI_SERVICE_API_KEY = "ai.service.api-key";
+  private static final String CFG_AI_SERVICE_MODEL = "ai.service.model";
+  private static final String CFG_AI_SERVICE_TEMPERATURE = "ai.service.temperature";
+  private static final String CFG_AI_SERVICE_MAX_TOKENS = "ai.service.max-tokens";
+  private static final String CFG_AI_SERVICE_TIMEOUT_SECONDS = "ai.service.timeout-seconds";
 
   // Default values
   private static final String DEFAULT_REDIS_URI = "redis://localhost:6379";
@@ -64,6 +76,11 @@ public final class EnvironmentConfig {
   private static final long DEFAULT_POOL_CONNECTION_TIMEOUT = 30000L;
   private static final long DEFAULT_POOL_IDLE_TIMEOUT = 600000L;
   private static final long DEFAULT_POOL_MAX_LIFETIME = 1800000L;
+  private static final String DEFAULT_AI_SERVICE_BASE_URL = "https://api.openai.com/v1";
+  private static final String DEFAULT_AI_SERVICE_MODEL = "gpt-3.5-turbo";
+  private static final double DEFAULT_AI_SERVICE_TEMPERATURE = 0.7;
+  private static final int DEFAULT_AI_SERVICE_MAX_TOKENS = 500;
+  private static final int DEFAULT_AI_SERVICE_TIMEOUT_SECONDS = 30;
 
   private final Config config;
   private final Map<String, String> dotEnvValues;
@@ -102,6 +119,11 @@ public final class EnvironmentConfig {
     defaults.put(CFG_DB_POOL_CONNECTION_TIMEOUT, DEFAULT_POOL_CONNECTION_TIMEOUT);
     defaults.put(CFG_DB_POOL_IDLE_TIMEOUT, DEFAULT_POOL_IDLE_TIMEOUT);
     defaults.put(CFG_DB_POOL_MAX_LIFETIME, DEFAULT_POOL_MAX_LIFETIME);
+    defaults.put(CFG_AI_SERVICE_BASE_URL, DEFAULT_AI_SERVICE_BASE_URL);
+    defaults.put(CFG_AI_SERVICE_MODEL, DEFAULT_AI_SERVICE_MODEL);
+    defaults.put(CFG_AI_SERVICE_TEMPERATURE, DEFAULT_AI_SERVICE_TEMPERATURE);
+    defaults.put(CFG_AI_SERVICE_MAX_TOKENS, DEFAULT_AI_SERVICE_MAX_TOKENS);
+    defaults.put(CFG_AI_SERVICE_TIMEOUT_SECONDS, DEFAULT_AI_SERVICE_TIMEOUT_SECONDS);
     Config defaultsConfig = ConfigFactory.parseMap(defaults);
 
     // Load application.conf/properties (standard Typesafe Config behavior)
@@ -120,6 +142,12 @@ public final class EnvironmentConfig {
         dotEnvMapped, ENV_DB_POOL_CONNECTION_TIMEOUT, CFG_DB_POOL_CONNECTION_TIMEOUT);
     mapEnvToConfigLong(dotEnvMapped, ENV_DB_POOL_IDLE_TIMEOUT, CFG_DB_POOL_IDLE_TIMEOUT);
     mapEnvToConfigLong(dotEnvMapped, ENV_DB_POOL_MAX_LIFETIME, CFG_DB_POOL_MAX_LIFETIME);
+    mapEnvToConfig(dotEnvMapped, ENV_AI_SERVICE_BASE_URL, CFG_AI_SERVICE_BASE_URL);
+    mapEnvToConfig(dotEnvMapped, ENV_AI_SERVICE_API_KEY, CFG_AI_SERVICE_API_KEY);
+    mapEnvToConfig(dotEnvMapped, ENV_AI_SERVICE_MODEL, CFG_AI_SERVICE_MODEL);
+    mapEnvToConfigDouble(dotEnvMapped, ENV_AI_SERVICE_TEMPERATURE, CFG_AI_SERVICE_TEMPERATURE);
+    mapEnvToConfigInt(dotEnvMapped, ENV_AI_SERVICE_MAX_TOKENS, CFG_AI_SERVICE_MAX_TOKENS);
+    mapEnvToConfigInt(dotEnvMapped, ENV_AI_SERVICE_TIMEOUT_SECONDS, CFG_AI_SERVICE_TIMEOUT_SECONDS);
     Config dotEnvConfig = ConfigFactory.parseMap(dotEnvMapped);
 
     // Build system env vars as config (highest priority)
@@ -135,6 +163,13 @@ public final class EnvironmentConfig {
         sysEnvMapped, ENV_DB_POOL_CONNECTION_TIMEOUT, CFG_DB_POOL_CONNECTION_TIMEOUT);
     mapSysEnvToConfigLong(sysEnvMapped, ENV_DB_POOL_IDLE_TIMEOUT, CFG_DB_POOL_IDLE_TIMEOUT);
     mapSysEnvToConfigLong(sysEnvMapped, ENV_DB_POOL_MAX_LIFETIME, CFG_DB_POOL_MAX_LIFETIME);
+    mapSysEnvToConfig(sysEnvMapped, ENV_AI_SERVICE_BASE_URL, CFG_AI_SERVICE_BASE_URL);
+    mapSysEnvToConfig(sysEnvMapped, ENV_AI_SERVICE_API_KEY, CFG_AI_SERVICE_API_KEY);
+    mapSysEnvToConfig(sysEnvMapped, ENV_AI_SERVICE_MODEL, CFG_AI_SERVICE_MODEL);
+    mapSysEnvToConfigDouble(sysEnvMapped, ENV_AI_SERVICE_TEMPERATURE, CFG_AI_SERVICE_TEMPERATURE);
+    mapSysEnvToConfigInt(sysEnvMapped, ENV_AI_SERVICE_MAX_TOKENS, CFG_AI_SERVICE_MAX_TOKENS);
+    mapSysEnvToConfigInt(
+        sysEnvMapped, ENV_AI_SERVICE_TIMEOUT_SECONDS, CFG_AI_SERVICE_TIMEOUT_SECONDS);
     Config sysEnvConfig = ConfigFactory.parseMap(sysEnvMapped);
 
     // Layer configs: sysEnv > dotEnv > application > defaults
@@ -158,6 +193,17 @@ public final class EnvironmentConfig {
         target.put(configPath, Integer.parseInt(value));
       } catch (NumberFormatException e) {
         LOG.warn("Invalid integer value for {}: {}", envKey, value);
+      }
+    }
+  }
+
+  private void mapEnvToConfigDouble(Map<String, Object> target, String envKey, String configPath) {
+    String value = dotEnvValues.get(envKey);
+    if (value != null && !value.isBlank()) {
+      try {
+        target.put(configPath, Double.parseDouble(value));
+      } catch (NumberFormatException e) {
+        LOG.warn("Invalid double value for {}: {}", envKey, value);
       }
     }
   }
@@ -187,6 +233,18 @@ public final class EnvironmentConfig {
         target.put(configPath, Integer.parseInt(value));
       } catch (NumberFormatException e) {
         LOG.warn("Invalid integer value for {}: {}, using default", envKey, value);
+      }
+    }
+  }
+
+  private void mapSysEnvToConfigDouble(
+      Map<String, Object> target, String envKey, String configPath) {
+    String value = System.getenv(envKey);
+    if (value != null && !value.isBlank()) {
+      try {
+        target.put(configPath, Double.parseDouble(value));
+      } catch (NumberFormatException e) {
+        LOG.warn("Invalid double value for {}: {}, using default", envKey, value);
       }
     }
   }
@@ -304,5 +362,133 @@ public final class EnvironmentConfig {
    */
   public String getRedisUri() {
     return config.getString(CFG_REDIS_URI);
+  }
+
+  /**
+   * Gets the AI service base URL.
+   *
+   * @return the AI service base URL
+   */
+  public String getAIServiceBaseUrl() {
+    return config.getString(CFG_AI_SERVICE_BASE_URL);
+  }
+
+  /**
+   * Gets the AI service API key.
+   *
+   * @return the AI service API key
+   * @throws IllegalStateException if the API key is not set
+   */
+  public String getAIServiceApiKey() {
+    if (!config.hasPath(CFG_AI_SERVICE_API_KEY)) {
+      throw new IllegalStateException(
+          "AI service API key not configured. Set "
+              + ENV_AI_SERVICE_API_KEY
+              + " environment variable.");
+    }
+    String apiKey = config.getString(CFG_AI_SERVICE_API_KEY);
+    if (apiKey == null || apiKey.isBlank()) {
+      throw new IllegalStateException(
+          "AI service API key not configured. Set "
+              + ENV_AI_SERVICE_API_KEY
+              + " environment variable.");
+    }
+    return apiKey;
+  }
+
+  /**
+   * Gets the AI service model name.
+   *
+   * @return the AI service model name
+   */
+  public String getAIServiceModel() {
+    return config.getString(CFG_AI_SERVICE_MODEL);
+  }
+
+  /**
+   * Gets the AI service temperature.
+   *
+   * @return the AI service temperature
+   */
+  public double getAIServiceTemperature() {
+    return config.getDouble(CFG_AI_SERVICE_TEMPERATURE);
+  }
+
+  /**
+   * Gets the AI service max tokens.
+   *
+   * @return the AI service max tokens
+   */
+  public int getAIServiceMaxTokens() {
+    return config.getInt(CFG_AI_SERVICE_MAX_TOKENS);
+  }
+
+  /**
+   * Gets the AI service timeout in seconds.
+   *
+   * @return the AI service timeout in seconds
+   */
+  public int getAIServiceTimeoutSeconds() {
+    return config.getInt(CFG_AI_SERVICE_TIMEOUT_SECONDS);
+  }
+
+  /**
+   * Gets a configuration value with a default fallback.
+   *
+   * @param key the configuration key
+   * @param defaultValue the default value if not configured
+   * @return the configuration value or default
+   */
+  public String getOrDefault(String key, String defaultValue) {
+    if (config.hasPath(key)) {
+      return config.getString(key);
+    }
+    return defaultValue;
+  }
+
+  /**
+   * Gets a required configuration value.
+   *
+   * @param key the configuration key
+   * @return the configuration value
+   * @throws IllegalStateException if the value is not set
+   */
+  public String getRequired(String key) {
+    if (!config.hasPath(key)) {
+      throw new IllegalStateException("Required configuration " + key + " is not set.");
+    }
+    String value = config.getString(key);
+    if (value == null || value.isBlank()) {
+      throw new IllegalStateException("Required configuration " + key + " is not set.");
+    }
+    return value;
+  }
+
+  /**
+   * Gets a double configuration value with a default fallback.
+   *
+   * @param key the configuration key
+   * @param defaultValue the default value if not configured
+   * @return the configuration value or default
+   */
+  public double getDoubleOrDefault(String key, double defaultValue) {
+    if (config.hasPath(key)) {
+      return config.getDouble(key);
+    }
+    return defaultValue;
+  }
+
+  /**
+   * Gets an integer configuration value with a default fallback.
+   *
+   * @param key the configuration key
+   * @param defaultValue the default value if not configured
+   * @return the configuration value or default
+   */
+  public int getIntOrDefault(String key, int defaultValue) {
+    if (config.hasPath(key)) {
+      return config.getInt(key);
+    }
+    return defaultValue;
   }
 }

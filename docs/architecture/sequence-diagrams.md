@@ -474,8 +474,109 @@ sequenceDiagram
 
 ---
 
+## 9. AI Chat 提及回應流程（V010 新增）
+
+當使用者在 Discord 頻道中提及機器人時，系統會呼叫 AI 服務生成回應：
+
+```mermaid
+sequenceDiagram
+    actor User as Discord 使用者
+    participant Listener as AIChatMentionListener
+    participant Service as DefaultAIChatService
+    participant Client as AIClient
+    participant AI as AI 服務 API
+    participant Splitter as MessageSplitter
+    participant Discord as Discord API
+    participant EventBus as DomainEventPublisher
+
+    User->>Listener: 發送提及訊息 @Bot
+    Listener->>Listener: 提取訊息內容（移除提及）
+
+    alt 訊息為空（僅提及）
+        Listener->>Service: processMention(guildId, channelId, userId, "你好")
+    else 訊息不為空
+        Listener->>Service: processMention(guildId, channelId, userId, userMessage)
+    end
+
+    Service->>Client: sendChatRequest(message, config)
+    Client->>Client: 建立請求 JSON（model, messages, temperature, max_tokens）
+    Client->>AI: POST /chat/completions<br/>Authorization: Bearer {API_KEY}
+
+    Note over AI: 處理時間：<br/>預期 < 5 秒
+
+    alt AI 服務成功回應 (200 OK)
+        AI-->>Client: 200 OK + AI 回應內容
+        Client->>Client: 解析 JSON 回應
+        Client-->>Service: Result.ok(response)
+
+        alt 回應內容為空
+            Service->>Discord: 發送「AI 沒有產生回應」
+            Discord-->>User: 顯示錯誤訊息
+        else 回應內容不為空
+            Service->>Splitter: split(response, maxLength=2000)
+            Splitter-->>Service: List<String> (分割後訊息)
+
+            loop 發送每則訊息
+                Service->>Discord: 發送訊息片段
+                Discord-->>User: 顯示 AI 回應
+            end
+
+            Service->>EventBus: publish(AIMessageEvent)
+            EventBus-->>Service: (事件發布完成)
+        end
+
+    else AI 服務認證失敗 (401)
+        AI-->>Client: 401 Unauthorized
+        Client-->>Service: Result.err(AUTHENTICATION_FAILED)
+        Service->>Discord: 發送「AI 服務認證失敗，請聯絡管理員」
+        Discord-->>User: 顯示錯誤訊息
+
+    else AI 服務速率限制 (429)
+        AI-->>Client: 429 Too Many Requests
+        Client-->>Service: Result.err(RATE_LIMITED)
+        Service->>Discord: 發送「AI 服務暫時忙碌，請稍後再試」
+        Discord-->>User: 顯示錯誤訊息
+
+    else AI 服務逾時或無法連線
+        Client->>Client: 逾時或連線失敗
+        Client-->>Service: Result.err(TIMEOUT or CONNECTION_ERROR)
+        Service->>Discord: 發送「AI 服務暫時無法使用」
+        Discord-->>User: 顯示錯誤訊息
+
+    else AI 服務其他錯誤 (5xx)
+        AI-->>Client: 5xx Server Error
+        Client-->>Service: Result.err(SERVICE_ERROR)
+        Service->>Discord: 發送「AI 回應格式錯誤」
+        Discord-->>User: 顯示錯誤訊息
+    end
+```
+
+**關鍵點**（V010 新增）：
+1. **提及檢測**：JDA `GenericEventMonitor` 監聽 `MessageReceivedEvent`，檢查訊息是否包含機器人提及
+2. **訊息提取**：移除機器人提及部分，提取使用者實際輸入的訊息
+3. **預設問候**：若訊息為空（僅提及），使用預設問候語「你好」
+4. **AI 服務呼叫**：使用 Java 17 `HttpClient` 呼叫 OpenAI 相容 API
+5. **無狀態設計**：每次請求獨立，不保存對話歷史
+6. **訊息分割**：使用 `MessageSplitter` 智慧分割長回應（Discord 2000 字元限制）
+7. **錯誤分類**：依 HTTP 狀態碼分類錯誤類型（401/429/5xx）
+8. **友善錯誤訊息**：所有錯誤都轉換為使用者友善的 Discord 訊息
+9. **事件發布**：成功回應後發布 `AIMessageEvent`，供日誌與監控使用
+10. **逾時處理**：HTTP 逾時設定為可配置（預設 30 秒）
+
+**並行處理**：
+- 多位使用者同時提及機器人時，每位使用者都會收到獨立的 AI 回應
+- 系統支援同時處理多個請求，無需等待前一個請求完成
+
+**相關文件**：
+- [AI Chat 模組文件](../modules/aichat.md)
+- [AI Chat 規格](../../specs/003-ai-chat/spec.md)
+- [AI Chat API 契約](../../specs/003-ai-chat/contracts/openapi.yaml)
+
+---
+
 以上時序圖涵蓋了 LTDJMS 核心業務流程的主要互動模式。開發者可以參考這些圖表來理解：
 - 元件之間的呼叫順序
 - 資料流的轉換過程
 - 錯誤處理的分支邏輯
 - 事件驅動的互動模式
+- 外部服務整合模式（AI 服務）
