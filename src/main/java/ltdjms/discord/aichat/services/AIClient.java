@@ -71,7 +71,6 @@ public final class AIClient {
               .uri(URI.create(config.baseUrl() + "/chat/completions"))
               .header("Content-Type", "application/json")
               .header("Authorization", "Bearer " + config.apiKey())
-              .timeout(Duration.ofSeconds(config.timeoutSeconds()))
               .POST(HttpRequest.BodyPublishers.ofString(jsonBody))
               .build();
 

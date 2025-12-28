@@ -90,7 +90,7 @@ public class AIChatMentionListener extends ListenerAdapter {
     return switch (error.category()) {
       case AI_SERVICE_AUTH_FAILED -> ":x: AI 服務認證失敗，請聯絡管理員";
       case AI_SERVICE_RATE_LIMITED -> ":timer: AI 服務暫時忙碌，請稍後再試";
-      case AI_SERVICE_TIMEOUT -> ":hourglass: AI 服務回應逾時，請稍後再試";
+      case AI_SERVICE_TIMEOUT -> ":hourglass: AI 服務連線逾時，請稍後再試";
       case AI_SERVICE_UNAVAILABLE -> ":warning: AI 服務暫時無法使用";
       case AI_RESPONSE_EMPTY -> ":question: AI 沒有產生回應";
       case AI_RESPONSE_INVALID -> ":warning: AI 回應格式錯誤";

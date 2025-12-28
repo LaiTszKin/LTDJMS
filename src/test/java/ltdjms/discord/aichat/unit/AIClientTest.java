@@ -10,6 +10,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 
 import ltdjms.discord.aichat.domain.AIChatRequest;
 import ltdjms.discord.aichat.domain.AIChatResponse;
@@ -25,8 +26,7 @@ class AIClientTest {
   void testSendChatRequest_success_shouldReturnResponse() throws Exception {
     // Given
     AIServiceConfig config =
-        new AIServiceConfig(
-            "https://api.openai.com/v1", "test-api-key", "gpt-3.5-turbo", 0.7, 500, 30);
+        new AIServiceConfig("https://api.openai.com/v1", "test-api-key", "gpt-3.5-turbo", 0.7, 30);
 
     @SuppressWarnings("unchecked")
     HttpResponse<String> mockResponse = mock(HttpResponse.class);
@@ -76,8 +76,7 @@ class AIClientTest {
   void testSendChatRequest_http401_shouldReturnAuthError() throws Exception {
     // Given
     AIServiceConfig config =
-        new AIServiceConfig(
-            "https://api.openai.com/v1", "test-api-key", "gpt-3.5-turbo", 0.7, 500, 30);
+        new AIServiceConfig("https://api.openai.com/v1", "test-api-key", "gpt-3.5-turbo", 0.7, 30);
 
     @SuppressWarnings("unchecked")
     HttpResponse<String> mockResponse = mock(HttpResponse.class);
@@ -100,11 +99,62 @@ class AIClientTest {
   }
 
   @Test
+  void testSendChatRequest_shouldNotSetRequestTimeout() throws Exception {
+    // Given
+    AIServiceConfig config =
+        new AIServiceConfig("https://api.openai.com/v1", "test-api-key", "gpt-3.5-turbo", 0.7, 30);
+
+    @SuppressWarnings("unchecked")
+    HttpResponse<String> mockResponse = mock(HttpResponse.class);
+    when(mockResponse.statusCode()).thenReturn(200);
+    when(mockResponse.body())
+        .thenReturn(
+            """
+            {
+              "id": "chatcmpl-123",
+              "object": "chat.completion",
+              "created": 1677652288,
+              "model": "gpt-3.5-turbo",
+              "choices": [
+                {
+                  "index": 0,
+                  "message": {
+                    "role": "assistant",
+                    "content": "測試回應"
+                  },
+                  "finish_reason": "stop"
+                }
+              ],
+              "usage": {
+                "prompt_tokens": 10,
+                "completion_tokens": 20,
+                "total_tokens": 30
+              }
+            }
+            """);
+
+    HttpClient mockHttpClient = mock(HttpClient.class);
+    ArgumentCaptor<HttpRequest> requestCaptor = ArgumentCaptor.forClass(HttpRequest.class);
+    when(mockHttpClient.send(requestCaptor.capture(), any(HttpResponse.BodyHandler.class)))
+        .thenReturn(mockResponse);
+
+    AIClient client = new AIClient(config, mockHttpClient);
+    AIChatRequest request = AIChatRequest.createUserMessage("測試訊息", config);
+
+    // When
+    Result<AIChatResponse, DomainError> result = client.sendChatRequest(request);
+
+    // Then
+    assertThat(result.isOk()).isTrue();
+    HttpRequest capturedRequest = requestCaptor.getValue();
+    assertThat(capturedRequest.timeout()).isEmpty();
+  }
+
+  @Test
   void testSendChatRequest_http429_shouldReturnRateLimitedError() throws Exception {
     // Given
     AIServiceConfig config =
-        new AIServiceConfig(
-            "https://api.openai.com/v1", "test-api-key", "gpt-3.5-turbo", 0.7, 500, 30);
+        new AIServiceConfig("https://api.openai.com/v1", "test-api-key", "gpt-3.5-turbo", 0.7, 30);
 
     @SuppressWarnings("unchecked")
     HttpResponse<String> mockResponse = mock(HttpResponse.class);
@@ -131,8 +181,7 @@ class AIClientTest {
   void testSendChatRequest_http500_shouldReturnUnavailableError() throws Exception {
     // Given
     AIServiceConfig config =
-        new AIServiceConfig(
-            "https://api.openai.com/v1", "test-api-key", "gpt-3.5-turbo", 0.7, 500, 30);
+        new AIServiceConfig("https://api.openai.com/v1", "test-api-key", "gpt-3.5-turbo", 0.7, 30);
 
     @SuppressWarnings("unchecked")
     HttpResponse<String> mockResponse = mock(HttpResponse.class);
@@ -158,8 +207,7 @@ class AIClientTest {
   void testSendChatRequest_timeout_shouldReturnTimeoutError() throws Exception {
     // Given
     AIServiceConfig config =
-        new AIServiceConfig(
-            "https://api.openai.com/v1", "test-api-key", "gpt-3.5-turbo", 0.7, 500, 30);
+        new AIServiceConfig("https://api.openai.com/v1", "test-api-key", "gpt-3.5-turbo", 0.7, 30);
 
     HttpClient mockHttpClient = mock(HttpClient.class);
     when(mockHttpClient.send(any(HttpRequest.class), any(HttpResponse.BodyHandler.class)))

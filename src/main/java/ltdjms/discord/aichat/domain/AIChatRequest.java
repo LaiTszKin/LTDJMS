@@ -10,13 +10,11 @@ import com.fasterxml.jackson.annotation.JsonProperty;
  * @param model 模型名稱
  * @param messages 訊息列表
  * @param temperature 溫度
- * @param maxTokens 最大 Token 數
  */
 public record AIChatRequest(
     @JsonProperty("model") String model,
     @JsonProperty("messages") List<AIMessage> messages,
-    @JsonProperty("temperature") Double temperature,
-    @JsonProperty("max_tokens") Integer maxTokens) {
+    @JsonProperty("temperature") Double temperature) {
 
   /**
    * AI 訊息。
@@ -33,9 +31,6 @@ public record AIChatRequest(
     String messageContent = (content == null || content.isBlank()) ? "你好" : content;
 
     return new AIChatRequest(
-        config.model(),
-        List.of(new AIMessage("user", messageContent)),
-        config.temperature(),
-        config.maxTokens());
+        config.model(), List.of(new AIMessage("user", messageContent)), config.temperature());
   }
 }

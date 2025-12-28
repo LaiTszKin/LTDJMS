@@ -19,8 +19,7 @@ class AIChatRequestTest {
   void testJsonSerialization_shouldSerializeCorrectly() throws JsonProcessingException {
     // Given
     AIServiceConfig config =
-        new AIServiceConfig(
-            "https://api.openai.com/v1", "test-api-key", "gpt-3.5-turbo", 0.7, 500, 30);
+        new AIServiceConfig("https://api.openai.com/v1", "test-api-key", "gpt-3.5-turbo", 0.7, 30);
     AIChatRequest request = AIChatRequest.createUserMessage("你好，今天天氣如何？", config);
 
     // When
@@ -29,7 +28,6 @@ class AIChatRequestTest {
     // Then
     assertThat(json).contains("\"model\":\"gpt-3.5-turbo\"");
     assertThat(json).contains("\"temperature\":0.7");
-    assertThat(json).contains("\"max_tokens\":500");
     assertThat(json).contains("\"role\":\"user\"");
     assertThat(json).contains("\"content\":\"你好，今天天氣如何？\"");
   }
@@ -38,8 +36,7 @@ class AIChatRequestTest {
   void testCreateUserMessage_shouldCreateValidRequest() {
     // Given
     AIServiceConfig config =
-        new AIServiceConfig(
-            "https://api.openai.com/v1", "test-api-key", "gpt-3.5-turbo", 0.7, 500, 30);
+        new AIServiceConfig("https://api.openai.com/v1", "test-api-key", "gpt-3.5-turbo", 0.7, 30);
 
     // When
     AIChatRequest request = AIChatRequest.createUserMessage("測試訊息", config);
@@ -50,15 +47,13 @@ class AIChatRequestTest {
     assertThat(request.messages().get(0).role()).isEqualTo("user");
     assertThat(request.messages().get(0).content()).isEqualTo("測試訊息");
     assertThat(request.temperature()).isEqualTo(0.7);
-    assertThat(request.maxTokens()).isEqualTo(500);
   }
 
   @Test
   void testCreateUserMessage_withEmptyContent_shouldUseDefaultGreeting() {
     // Given
     AIServiceConfig config =
-        new AIServiceConfig(
-            "https://api.openai.com/v1", "test-api-key", "gpt-3.5-turbo", 0.7, 500, 30);
+        new AIServiceConfig("https://api.openai.com/v1", "test-api-key", "gpt-3.5-turbo", 0.7, 30);
 
     // When
     AIChatRequest request = AIChatRequest.createUserMessage("", config);
@@ -72,8 +67,7 @@ class AIChatRequestTest {
   void testCreateUserMessage_withNullContent_shouldUseDefaultGreeting() {
     // Given
     AIServiceConfig config =
-        new AIServiceConfig(
-            "https://api.openai.com/v1", "test-api-key", "gpt-3.5-turbo", 0.7, 500, 30);
+        new AIServiceConfig("https://api.openai.com/v1", "test-api-key", "gpt-3.5-turbo", 0.7, 30);
 
     // When
     AIChatRequest request = AIChatRequest.createUserMessage(null, config);

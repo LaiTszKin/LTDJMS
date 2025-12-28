@@ -24,7 +24,7 @@
 **Constraints**:
   - Discord 訊息長度限制 2000 字元 (需分割長回應)
   - Discord 互動逾時 15 秒
-  - AI 服務逾時 30 秒 (可配置)
+  - AI 服務連線逾時 30 秒 (可配置)
 **Scale/Scope**:
   - 單一新模組 `aichat`
   - 無狀態設計 (不保存對話歷史)
@@ -124,4 +124,3 @@ src/test/java/ltdjms/discord/aichat/
 | Violation | Why Needed | Simpler Alternative Rejected Because |
 |-----------|------------|-------------------------------------|
 | N/A | 無違規項目 | 此設計完全符合憲法要求 |
-

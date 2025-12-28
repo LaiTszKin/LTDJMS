@@ -25,6 +25,10 @@ public final class MessageSplitter {
       return List.of("");
     }
 
+    if (content.length() <= MAX_MESSAGE_LENGTH) {
+      return List.of(content);
+    }
+
     List<String> paragraphSplit = splitByParagraphs(content);
     if (paragraphSplit.size() > 1 && withinLimit(paragraphSplit)) {
       return paragraphSplit;
@@ -33,10 +37,6 @@ public final class MessageSplitter {
     List<String> sentenceSplit = splitBySentences(content);
     if (sentenceSplit.size() > 1 && withinLimit(sentenceSplit)) {
       return sentenceSplit;
-    }
-
-    if (content.length() <= MAX_MESSAGE_LENGTH) {
-      return List.of(content);
     }
 
     List<String> messages = new ArrayList<>();

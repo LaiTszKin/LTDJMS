@@ -45,7 +45,6 @@ public final class EnvironmentConfig {
   private static final String ENV_AI_SERVICE_API_KEY = "AI_SERVICE_API_KEY";
   private static final String ENV_AI_SERVICE_MODEL = "AI_SERVICE_MODEL";
   private static final String ENV_AI_SERVICE_TEMPERATURE = "AI_SERVICE_TEMPERATURE";
-  private static final String ENV_AI_SERVICE_MAX_TOKENS = "AI_SERVICE_MAX_TOKENS";
   private static final String ENV_AI_SERVICE_TIMEOUT_SECONDS = "AI_SERVICE_TIMEOUT_SECONDS";
 
   // Config paths for Typesafe Config
@@ -63,7 +62,6 @@ public final class EnvironmentConfig {
   private static final String CFG_AI_SERVICE_API_KEY = "ai.service.api-key";
   private static final String CFG_AI_SERVICE_MODEL = "ai.service.model";
   private static final String CFG_AI_SERVICE_TEMPERATURE = "ai.service.temperature";
-  private static final String CFG_AI_SERVICE_MAX_TOKENS = "ai.service.max-tokens";
   private static final String CFG_AI_SERVICE_TIMEOUT_SECONDS = "ai.service.timeout-seconds";
 
   // Default values
@@ -79,7 +77,6 @@ public final class EnvironmentConfig {
   private static final String DEFAULT_AI_SERVICE_BASE_URL = "https://api.openai.com/v1";
   private static final String DEFAULT_AI_SERVICE_MODEL = "gpt-3.5-turbo";
   private static final double DEFAULT_AI_SERVICE_TEMPERATURE = 0.7;
-  private static final int DEFAULT_AI_SERVICE_MAX_TOKENS = 500;
   private static final int DEFAULT_AI_SERVICE_TIMEOUT_SECONDS = 30;
 
   private final Config config;
@@ -122,7 +119,6 @@ public final class EnvironmentConfig {
     defaults.put(CFG_AI_SERVICE_BASE_URL, DEFAULT_AI_SERVICE_BASE_URL);
     defaults.put(CFG_AI_SERVICE_MODEL, DEFAULT_AI_SERVICE_MODEL);
     defaults.put(CFG_AI_SERVICE_TEMPERATURE, DEFAULT_AI_SERVICE_TEMPERATURE);
-    defaults.put(CFG_AI_SERVICE_MAX_TOKENS, DEFAULT_AI_SERVICE_MAX_TOKENS);
     defaults.put(CFG_AI_SERVICE_TIMEOUT_SECONDS, DEFAULT_AI_SERVICE_TIMEOUT_SECONDS);
     Config defaultsConfig = ConfigFactory.parseMap(defaults);
 
@@ -146,7 +142,6 @@ public final class EnvironmentConfig {
     mapEnvToConfig(dotEnvMapped, ENV_AI_SERVICE_API_KEY, CFG_AI_SERVICE_API_KEY);
     mapEnvToConfig(dotEnvMapped, ENV_AI_SERVICE_MODEL, CFG_AI_SERVICE_MODEL);
     mapEnvToConfigDouble(dotEnvMapped, ENV_AI_SERVICE_TEMPERATURE, CFG_AI_SERVICE_TEMPERATURE);
-    mapEnvToConfigInt(dotEnvMapped, ENV_AI_SERVICE_MAX_TOKENS, CFG_AI_SERVICE_MAX_TOKENS);
     mapEnvToConfigInt(dotEnvMapped, ENV_AI_SERVICE_TIMEOUT_SECONDS, CFG_AI_SERVICE_TIMEOUT_SECONDS);
     Config dotEnvConfig = ConfigFactory.parseMap(dotEnvMapped);
 
@@ -167,7 +162,6 @@ public final class EnvironmentConfig {
     mapSysEnvToConfig(sysEnvMapped, ENV_AI_SERVICE_API_KEY, CFG_AI_SERVICE_API_KEY);
     mapSysEnvToConfig(sysEnvMapped, ENV_AI_SERVICE_MODEL, CFG_AI_SERVICE_MODEL);
     mapSysEnvToConfigDouble(sysEnvMapped, ENV_AI_SERVICE_TEMPERATURE, CFG_AI_SERVICE_TEMPERATURE);
-    mapSysEnvToConfigInt(sysEnvMapped, ENV_AI_SERVICE_MAX_TOKENS, CFG_AI_SERVICE_MAX_TOKENS);
     mapSysEnvToConfigInt(
         sysEnvMapped, ENV_AI_SERVICE_TIMEOUT_SECONDS, CFG_AI_SERVICE_TIMEOUT_SECONDS);
     Config sysEnvConfig = ConfigFactory.parseMap(sysEnvMapped);
@@ -412,15 +406,6 @@ public final class EnvironmentConfig {
    */
   public double getAIServiceTemperature() {
     return config.getDouble(CFG_AI_SERVICE_TEMPERATURE);
-  }
-
-  /**
-   * Gets the AI service max tokens.
-   *
-   * @return the AI service max tokens
-   */
-  public int getAIServiceMaxTokens() {
-    return config.getInt(CFG_AI_SERVICE_MAX_TOKENS);
   }
 
   /**

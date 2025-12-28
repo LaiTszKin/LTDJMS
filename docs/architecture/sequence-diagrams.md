@@ -537,8 +537,8 @@ sequenceDiagram
         Service->>Discord: 發送「AI 服務暫時忙碌，請稍後再試」
         Discord-->>User: 顯示錯誤訊息
 
-    else AI 服務逾時或無法連線
-        Client->>Client: 逾時或連線失敗
+    else AI 服務連線逾時或無法連線
+        Client->>Client: 連線逾時或連線失敗
         Client-->>Service: Result.err(TIMEOUT or CONNECTION_ERROR)
         Service->>Discord: 發送「AI 服務暫時無法使用」
         Discord-->>User: 顯示錯誤訊息
@@ -561,7 +561,7 @@ sequenceDiagram
 7. **錯誤分類**：依 HTTP 狀態碼分類錯誤類型（401/429/5xx）
 8. **友善錯誤訊息**：所有錯誤都轉換為使用者友善的 Discord 訊息
 9. **事件發布**：成功回應後發布 `AIMessageEvent`，供日誌與監控使用
-10. **逾時處理**：HTTP 逾時設定為可配置（預設 30 秒）
+10. **連線逾時處理**：HTTP 連線逾時設定為可配置（預設 30 秒，不限制推理時間）
 
 **並行處理**：
 - 多位使用者同時提及機器人時，每位使用者都會收到獨立的 AI 回應

@@ -25,7 +25,7 @@ class MessageSplitterTest {
   }
 
   @Test
-  void testParagraphSplit_shouldSplitAtNewlines() {
+  void testShortMessageWithParagraphs_shouldNotSplit() {
     // Given
     String message = "第一段文字\n\n第二段文字\n\n第三段文字";
 
@@ -33,14 +33,12 @@ class MessageSplitterTest {
     List<String> result = MessageSplitter.split(message);
 
     // Then
-    assertThat(result).hasSize(3);
-    assertThat(result.get(0)).isEqualTo("第一段文字");
-    assertThat(result.get(1)).isEqualTo("第二段文字");
-    assertThat(result.get(2)).isEqualTo("第三段文字");
+    assertThat(result).hasSize(1);
+    assertThat(result.get(0)).isEqualTo(message);
   }
 
   @Test
-  void testSentenceSplit_shouldSplitAtSentenceBoundaries() {
+  void testShortMessageWithSentences_shouldNotSplit() {
     // Given
     String message = "這是第一句。這是第二句！這是第三句？";
 
@@ -48,10 +46,40 @@ class MessageSplitterTest {
     List<String> result = MessageSplitter.split(message);
 
     // Then
+    assertThat(result).hasSize(1);
+    assertThat(result.get(0)).isEqualTo(message);
+  }
+
+  @Test
+  void testLongMessageParagraphSplit_shouldSplitAtNewlines() {
+    // Given
+    String paragraph = "a".repeat(900);
+    String message = paragraph + "\n\n" + paragraph + "\n\n" + paragraph;
+
+    // When
+    List<String> result = MessageSplitter.split(message);
+
+    // Then
     assertThat(result).hasSize(3);
-    assertThat(result.get(0)).isEqualTo("這是第一句。");
-    assertThat(result.get(1)).isEqualTo("這是第二句！");
-    assertThat(result.get(2)).isEqualTo("這是第三句？");
+    assertThat(result.get(0)).isEqualTo(paragraph);
+    assertThat(result.get(1)).isEqualTo(paragraph);
+    assertThat(result.get(2)).isEqualTo(paragraph);
+  }
+
+  @Test
+  void testLongMessageSentenceSplit_shouldSplitAtSentenceBoundaries() {
+    // Given
+    String sentence = "a".repeat(700) + "。";
+    String message = sentence + sentence + sentence;
+
+    // When
+    List<String> result = MessageSplitter.split(message);
+
+    // Then
+    assertThat(result).hasSize(3);
+    assertThat(result.get(0)).isEqualTo(sentence);
+    assertThat(result.get(1)).isEqualTo(sentence);
+    assertThat(result.get(2)).isEqualTo(sentence);
   }
 
   @Test

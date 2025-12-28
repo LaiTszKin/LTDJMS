@@ -312,7 +312,7 @@ public class MessageSplitter {
 // 在 DomainError.Category 中新增
 public enum Category {
     // ... 現有類型
-    AI_SERVICE_TIMEOUT,           // AI 服務逾時
+    AI_SERVICE_TIMEOUT,           // AI 服務連線逾時
     AI_SERVICE_AUTH_FAILED,       // AI 服務認證失敗
     AI_SERVICE_RATE_LIMITED,      // AI 服務速率限制
     AI_SERVICE_UNAVAILABLE,       // AI 服務不可用
@@ -328,7 +328,7 @@ public enum Category {
 | 401 Unauthorized | AI_SERVICE_AUTH_FAILED | AI 服務認證失敗，請聯絡管理員 |
 | 429 Too Many Requests | AI_SERVICE_RATE_LIMITED | AI 服務暫時忙碌，請稍後再試 |
 | 500+ Server Error | AI_SERVICE_UNAVAILABLE | AI 服務暫時無法使用 |
-| 逾時 | AI_SERVICE_TIMEOUT | AI 服務回應逾時，請稍後再試 |
+| 逾時 | AI_SERVICE_TIMEOUT | AI 服務連線逾時，請稍後再試 |
 | 空回應 | AI_RESPONSE_EMPTY | AI 沒有產生回應 |
 | JSON 解析失敗 | AI_RESPONSE_INVALID | AI 回應格式錯誤 |
 
@@ -365,7 +365,7 @@ import java.time.Duration;
  * @param model            模型名稱 (例如: gpt-3.5-turbo)
  * @param temperature      溫度 (0.0-2.0，控制回應隨機性)
  * @param maxTokens        最大 Token 數
- * @param timeoutSeconds   逾時秒數
+ * @param timeoutSeconds   連線逾時秒數（不限制推理時間）
  */
 public record AIServiceConfig(
     String baseUrl,
@@ -504,7 +504,7 @@ public class AIChatMentionListener extends ListenerAdapter {
 | 等級 | 用途 |
 |------|------|
 | ERROR | AI 服務呼叫失敗、認證錯誤 |
-| WARN | 速率限制、逾時、空回應 |
+| WARN | 速率限制、連線逾時、空回應 |
 | INFO | AI 請求成功、回應時間 |
 | DEBUG | 詳細請求/回應內容 |
 
@@ -564,7 +564,7 @@ public class AIClient {
 1. **AIClientTest**：測試 HTTP 請求、JSON 序列化
    - Mock HttpClient 回應
    - 測試各種 HTTP 狀態碼
-   - 測試逾時處理
+   - 測試連線逾時處理
 
 2. **AIChatServiceTest**：測試業務邏輯
    - 測試訊息分割
@@ -676,7 +676,7 @@ public class AIChatModule {
 |------|------|---------|
 | AI 服務供應商變更 API 格式 | 高 | 使用相容性標準，提供配置靈活性 |
 | AI 回應超過 Discord 長度限制 | 中 | 實作智慧分割策略 |
-| AI 服務逾時導致 Discord 逾時 | 中 | 設定適當的逾時時間，記錄警告 |
+| AI 服務連線逾時導致 Discord 逾時 | 中 | 設定適當的連線逾時時間，記錄警告 |
 | 並行請求導致速率限制 | 低 | 記錄速率限制錯誤，友善提示使用者 |
 
 ---

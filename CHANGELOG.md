@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.14.1] - 2025-12-28
+
+### Fixed
+- **AI Chat 配置簡化**：移除 `AI_SERVICE_MAX_TOKENS` 配置項，由 AI 服務使用預設值
+- **逾時語意澄清**：將 `AI_SERVICE_TIMEOUT_SECONDS` 明確為「連線逾時」配置，說明僅限制建立連線時間，不限制 AI 推理耗時
+- 移除 `AIClient` 中的 HTTP 逾時設定，允許長時間推理
+
+### Changed
+- `AIServiceConfig`：移除 `maxTokens` 欄位與相關驗證
+- `AIChatRequest`：移除 `max_tokens` JSON 參數
+- `EnvironmentConfig`：移除 `getAIServiceMaxTokens()` 與相關環境變數讀取
+- 更新所有文檔與測試，將「逾時」統一改為「連線逾時」
+- 更新 `.env.example` 與 `docker-compose.yml`
+
 ## [Unreleased]
 
 ## [0.14.0] - 2025-12-28

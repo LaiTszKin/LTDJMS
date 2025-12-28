@@ -188,7 +188,7 @@ public final class BotErrorHandler {
       case DISCORD_RATE_LIMITED -> error.message();
       case DISCORD_MISSING_PERMISSIONS -> error.message();
       case DISCORD_INVALID_COMPONENT_ID -> error.message();
-      case AI_SERVICE_TIMEOUT -> ":hourglass: AI 服務回應逾時，請稍後再試";
+      case AI_SERVICE_TIMEOUT -> ":hourglass: AI 服務連線逾時，請稍後再試";
       case AI_SERVICE_AUTH_FAILED -> ":x: AI 服務認證失敗，請聯絡管理員";
       case AI_SERVICE_RATE_LIMITED -> ":timer: AI 服務暫時忙碌，請稍後再試";
       case AI_SERVICE_UNAVAILABLE -> ":warning: AI 服務暫時無法使用";
@@ -303,7 +303,7 @@ public final class BotErrorHandler {
 
       case AI_SERVICE_TIMEOUT -> {
         LOG.warn("AI service timeout for guild={} user={}: {}", guildId, userId, error.message());
-        interaction.reply(":hourglass: AI 服務回應逾時，請稍後再試");
+        interaction.reply(":hourglass: AI 服務連線逾時，請稍後再試");
       }
 
       case AI_SERVICE_AUTH_FAILED -> {

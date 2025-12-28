@@ -27,7 +27,7 @@
 | `model` | `String` | 模型名稱 | 必填，非空白 |
 | `temperature` | `double` | 溫度 (0.0-2.0) | 0.0 <= temperature <= 2.0 |
 | `maxTokens` | `int` | 最大 Token 數 | 1 <= maxTokens <= 4096 |
-| `timeoutSeconds` | `int` | 逾時秒數 | 1 <= timeoutSeconds <= 120 |
+| `timeoutSeconds` | `int` | 連線逾時秒數（不限制推理時間） | 1 <= timeoutSeconds <= 120 |
 
 **工廠方法**:
 
@@ -224,7 +224,7 @@ Result<Unit, DomainError> generateResponse(
 | `INVALID_INPUT` | 訊息為空白、頻道 ID 無效 |
 | `AI_SERVICE_AUTH_FAILED` | API 金鑰無效 (HTTP 401) |
 | `AI_SERVICE_RATE_LIMITED` | 速率限制 (HTTP 429) |
-| `AI_SERVICE_TIMEOUT` | 請求逾時 |
+| `AI_SERVICE_TIMEOUT` | 連線逾時 |
 | `AI_SERVICE_UNAVAILABLE` | 服務不可用 (HTTP 5xx) |
 | `AI_RESPONSE_EMPTY` | AI 回應為空 |
 | `AI_RESPONSE_INVALID` | AI 回應格式無效 |
@@ -298,7 +298,7 @@ public static List<String> split(String content);
 ```java
 public enum Category {
     // ... 現有類型
-    AI_SERVICE_TIMEOUT,           // AI 服務逾時
+    AI_SERVICE_TIMEOUT,           // AI 服務連線逾時
     AI_SERVICE_AUTH_FAILED,       // AI 服務認證失敗
     AI_SERVICE_RATE_LIMITED,      // AI 服務速率限制
     AI_SERVICE_UNAVAILABLE,       // AI 服務不可用
@@ -313,7 +313,7 @@ public enum Category {
 |---------|-----------------|
 | `AI_SERVICE_AUTH_FAILED` | `:x: AI 服務認證失敗，請聯絡管理員` |
 | `AI_SERVICE_RATE_LIMITED` | `:timer: AI 服務暫時忙碌，請稍後再試` |
-| `AI_SERVICE_TIMEOUT` | `:hourglass: AI 服務回應逾時，請稍後再試` |
+| `AI_SERVICE_TIMEOUT` | `:hourglass: AI 服務連線逾時，請稍後再試` |
 | `AI_SERVICE_UNAVAILABLE` | `:warning: AI 服務暫時無法使用` |
 | `AI_RESPONSE_EMPTY` | `:question: AI 沒有產生回應` |
 | `AI_RESPONSE_INVALID` | `:warning: AI 回應格式錯誤` |
@@ -437,7 +437,7 @@ classDiagram
 
 1. **並行處理**: `HttpClient` 支援多個並行請求
 2. **連線重用**: `HttpClient` 內建連線池
-3. **逾時控制**: 避免長時間阻塞
+3. **連線逾時控制**: 避免連線建立長時間阻塞
 4. **記憶體效率**: 使用不可變 record，減少物件配置
 
 ---

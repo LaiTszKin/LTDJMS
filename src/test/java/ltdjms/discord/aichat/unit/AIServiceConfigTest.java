@@ -18,7 +18,7 @@ class AIServiceConfigTest {
   void testValidConfig_shouldPassValidation() {
     // Given
     EnvironmentConfig env =
-        createTestEnv("https://api.openai.com/v1", "test-api-key", "gpt-3.5-turbo", 0.7, 500, 30);
+        createTestEnv("https://api.openai.com/v1", "test-api-key", "gpt-3.5-turbo", 0.7, 30);
 
     // When
     AIServiceConfig config = AIServiceConfig.from(env);
@@ -30,7 +30,6 @@ class AIServiceConfigTest {
     assertThat(config.apiKey()).isEqualTo("test-api-key");
     assertThat(config.model()).isEqualTo("gpt-3.5-turbo");
     assertThat(config.temperature()).isEqualTo(0.7);
-    assertThat(config.maxTokens()).isEqualTo(500);
     assertThat(config.timeoutSeconds()).isEqualTo(30);
   }
 
@@ -43,7 +42,6 @@ class AIServiceConfigTest {
             "test-api-key",
             "gpt-3.5-turbo",
             0.7,
-            500,
             30);
 
     // When
@@ -64,7 +62,6 @@ class AIServiceConfigTest {
             "", // Empty API key
             "gpt-3.5-turbo",
             0.7,
-            500,
             30);
 
     // When
@@ -85,7 +82,6 @@ class AIServiceConfigTest {
             "test-api-key",
             "gpt-3.5-turbo",
             -0.1, // Too low
-            500,
             30);
 
     // When
@@ -106,49 +102,6 @@ class AIServiceConfigTest {
             "test-api-key",
             "gpt-3.5-turbo",
             2.1, // Too high
-            500,
-            30);
-
-    // When
-    AIServiceConfig config = AIServiceConfig.from(env);
-    Result<Unit, DomainError> result = config.validate();
-
-    // Then
-    assertThat(result.isErr()).isTrue();
-    assertThat(result.getError().category()).isEqualTo(DomainError.Category.INVALID_INPUT);
-  }
-
-  @Test
-  void testInvalidMaxTokens_tooLow_shouldFailValidation() {
-    // Given
-    EnvironmentConfig env =
-        createTestEnv(
-            "https://api.openai.com/v1",
-            "test-api-key",
-            "gpt-3.5-turbo",
-            0.7,
-            0, // Too low
-            30);
-
-    // When
-    AIServiceConfig config = AIServiceConfig.from(env);
-    Result<Unit, DomainError> result = config.validate();
-
-    // Then
-    assertThat(result.isErr()).isTrue();
-    assertThat(result.getError().category()).isEqualTo(DomainError.Category.INVALID_INPUT);
-  }
-
-  @Test
-  void testInvalidMaxTokens_tooHigh_shouldFailValidation() {
-    // Given
-    EnvironmentConfig env =
-        createTestEnv(
-            "https://api.openai.com/v1",
-            "test-api-key",
-            "gpt-3.5-turbo",
-            0.7,
-            4097, // Too high
             30);
 
     // When
@@ -165,7 +118,7 @@ class AIServiceConfigTest {
     // Given
     EnvironmentConfig env =
         createTestEnv(
-            "https://api.openai.com/v1", "test-api-key", "gpt-3.5-turbo", 0.7, 500, 0 // Too low
+            "https://api.openai.com/v1", "test-api-key", "gpt-3.5-turbo", 0.7, 0 // Too low
             );
 
     // When
@@ -182,7 +135,7 @@ class AIServiceConfigTest {
     // Given
     EnvironmentConfig env =
         createTestEnv(
-            "https://api.openai.com/v1", "test-api-key", "gpt-3.5-turbo", 0.7, 500, 121 // Too high
+            "https://api.openai.com/v1", "test-api-key", "gpt-3.5-turbo", 0.7, 121 // Too high
             );
 
     // When
@@ -195,18 +148,12 @@ class AIServiceConfigTest {
   }
 
   private EnvironmentConfig createTestEnv(
-      String baseUrl,
-      String apiKey,
-      String model,
-      double temperature,
-      int maxTokens,
-      int timeoutSeconds) {
+      String baseUrl, String apiKey, String model, double temperature, int timeoutSeconds) {
     EnvironmentConfig mock = Mockito.mock(EnvironmentConfig.class);
     Mockito.when(mock.getAIServiceBaseUrl()).thenReturn(baseUrl);
     Mockito.when(mock.getAIServiceApiKey()).thenReturn(apiKey.isEmpty() ? null : apiKey);
     Mockito.when(mock.getAIServiceModel()).thenReturn(model);
     Mockito.when(mock.getAIServiceTemperature()).thenReturn(temperature);
-    Mockito.when(mock.getAIServiceMaxTokens()).thenReturn(maxTokens);
     Mockito.when(mock.getAIServiceTimeoutSeconds()).thenReturn(timeoutSeconds);
     return mock;
   }

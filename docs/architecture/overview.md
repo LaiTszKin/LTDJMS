@@ -206,7 +206,7 @@ AI Chat 功能透過**提及機器人**觸發，而非使用傳統的 slash comm
 5. `AIClient`：
    - 使用 Java 17 `HttpClient` 發送 POST 請求至 AI 服務
    - 請求格式符合 OpenAI Chat Completions API 標準
-   - 設定逾時（預設 30 秒，可配置）
+   - 設定連線逾時（預設 30 秒，可配置，不限制推理時間）
 6. **AI 服務回應處理**：
    - 若成功（HTTP 200）：解析 JSON 回應，提取 AI 生成內容
    - 若失敗（4xx/5xx）：依狀態碼分類錯誤類型（401 認證失敗、429 速率限制等）

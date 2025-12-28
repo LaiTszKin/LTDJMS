@@ -29,7 +29,7 @@ flowchart TD
     AIService -->|200 OK| ParseResponse[解析 JSON 回應]
     AIService -->|401| AuthError[認證失敗]
     AIService -->|429| RateLimitError[速率限制]
-    AIService -->|逾時/連線失敗| TimeoutError[逾時錯誤]
+    AIService -->|連線逾時/連線失敗| TimeoutError[連線逾時錯誤]
     AIService -->|5xx| ServerError[伺服器錯誤]
 
     ParseResponse --> IsResponseEmpty{回應內容為空?}
@@ -229,7 +229,7 @@ flowchart TD
 |---------|---------------------|---------|---------------|
 | HTTP 401 | `AUTHENTICATION_FAILED` | ERROR | `:x: AI 服務認證失敗，請聯絡管理員` |
 | HTTP 429 | `RATE_LIMITED` | WARN | `:timer: AI 服務暫時忙碌，請稍後再試` |
-| 逾時/連線失敗 | `TIMEOUT` / `CONNECTION_ERROR` | WARN | `:hourglass: AI 服務暫時無法使用` |
+| 連線逾時 | `TIMEOUT` | WARN | `:hourglass: AI 服務連線逾時，請稍後再試` |
 | HTTP 5xx | `SERVICE_ERROR` | ERROR | `:warning: AI 回應格式錯誤` |
 | 空回應 | `EMPTY_RESPONSE` | WARN | `:question: AI 沒有產生回應` |
 | JSON 解析失敗 | `PARSE_ERROR` | ERROR | `:warning: AI 回應格式錯誤` |
@@ -322,7 +322,7 @@ public class AIMessageEvent extends DomainEvent {
 | 等級 | 使用場景 | 範例 |
 |------|---------|------|
 | ERROR | AI 服務認證失敗、伺服器錯誤、格式錯誤 | 認證失敗、JSON 解析失敗 |
-| WARN | 速率限制、逾時、空回應 | HTTP 429、連線逾時、空內容 |
+| WARN | 速率限制、連線逾時、空回應 | HTTP 429、連線逾時、空內容 |
 | INFO | AI 請求成功、回應時間 | 請求成功（含回應時間） |
 
 ---
@@ -349,7 +349,7 @@ flowchart TD
     ValidateTokens -->|否| ConfigError4[啟動失敗<br/>Token 數超出範圍]
     ValidateTokens -->|是| ValidateTimeout{AI_SERVICE_TIMEOUT_SECONDS<br/>範圍 1-120?}
 
-    ValidateTimeout -->|否| ConfigError5[啟動失敗<br/>逾時超出範圍]
+    ValidateTimeout -->|否| ConfigError5[啟動失敗<br/>連線逾時超出範圍]
     ValidateTimeout -->|是| CreateConfig[建立 AIServiceConfig]
 
     CreateConfig --> Success[配置成功]
@@ -435,7 +435,7 @@ flowchart TD
 | AI 回應時間 | < 5 秒 (95th percentile) | 日誌 `response_time_ms` |
 | 並行處理能力 | 100 個同時請求 | 壓力測試 |
 | AI 服務成功率 | > 95% | 日誌錯誤率統計 |
-| 錯誤回應時間 | < 3 秒 | 錯誤處理逾時設定 |
+| 錯誤回應時間 | < 3 秒 | 錯誤處理連線逾時設定 |
 
 ---
 

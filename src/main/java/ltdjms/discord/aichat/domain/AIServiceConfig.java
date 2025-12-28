@@ -12,16 +12,10 @@ import ltdjms.discord.shared.Unit;
  * @param apiKey API 金鑰
  * @param model 模型名稱 (例如: gpt-3.5-turbo)
  * @param temperature 溫度 (0.0-2.0，控制回應隨機性)
- * @param maxTokens 最大 Token 數
- * @param timeoutSeconds 逾時秒數
+ * @param timeoutSeconds 連線逾時秒數（僅用於建立連線，不限制推理時間）
  */
 public record AIServiceConfig(
-    String baseUrl,
-    String apiKey,
-    String model,
-    double temperature,
-    int maxTokens,
-    int timeoutSeconds) {
+    String baseUrl, String apiKey, String model, double temperature, int timeoutSeconds) {
 
   /** 從 EnvironmentConfig 建立配置。 */
   public static AIServiceConfig from(EnvironmentConfig env) {
@@ -30,7 +24,6 @@ public record AIServiceConfig(
         env.getAIServiceApiKey(),
         env.getAIServiceModel(),
         env.getAIServiceTemperature(),
-        env.getAIServiceMaxTokens(),
         env.getAIServiceTimeoutSeconds());
   }
 
@@ -48,10 +41,6 @@ public record AIServiceConfig(
     if (temperature < 0.0 || temperature > 2.0) {
       return Result.err(
           DomainError.invalidInput("AI_SERVICE_TEMPERATURE must be between 0.0 and 2.0"));
-    }
-    if (maxTokens < 1 || maxTokens > 4096) {
-      return Result.err(
-          DomainError.invalidInput("AI_SERVICE_MAX_TOKENS must be between 1 and 4096"));
     }
     if (timeoutSeconds < 1 || timeoutSeconds > 120) {
       return Result.err(

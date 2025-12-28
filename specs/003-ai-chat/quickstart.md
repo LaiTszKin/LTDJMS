@@ -45,7 +45,7 @@ AI_SERVICE_TIMEOUT_SECONDS=30
 | `AI_SERVICE_MODEL` | ✅ | `gpt-3.5-turbo` | 模型名稱 |
 | `AI_SERVICE_TEMPERATURE` | - | `0.7` | 溫度 (0.0-2.0) |
 | `AI_SERVICE_MAX_TOKENS` | - | `500` | 最大 Token 數 (1-4096) |
-| `AI_SERVICE_TIMEOUT_SECONDS` | - | `30` | 逾時秒數 (1-120) |
+| `AI_SERVICE_TIMEOUT_SECONDS` | - | `30` | 連線逾時秒數 (1-120，不限制推理時間) |
 
 ### AI 服務供應商範例
 
@@ -155,7 +155,7 @@ make run
 
 - [ ] 3.1 AI 服務回應 HTTP 401 時，機器人應回傳「AI 服務認證失敗，請聯絡管理員」
 - [ ] 3.2 AI 服務回應 HTTP 429 時，機器人應回傳「AI 服務暫時忙碌，請稍後再試」
-- [ ] 3.3 AI 服務逾時或無法連線時，機器人應回傳「AI 服務暫時無法使用」
+- [ ] 3.3 AI 服務連線逾時時，機器人應回傳「AI 服務連線逾時，請稍後再試」
 - [ ] 3.4 AI 服務回應空內容時，機器人應回傳「AI 沒有產生回應」
 
 ---
@@ -197,23 +197,23 @@ cat .env
 
 # 確認溫度範圍 (0.0-2.0)
 # 確認最大 Token 數範圍 (1-4096)
-# 確認逾時秒數範圍 (1-120)
+# 確認連線逾時秒數範圍 (1-120)
 ```
 
 ### 問題 3: AI 回應速度慢
 
 **可能原因**：
-1. AI 服務逾時設定過長
-2. 網路延遲
-3. AI 服務負載過高
+1. 最大 Token 數過高
+2. 模型較慢或負載過高
+3. 網路延遲
 
 **解決方法**：
 ```bash
-# 調整逾時設定（.env）
-AI_SERVICE_TIMEOUT_SECONDS=15
-
 # 減少最大 Token 數
 AI_SERVICE_MAX_TOKENS=200
+
+# 選擇更快的模型
+AI_SERVICE_MODEL=gpt-3.5-turbo
 ```
 
 ### 問題 4: 收到「AI 服務暫時忙碌」訊息

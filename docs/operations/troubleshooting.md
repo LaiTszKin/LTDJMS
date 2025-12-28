@@ -272,13 +272,13 @@ cat .env | grep AI_SERVICE
 3. 減少最大 Token 數（`AI_SERVICE_MAX_TOKENS`）
 4. 考慮升級 AI 服務方案
 
-**D. AI 服務逾時**
+**D. AI 服務連線逾時**
 
 使用者看到：`:hourglass: AI 服務暫時無法使用`
 
 **解決方案：**
 1. 檢查網路連線是否正常
-2. 調整逾時設定（`AI_SERVICE_TIMEOUT_SECONDS`），預設 30 秒
+2. 調整連線逾時設定（`AI_SERVICE_TIMEOUT_SECONDS`），預設 30 秒
 3. 確認 AI 服務端點是否可達：
    ```bash
    curl -I $AI_SERVICE_BASE_URL
@@ -306,10 +306,10 @@ cat .env | grep AI_SERVICE
 **G. AI 回應速度慢**
 
 **解決方案：**
-1. 調整逾時設定（`AI_SERVICE_TIMEOUT_SECONDS`）
-2. 減少最大 Token 數（`AI_SERVICE_MAX_TOKENS`）
-3. 選擇更快的模型（如 `gpt-3.5-turbo` 而非 `gpt-4`）
-4. 檢查 AI 服務的地理位置延遲
+1. 減少最大 Token 數（`AI_SERVICE_MAX_TOKENS`）
+2. 選擇更快的模型（如 `gpt-3.5-turbo` 而非 `gpt-4`）
+3. 檢查 AI 服務的地理位置延遲
+4. 注意：`AI_SERVICE_TIMEOUT_SECONDS` 只影響連線時間，不限制推理時間
 
 #### AI Chat 故障排除檢查清單
 
@@ -333,7 +333,7 @@ make logs | grep "AI chat request"
 # 5. 驗證配置參數範圍
 # - Temperature: 0.0 - 2.0
 # - Max Tokens: 1 - 4096
-# - Timeout Seconds: 1 - 120
+# - 連線逾時秒數: 1 - 120
 ```
 
 #### AI Chat 常見錯誤訊息對照表
@@ -342,7 +342,7 @@ make logs | grep "AI chat request"
 |--------------|------|---------|
 | `:x: AI 服務認證失敗，請聯絡管理員` | HTTP 401 | 更新有效的 API 金鑰 |
 | `:timer: AI 服務暫時忙碌，請稍後再試` | HTTP 429 | 等待後重試或升級方案 |
-| `:hourglass: AI 服務暫時無法使用` | 逾時/連線失敗 | 檢查網路或調整逾時 |
+| `:hourglass: AI 服務連線逾時，請稍後再試` | 連線逾時 | 檢查網路或調整連線逾時 |
 | `:warning: AI 回應格式錯誤` | JSON 解析失敗 | 檢查 AI 服務回應格式 |
 | `:question: AI 沒有產生回應` | 空回應 | 重新發送或調整參數 |
 

@@ -115,7 +115,7 @@
   - 預設：`30`
   - 對應 config key：`aichat.timeout-seconds`
   - 驗證範圍：`1` - `120`
-  - 說明：AI 服務請求逾時秒數
+  - 說明：AI 服務連線逾時秒數（不限制推理時間）
 
 **AI 服務供應商範例**：
 
@@ -267,4 +267,3 @@ export DB_PASSWORD=...
 
 - `src/test/java/ltdjms/discord/shared/EnvironmentConfigTest.java`
 - `src/test/java/ltdjms/discord/shared/EnvironmentConfigDotEnvIntegrationTest.java`
-
