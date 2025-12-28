@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.15.1] - 2025-12-29
+
+### Changed
+- AI Chat 提示詞：新增 Discord 指令指引（prompts/commands.md）
+- AI Chat 使用規則：調整問好回應邏輯（prompts/rules.md）
+
 ## [0.15.0] - 2025-12-29
 
 ### Added
