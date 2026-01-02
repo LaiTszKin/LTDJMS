@@ -32,6 +32,7 @@ import ltdjms.discord.aiagent.services.TokenEstimator;
 import ltdjms.discord.aiagent.services.ToolExecutionInterceptor;
 import ltdjms.discord.aiagent.services.tools.LangChain4jCreateCategoryTool;
 import ltdjms.discord.aiagent.services.tools.LangChain4jCreateChannelTool;
+import ltdjms.discord.aiagent.services.tools.LangChain4jGetChannelPermissionsTool;
 import ltdjms.discord.aiagent.services.tools.LangChain4jListCategoriesTool;
 import ltdjms.discord.aiagent.services.tools.LangChain4jListChannelsTool;
 import ltdjms.discord.aiagent.services.tools.LangChain4jListRolesTool;
@@ -167,6 +168,17 @@ public class AIAgentModule {
   @Singleton
   public LangChain4jListCategoriesTool provideLangChain4jListCategoriesTool() {
     return new LangChain4jListCategoriesTool();
+  }
+
+  /**
+   * 提供 LangChain4J 獲取頻道權限工具。
+   *
+   * @return LangChain4jGetChannelPermissionsTool 實例
+   */
+  @Provides
+  @Singleton
+  public LangChain4jGetChannelPermissionsTool provideLangChain4jGetChannelPermissionsTool() {
+    return new LangChain4jGetChannelPermissionsTool();
   }
 
   /**
@@ -339,6 +351,8 @@ public class AIAgentModule {
    * @param createCategoryTool 創建類別工具
    * @param listChannelsTool 列出頻道工具
    * @param listCategoriesTool 列出類別工具
+   * @param listRolesTool 列出角色工具
+   * @param getChannelPermissionsTool 獲取頻道權限工具
    * @return AIChatService 實例
    */
   @Provides
@@ -355,7 +369,8 @@ public class AIAgentModule {
       LangChain4jCreateCategoryTool createCategoryTool,
       LangChain4jListChannelsTool listChannelsTool,
       LangChain4jListCategoriesTool listCategoriesTool,
-      LangChain4jListRolesTool listRolesTool) {
+      LangChain4jListRolesTool listRolesTool,
+      LangChain4jGetChannelPermissionsTool getChannelPermissionsTool) {
     return new LangChain4jAIChatService(
         config,
         promptLoader,
@@ -368,7 +383,8 @@ public class AIAgentModule {
         createCategoryTool,
         listChannelsTool,
         listCategoriesTool,
-        listRolesTool);
+        listRolesTool,
+        getChannelPermissionsTool);
   }
 
   /**
