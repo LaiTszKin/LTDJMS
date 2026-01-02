@@ -10,7 +10,8 @@ public interface PromptLoader {
   /**
    * 從 prompts 資料夾載入所有 markdown 檔案並合併為系統提示詞。
    *
+   * @param agentEnabled 是否啟用 Agent 功能（決定是否載入 agent/ 資料夾）
    * @return 成功時回傳合併後的 {@link SystemPrompt}，失敗時回傳 {@link DomainError}
    */
-  Result<SystemPrompt, DomainError> loadPrompts();
+  Result<SystemPrompt, DomainError> loadPrompts(boolean agentEnabled);
 }
