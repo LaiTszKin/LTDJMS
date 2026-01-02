@@ -35,11 +35,14 @@ import ltdjms.discord.aiagent.services.tools.LangChain4jListChannelsTool;
 import ltdjms.discord.aiagent.services.tools.LangChain4jListRolesTool;
 import ltdjms.discord.aiagent.services.tools.LangChain4jModifyChannelPermissionsTool;
 import ltdjms.discord.aichat.domain.AIServiceConfig;
+import ltdjms.discord.aichat.domain.PromptSection;
+import ltdjms.discord.aichat.domain.SystemPrompt;
 import ltdjms.discord.aichat.services.AIChatService;
 import ltdjms.discord.aichat.services.LangChain4jAIChatService;
 import ltdjms.discord.aichat.services.PromptLoader;
 import ltdjms.discord.aichat.services.StreamingResponseHandler;
 import ltdjms.discord.shared.DomainError;
+import ltdjms.discord.shared.Result;
 import ltdjms.discord.shared.events.DomainEventPublisher;
 
 /**
@@ -97,6 +100,11 @@ class LangChain4jAIChatServiceTest {
     mockModifyChannelPermissionsTool = mock(LangChain4jModifyChannelPermissionsTool.class);
     mockAgentChannelConfigService = mock(AIAgentChannelConfigService.class);
     testAgentServiceFactory = new TestAgentServiceFactory();
+
+    when(mockPromptLoader.loadPrompts(true))
+        .thenReturn(Result.ok(SystemPrompt.of(new PromptSection("AGENT", "agent prompt"))));
+    when(mockPromptLoader.loadPrompts(false))
+        .thenReturn(Result.ok(SystemPrompt.of(new PromptSection("BASE", "base prompt"))));
 
     service =
         new LangChain4jAIChatService(
@@ -313,6 +321,7 @@ class LangChain4jAIChatServiceTest {
           });
 
       assertFalse(testAgentServiceFactory.lastAgentToolsEnabled());
+      assertEquals("=== BASE ===\nbase prompt", testAgentServiceFactory.lastSystemPrompt());
     }
 
     @Test
@@ -332,6 +341,7 @@ class LangChain4jAIChatServiceTest {
           });
 
       assertTrue(testAgentServiceFactory.lastAgentToolsEnabled());
+      assertEquals("=== AGENT ===\nagent prompt", testAgentServiceFactory.lastSystemPrompt());
     }
   }
 
@@ -385,10 +395,12 @@ class LangChain4jAIChatServiceTest {
   private static class TestAgentServiceFactory
       implements LangChain4jAIChatService.AgentServiceFactory {
     private Boolean lastAgentToolsEnabled;
+    private String lastSystemPrompt;
 
     @Override
-    public LangChain4jAgentService create(boolean agentToolsEnabled) {
+    public LangChain4jAgentService create(boolean agentToolsEnabled, String systemPrompt) {
       this.lastAgentToolsEnabled = agentToolsEnabled;
+      this.lastSystemPrompt = systemPrompt;
       return new LangChain4jAgentService() {
         @Override
         public TokenStream chat(
@@ -404,6 +416,10 @@ class LangChain4jAIChatServiceTest {
 
     boolean lastAgentToolsEnabled() {
       return Boolean.TRUE.equals(lastAgentToolsEnabled);
+    }
+
+    String lastSystemPrompt() {
+      return lastSystemPrompt;
     }
   }
 

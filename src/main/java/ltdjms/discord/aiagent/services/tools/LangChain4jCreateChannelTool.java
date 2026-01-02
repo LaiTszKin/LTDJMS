@@ -54,7 +54,8 @@ public final class LangChain4jCreateChannelTool {
    *
    * @param name 頻道名稱（不超過 100 字符）
    * @param categoryId 類別 ID（可選，用於將頻道創建在特定類別下，請以字串雪花 ID 傳入）
-   * @param permissions 權限設定列表，每個元素包含 roleId 和 allowSet/denySet（可選）
+   * @param permissions 權限設定列表，每個元素包含 roleId 和 allowSet/denySet（可選）。若使用舊版
+   *     permissionSet（admin_only/private），仍會自動解析。
    * @param parameters 調用參數（包含 guildId、channelId、userId）
    * @return 執行結果 JSON 字串
    */
@@ -95,15 +96,21 @@ public final class LangChain4jCreateChannelTool {
                   """
                   權限設定列表，用於控制特定角色對此頻道的訪問權限。
 
-                  每個設定包含：
+                  推薦寫法（新版）：
                   - roleId：Discord 角色的 ID（數字）
-                  - permissionSet：權限集合名稱，可選值：
-                    * "admin_only"：僅管理員可發言（所有人可查看）
-                    * "private"：私密頻道（指定角色才能查看和發言）
+                  - allowSet：要允許的權限集合（字串陣列），可用值：
+                    ADMINISTRATOR, MANAGE_CHANNELS, MANAGE_ROLES, MANAGE_SERVER,
+                    VIEW_CHANNEL, MESSAGE_SEND, MESSAGE_HISTORY, VOICE_CONNECT, VOICE_SPEAK,
+                    PRIORITY_SPEAKER
+                  - denySet：要拒絕的權限集合（字串陣列，可選）
+
+                  相容寫法（舊版）：
+                  - permissionSet：權限集合名稱，可選值："admin_only"、"private"、"read_only"
+                    仍可使用，但建議改用 allowSet/denySet
 
                   範例：
-                  - [{"roleId": 123456789, "permissionSet": "admin_only"}]
-                  - [{"roleId": 987654321, "permissionSet": "private"}]
+                  - [{"roleId": 123456789, "allowSet": ["VIEW_CHANNEL", "MESSAGE_SEND"]}]
+                  - [{"roleId": 987654321, "permissionSet": "admin_only"}]
 
                   如不提供此參數，頻道將使用默認權限（所有成員可查看和發言）。
                   """,

@@ -1,5 +1,7 @@
 package ltdjms.discord.aiagent.domain;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 /**
@@ -11,10 +13,67 @@ import com.fasterxml.jackson.annotation.JsonProperty;
  * @param allowSet 允許的權限集合（可選）
  * @param denySet 拒絕的權限集合（可選）
  */
+@JsonIgnoreProperties(ignoreUnknown = true)
 public record PermissionSetting(
     @JsonProperty("roleId") long roleId,
     @JsonProperty(value = "allowSet", required = false) java.util.Set<PermissionEnum> allowSet,
     @JsonProperty(value = "denySet", required = false) java.util.Set<PermissionEnum> denySet) {
+
+  /**
+   * JSON 反序列化工廠，向後相容舊版的 permissionSet 寫法。
+   *
+   * @param roleId 角色 ID
+   * @param allowSet 允許權限集合
+   * @param denySet 拒絕權限集合
+   * @param permissionSet 舊版權限集合字串（如 admin_only/private）
+   * @return 轉換後的 PermissionSetting
+   */
+  @JsonCreator(mode = JsonCreator.Mode.PROPERTIES)
+  public static PermissionSetting fromJson(
+      @JsonProperty("roleId") long roleId,
+      @JsonProperty("allowSet") java.util.Set<PermissionEnum> allowSet,
+      @JsonProperty("denySet") java.util.Set<PermissionEnum> denySet,
+      @JsonProperty("permissionSet") String permissionSet) {
+
+    return new PermissionSetting(roleId, mergeAllowSet(allowSet, permissionSet), denySet);
+  }
+
+  /** 優先使用 allowSet；若為空則嘗試從 permissionSet 字串映射預設權限組合。 */
+  private static java.util.Set<PermissionEnum> mergeAllowSet(
+      java.util.Set<PermissionEnum> allowSet, String permissionSet) {
+
+    if (allowSet != null && !allowSet.isEmpty()) {
+      return allowSet;
+    }
+
+    if (permissionSet == null || permissionSet.isBlank()) {
+      return allowSet;
+    }
+
+    return switch (permissionSet.trim().toLowerCase()) {
+      case "admin_only", "admin-only", "admins_only" ->
+          java.util.Set.of(
+              PermissionEnum.ADMINISTRATOR,
+              PermissionEnum.VIEW_CHANNEL,
+              PermissionEnum.MESSAGE_SEND);
+      case "private", "private_only" ->
+          java.util.Set.of(PermissionEnum.VIEW_CHANNEL, PermissionEnum.MESSAGE_SEND);
+      case "read_only", "readonly" -> java.util.Set.of(PermissionEnum.VIEW_CHANNEL);
+      case "full", "all" ->
+          java.util.Set.of(
+              PermissionEnum.ADMINISTRATOR,
+              PermissionEnum.MANAGE_CHANNELS,
+              PermissionEnum.MANAGE_ROLES,
+              PermissionEnum.MANAGE_SERVER,
+              PermissionEnum.VIEW_CHANNEL,
+              PermissionEnum.MESSAGE_SEND,
+              PermissionEnum.MESSAGE_HISTORY,
+              PermissionEnum.VOICE_CONNECT,
+              PermissionEnum.VOICE_SPEAK,
+              PermissionEnum.PRIORITY_SPEAKER);
+      default -> allowSet;
+    };
+  }
 
   /**
    * 權限枚舉（字串格式）。

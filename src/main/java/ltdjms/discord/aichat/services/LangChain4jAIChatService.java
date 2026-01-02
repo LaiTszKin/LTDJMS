@@ -104,7 +104,13 @@ public final class LangChain4jAIChatService implements AIChatService {
   /** Agent 服務工廠，用於依頻道設定決定是否註冊工具。 */
   @FunctionalInterface
   public interface AgentServiceFactory {
-    LangChain4jAgentService create(boolean agentToolsEnabled);
+    /**
+     * 建立 Agent 服務。
+     *
+     * @param agentToolsEnabled 是否註冊工具
+     * @param systemPrompt 系統提示詞（依頻道設定載入）
+     */
+    LangChain4jAgentService create(boolean agentToolsEnabled, String systemPrompt);
   }
 
   /** 預設的 Agent 服務工廠：允許工具時才將工具註冊進 LangChain4j。 */
@@ -142,11 +148,12 @@ public final class LangChain4jAIChatService implements AIChatService {
     }
 
     @Override
-    public LangChain4jAgentService create(boolean agentToolsEnabled) {
+    public LangChain4jAgentService create(boolean agentToolsEnabled, String systemPrompt) {
       var builder =
           AiServices.builder(LangChain4jAgentService.class)
               .streamingChatModel(streamingChatModel)
-              .chatMemoryProvider(chatMemoryProvider);
+              .chatMemoryProvider(chatMemoryProvider)
+              .systemMessageProvider(memoryId -> systemPrompt);
 
       if (agentToolsEnabled) {
         builder.tools(
@@ -341,8 +348,8 @@ public final class LangChain4jAIChatService implements AIChatService {
           InvocationParameters.from(
               Map.of("guildId", guildIdLong, "channelId", channelIdLong, "userId", userIdLong));
 
-      // 創建 AI Agent 服務
-      LangChain4jAgentService agentService = agentServiceFactory.create(agentEnabled);
+      // 創建 AI Agent 服務（依頻道設定載入對應的系統提示詞）
+      LangChain4jAgentService agentService = createAgentService(agentEnabled);
 
       // 開始串流對話，傳遞調用參數
       TokenStream tokenStream = agentService.chat(conversationId, userMessage, parameters);
@@ -442,8 +449,8 @@ public final class LangChain4jAIChatService implements AIChatService {
           InvocationParameters.from(
               Map.of("guildId", guildIdLong, "channelId", channelIdLong, "userId", userIdLong));
 
-      // 創建 AI Agent 服務
-      LangChain4jAgentService agentService = agentServiceFactory.create(agentEnabled);
+      // 創建 AI Agent 服務（依頻道設定載入對應的系統提示詞）
+      LangChain4jAgentService agentService = createAgentService(agentEnabled);
 
       // 獲取最後一條用戶訊息
       String lastUserMessage = getLastUserMessage(history);
@@ -515,12 +522,22 @@ public final class LangChain4jAIChatService implements AIChatService {
   }
 
   /**
+   * 依當前頻道設定建立 Agent 服務，並套用正確的系統提示詞。
+   *
+   * @param agentEnabled 是否啟用 Agent 工具
+   * @return LangChain4jAgentService
+   */
+  private LangChain4jAgentService createAgentService(boolean agentEnabled) {
+    String systemPrompt = loadSystemPromptOrEmpty(agentEnabled).toCombinedString();
+    return agentServiceFactory.create(agentEnabled, systemPrompt);
+  }
+
+  /**
    * 載入系統提示詞，根據 agentEnabled 決定是否包含 agent prompt。
    *
    * @param agentEnabled 是否啟用 Agent 功能
    * @return 系統提示詞，載入失敗時返回空提示詞
    */
-  @SuppressWarnings("unused")
   private SystemPrompt loadSystemPromptOrEmpty(boolean agentEnabled) {
     Result<SystemPrompt, DomainError> result = promptLoader.loadPrompts(agentEnabled);
     if (result.isErr()) {

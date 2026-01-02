@@ -2,7 +2,6 @@ package ltdjms.discord.aiagent.services;
 
 import dev.langchain4j.invocation.InvocationParameters;
 import dev.langchain4j.service.MemoryId;
-import dev.langchain4j.service.SystemMessage;
 import dev.langchain4j.service.TokenStream;
 import dev.langchain4j.service.UserMessage;
 
@@ -32,23 +31,6 @@ public interface LangChain4jAgentService {
    * @param parameters 調用參數（用於傳遞 guildId、channelId、userId 等上下文）
    * @return TokenStream 用於接收串流回應
    */
-  @SystemMessage(
-      """
-      你是龍騰電競的 AI 助手，負責協助管理 Discord 伺服器。
-
-      你可以幫助用戶執行以下操作：
-      - 創建和管理頻道
-      - 創建和管理類別
-      - 查詢伺服器資訊
-
-      當需要執行操作時，請使用提供的工具。
-
-      回應規則：
-      1. 使用繁體中文回應
-      2. 保持友善專業的語氣
-      3. 如果需要使用工具，請直接調用工具
-      4. 工具執行後，向用戶報告結果
-      """)
   TokenStream chat(
       @MemoryId String conversationId,
       @UserMessage String userMessage,

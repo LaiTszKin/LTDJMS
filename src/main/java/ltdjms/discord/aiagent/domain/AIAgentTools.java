@@ -24,7 +24,7 @@ public final class AIAgentTools {
               new ToolParameter(
                   "permissions",
                   ToolParameter.ParamType.ARRAY,
-                  "權限設定列表，每個元素包含 roleId 和 permissionSet",
+                  "權限設定列表，每個元素包含 roleId 與 allowSet/denySet（舊版可用 permissionSet）",
                   false,
                   null)));
 
