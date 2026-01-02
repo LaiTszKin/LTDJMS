@@ -24,6 +24,7 @@ import ltdjms.discord.aiagent.services.tools.LangChain4jGetChannelPermissionsToo
 import ltdjms.discord.aiagent.services.tools.LangChain4jListCategoriesTool;
 import ltdjms.discord.aiagent.services.tools.LangChain4jListChannelsTool;
 import ltdjms.discord.aiagent.services.tools.LangChain4jListRolesTool;
+import ltdjms.discord.aiagent.services.tools.LangChain4jModifyChannelPermissionsTool;
 import ltdjms.discord.aichat.domain.AIServiceConfig;
 import ltdjms.discord.aichat.services.AIChatService;
 import ltdjms.discord.aichat.services.LangChain4jAIChatService;
@@ -60,6 +61,7 @@ class LangChain4jAIChatServiceTest {
   private LangChain4jListCategoriesTool mockListCategoriesTool;
   private LangChain4jListRolesTool mockListRolesTool;
   private LangChain4jGetChannelPermissionsTool mockGetChannelPermissionsTool;
+  private LangChain4jModifyChannelPermissionsTool mockModifyChannelPermissionsTool;
   private AIChatService service;
 
   @BeforeEach
@@ -81,6 +83,7 @@ class LangChain4jAIChatServiceTest {
     mockListCategoriesTool = mock(LangChain4jListCategoriesTool.class);
     mockListRolesTool = mock(LangChain4jListRolesTool.class);
     mockGetChannelPermissionsTool = mock(LangChain4jGetChannelPermissionsTool.class);
+    mockModifyChannelPermissionsTool = mock(LangChain4jModifyChannelPermissionsTool.class);
 
     service =
         new LangChain4jAIChatService(
@@ -96,7 +99,8 @@ class LangChain4jAIChatServiceTest {
             mockListChannelsTool,
             mockListCategoriesTool,
             mockListRolesTool,
-            mockGetChannelPermissionsTool);
+            mockGetChannelPermissionsTool,
+            mockModifyChannelPermissionsTool);
   }
 
   @Nested
