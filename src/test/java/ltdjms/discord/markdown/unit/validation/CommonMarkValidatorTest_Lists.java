@@ -1,18 +1,14 @@
-package ltdjms.discord.markdown.unit.validation;
+package ltdjms.discord.markdown.validation;
 
-import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.*;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-import ltdjms.discord.markdown.validation.MarkdownValidator;
-import ltdjms.discord.markdown.validation.MarkdownValidator.ValidationResult;
-
 @DisplayName("CommonMarkValidator - 列表格式驗證")
 class CommonMarkValidatorTest_Lists {
 
-  private final MarkdownValidator validator =
-      new ltdjms.discord.markdown.validation.CommonMarkValidator();
+  private final MarkdownValidator validator = new CommonMarkValidator();
 
   @Test
   @DisplayName("正確的無序列表應通過驗證")
@@ -26,9 +22,9 @@ class CommonMarkValidatorTest_Lists {
         - 項目三
         """;
 
-    ValidationResult result = validator.validate(markdown);
+    MarkdownValidator.ValidationResult result = validator.validate(markdown);
 
-    assertInstanceOf(ValidationResult.Valid.class, result);
+    assertInstanceOf(MarkdownValidator.ValidationResult.Valid.class, result);
   }
 
   @Test
@@ -43,9 +39,9 @@ class CommonMarkValidatorTest_Lists {
         3. 第三步
         """;
 
-    ValidationResult result = validator.validate(markdown);
+    MarkdownValidator.ValidationResult result = validator.validate(markdown);
 
-    assertInstanceOf(ValidationResult.Valid.class, result);
+    assertInstanceOf(MarkdownValidator.ValidationResult.Valid.class, result);
   }
 
   @Test
@@ -58,8 +54,8 @@ class CommonMarkValidatorTest_Lists {
         * 項目三
         """;
 
-    ValidationResult result = validator.validate(markdown);
+    MarkdownValidator.ValidationResult result = validator.validate(markdown);
 
-    assertInstanceOf(ValidationResult.Valid.class, result);
+    assertInstanceOf(MarkdownValidator.ValidationResult.Valid.class, result);
   }
 }
