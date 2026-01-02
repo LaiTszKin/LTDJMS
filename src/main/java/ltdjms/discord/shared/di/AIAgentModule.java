@@ -36,6 +36,7 @@ import ltdjms.discord.aiagent.services.tools.LangChain4jGetChannelPermissionsToo
 import ltdjms.discord.aiagent.services.tools.LangChain4jListCategoriesTool;
 import ltdjms.discord.aiagent.services.tools.LangChain4jListChannelsTool;
 import ltdjms.discord.aiagent.services.tools.LangChain4jListRolesTool;
+import ltdjms.discord.aiagent.services.tools.LangChain4jModifyChannelPermissionsTool;
 import ltdjms.discord.aichat.domain.AIServiceConfig;
 import ltdjms.discord.aichat.services.AIChatService;
 import ltdjms.discord.aichat.services.LangChain4jAIChatService;
@@ -179,6 +180,17 @@ public class AIAgentModule {
   @Singleton
   public LangChain4jGetChannelPermissionsTool provideLangChain4jGetChannelPermissionsTool() {
     return new LangChain4jGetChannelPermissionsTool();
+  }
+
+  /**
+   * 提供 LangChain4J 修改頻道權限工具。
+   *
+   * @return LangChain4jModifyChannelPermissionsTool 實例
+   */
+  @Provides
+  @Singleton
+  public LangChain4jModifyChannelPermissionsTool provideLangChain4jModifyChannelPermissionsTool() {
+    return new LangChain4jModifyChannelPermissionsTool();
   }
 
   /**
@@ -353,6 +365,7 @@ public class AIAgentModule {
    * @param listCategoriesTool 列出類別工具
    * @param listRolesTool 列出角色工具
    * @param getChannelPermissionsTool 獲取頻道權限工具
+   * @param modifyChannelPermissionsTool 修改頻道權限工具
    * @return AIChatService 實例
    */
   @Provides
@@ -370,7 +383,8 @@ public class AIAgentModule {
       LangChain4jListChannelsTool listChannelsTool,
       LangChain4jListCategoriesTool listCategoriesTool,
       LangChain4jListRolesTool listRolesTool,
-      LangChain4jGetChannelPermissionsTool getChannelPermissionsTool) {
+      LangChain4jGetChannelPermissionsTool getChannelPermissionsTool,
+      LangChain4jModifyChannelPermissionsTool modifyChannelPermissionsTool) {
     return new LangChain4jAIChatService(
         config,
         promptLoader,
@@ -384,7 +398,8 @@ public class AIAgentModule {
         listChannelsTool,
         listCategoriesTool,
         listRolesTool,
-        getChannelPermissionsTool);
+        getChannelPermissionsTool,
+        modifyChannelPermissionsTool);
   }
 
   /**
