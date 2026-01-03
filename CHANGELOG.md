@@ -2,6 +2,31 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.23.2] - 2026-01-03
+
+### Added
+- **markdown**: Markdown 自動修復功能
+  - 新增 `MarkdownAutoFixer` 介面與 `RegexBasedAutoFixer` 實作
+  - 標題格式修復：修復 `#` 符號後缺少空格的標題格式錯誤
+  - 程式碼區塊修復：自動偵測並修復未閉合的程式碼區塊
+  - 列表格式修復：修復有序列表與無序列表缺少空格的格式錯誤
+  - 支援混合正確與錯誤格式的內容
+  - 保護程式碼區塊中的內容不被修改
+  - 支援嵌套列表處理
+
+### Changed
+- **markdown**: 整合自動修復功能到驗證流程
+  - 在 `MarkdownValidatingAIChatService` 中添加自動修復邏輯
+  - 驗證失敗時先嘗試自動修復（僅第一次嘗試）
+  - 修復成功則直接返回結果，避免 LLM 重試
+  - 修復不完全則記錄差異並繼續重試邏輯
+- 新增 `AI_MARKDOWN_AUTO_FIX_ENABLED` 環境變數控制是否啟用自動修復（預設啟用）
+
+### Technical
+- `AIServiceConfig` 新增 `enableAutoFix` 參數
+- `EnvironmentConfig` 新增 `getAIMarkdownAutoFixEnabled()` 方法
+- 新增完整的單元測試與整合測試覆蓋
+
 ## [0.23.1] - 2026-01-03
 
 ### Fixed
