@@ -2,6 +2,7 @@ package ltdjms.discord.markdown.autofix;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 class MarkdownAutoFixerTest {
@@ -11,5 +12,53 @@ class MarkdownAutoFixerTest {
     // 此測試確保介面存在且有正確的方法簽名
     // 實際實作會在後續步驟完成
     assertNotNull(MarkdownAutoFixer.class);
+  }
+
+  @Test
+  @DisplayName("應該修復缺少空格的標題格式")
+  void shouldFixHeadingFormatMissingSpace() {
+    MarkdownAutoFixer fixer = new RegexBasedAutoFixer();
+
+    String input = "#This is a heading\n##Another heading";
+    String expected = "# This is a heading\n## Another heading";
+
+    String result = fixer.autoFix(input);
+    assertEquals(expected, result);
+  }
+
+  @Test
+  @DisplayName("不應該修復正確的標題格式")
+  void shouldNotModifyCorrectHeadingFormat() {
+    MarkdownAutoFixer fixer = new RegexBasedAutoFixer();
+
+    String input = "# This is correct\n## So is this";
+    String expected = "# This is correct\n## So is this";
+
+    String result = fixer.autoFix(input);
+    assertEquals(expected, result);
+  }
+
+  @Test
+  @DisplayName("應該處理混合正確與錯誤的標題")
+  void shouldHandleMixedHeadingFormats() {
+    MarkdownAutoFixer fixer = new RegexBasedAutoFixer();
+
+    String input = "#Wrong format\n# Correct format\n##Also wrong";
+    String expected = "# Wrong format\n# Correct format\n## Also wrong";
+
+    String result = fixer.autoFix(input);
+    assertEquals(expected, result);
+  }
+
+  @Test
+  @DisplayName("不應該將程式碼區塊中的 # 視為標題")
+  void shouldNotFixHashInCodeBlocks() {
+    MarkdownAutoFixer fixer = new RegexBasedAutoFixer();
+
+    String input = "```\n#This is code\n```\n#This is heading";
+    String expected = "```\n#This is code\n```\n# This is heading";
+
+    String result = fixer.autoFix(input);
+    assertEquals(expected, result);
   }
 }
