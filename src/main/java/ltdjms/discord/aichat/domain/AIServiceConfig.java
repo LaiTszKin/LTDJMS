@@ -14,6 +14,8 @@ import ltdjms.discord.shared.Unit;
  * @param temperature 溫度 (0.0-2.0，控制回應隨機性)
  * @param timeoutSeconds 連線逾時秒數（僅用於建立連線，不限制推理時間）
  * @param showReasoning 是否顯示推理內容（預設: false）
+ * @param enableMarkdownValidation 是否啟用 Markdown 格式驗證（預設: true）
+ * @param maxMarkdownValidationRetries Markdown 驗證最大重試次數（預設: 5）
  */
 public record AIServiceConfig(
     String baseUrl,
@@ -21,7 +23,9 @@ public record AIServiceConfig(
     String model,
     double temperature,
     int timeoutSeconds,
-    boolean showReasoning) {
+    boolean showReasoning,
+    boolean enableMarkdownValidation,
+    int maxMarkdownValidationRetries) {
 
   /** 從 EnvironmentConfig 建立配置。 */
   public static AIServiceConfig from(EnvironmentConfig env) {
@@ -31,7 +35,9 @@ public record AIServiceConfig(
         env.getAIServiceModel(),
         env.getAIServiceTemperature(),
         env.getAIServiceTimeoutSeconds(),
-        env.getAIShowReasoning());
+        env.getAIShowReasoning(),
+        env.getAIMarkdownValidationEnabled(),
+        env.getAIMarkdownValidationMaxRetries());
   }
 
   /** 驗證配置。 */

@@ -82,7 +82,8 @@ class LangChain4jAIChatServiceTest {
   void setUp() {
     // 使用真實的 AIServiceConfig，但配置測試用的值
     config =
-        new AIServiceConfig("https://api.test.com/v1", "test-key", "gpt-4o-mini", 0.7, 60, true);
+        new AIServiceConfig(
+            "https://api.test.com/v1", "test-key", "gpt-4o-mini", 0.7, 60, true, true, 5);
 
     // Mock 依賴
     mockPromptLoader = mock(PromptLoader.class);

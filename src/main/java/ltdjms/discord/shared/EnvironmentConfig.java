@@ -49,6 +49,9 @@ public final class EnvironmentConfig {
   private static final String ENV_PROMPTS_DIR_PATH = "PROMPTS_DIR_PATH";
   private static final String ENV_PROMPT_MAX_SIZE_BYTES = "PROMPT_MAX_SIZE_BYTES";
   private static final String ENV_AI_SHOW_REASONING = "AI_SHOW_REASONING";
+  private static final String ENV_AI_MARKDOWN_VALIDATION_ENABLED = "AI_MARKDOWN_VALIDATION_ENABLED";
+  private static final String ENV_AI_MARKDOWN_VALIDATION_MAX_RETRIES =
+      "AI_MARKDOWN_VALIDATION_MAX_RETRIES";
 
   // Config paths for Typesafe Config
   private static final String CFG_DISCORD_BOT_TOKEN = "discord.bot.token";
@@ -69,6 +72,9 @@ public final class EnvironmentConfig {
   private static final String CFG_PROMPTS_DIR_PATH = "prompts.dir.path";
   private static final String CFG_PROMPT_MAX_SIZE = "prompts.max-size";
   private static final String CFG_AI_SHOW_REASONING = "ai.show-reasoning";
+  private static final String CFG_AI_MARKDOWN_VALIDATION_ENABLED = "ai.markdown-validation.enabled";
+  private static final String CFG_AI_MARKDOWN_VALIDATION_MAX_RETRIES =
+      "ai.markdown-validation.max-retries";
 
   // Default values
   private static final String DEFAULT_REDIS_URI = "redis://localhost:6379";
@@ -87,6 +93,8 @@ public final class EnvironmentConfig {
   private static final String DEFAULT_PROMPTS_DIR_PATH = "./prompts";
   private static final long DEFAULT_PROMPT_MAX_SIZE_BYTES = 1048576L; // 1MB
   private static final boolean DEFAULT_AI_SHOW_REASONING = false;
+  private static final boolean DEFAULT_AI_MARKDOWN_VALIDATION_ENABLED = true;
+  private static final int DEFAULT_AI_MARKDOWN_VALIDATION_MAX_RETRIES = 5;
 
   private final Config config;
   private final Map<String, String> dotEnvValues;
@@ -132,6 +140,9 @@ public final class EnvironmentConfig {
     defaults.put(CFG_PROMPTS_DIR_PATH, DEFAULT_PROMPTS_DIR_PATH);
     defaults.put(CFG_PROMPT_MAX_SIZE, DEFAULT_PROMPT_MAX_SIZE_BYTES);
     defaults.put(CFG_AI_SHOW_REASONING, DEFAULT_AI_SHOW_REASONING);
+    defaults.put(CFG_AI_MARKDOWN_VALIDATION_ENABLED, DEFAULT_AI_MARKDOWN_VALIDATION_ENABLED);
+    defaults.put(
+        CFG_AI_MARKDOWN_VALIDATION_MAX_RETRIES, DEFAULT_AI_MARKDOWN_VALIDATION_MAX_RETRIES);
     Config defaultsConfig = ConfigFactory.parseMap(defaults);
 
     // Load application.conf/properties (standard Typesafe Config behavior)
@@ -158,6 +169,12 @@ public final class EnvironmentConfig {
     mapEnvToConfig(dotEnvMapped, ENV_PROMPTS_DIR_PATH, CFG_PROMPTS_DIR_PATH);
     mapEnvToConfigLong(dotEnvMapped, ENV_PROMPT_MAX_SIZE_BYTES, CFG_PROMPT_MAX_SIZE);
     mapEnvToConfigBoolean(dotEnvMapped, ENV_AI_SHOW_REASONING, CFG_AI_SHOW_REASONING);
+    mapEnvToConfigBoolean(
+        dotEnvMapped, ENV_AI_MARKDOWN_VALIDATION_ENABLED, CFG_AI_MARKDOWN_VALIDATION_ENABLED);
+    mapEnvToConfigInt(
+        dotEnvMapped,
+        ENV_AI_MARKDOWN_VALIDATION_MAX_RETRIES,
+        CFG_AI_MARKDOWN_VALIDATION_MAX_RETRIES);
     Config dotEnvConfig = ConfigFactory.parseMap(dotEnvMapped);
 
     // Build system env vars as config (highest priority)
@@ -182,6 +199,12 @@ public final class EnvironmentConfig {
     mapSysEnvToConfig(sysEnvMapped, ENV_PROMPTS_DIR_PATH, CFG_PROMPTS_DIR_PATH);
     mapSysEnvToConfigLong(sysEnvMapped, ENV_PROMPT_MAX_SIZE_BYTES, CFG_PROMPT_MAX_SIZE);
     mapSysEnvToConfigBoolean(sysEnvMapped, ENV_AI_SHOW_REASONING, CFG_AI_SHOW_REASONING);
+    mapSysEnvToConfigBoolean(
+        sysEnvMapped, ENV_AI_MARKDOWN_VALIDATION_ENABLED, CFG_AI_MARKDOWN_VALIDATION_ENABLED);
+    mapSysEnvToConfigInt(
+        sysEnvMapped,
+        ENV_AI_MARKDOWN_VALIDATION_MAX_RETRIES,
+        CFG_AI_MARKDOWN_VALIDATION_MAX_RETRIES);
     Config sysEnvConfig = ConfigFactory.parseMap(sysEnvMapped);
 
     // Layer configs: sysEnv > dotEnv > application > defaults
@@ -548,5 +571,23 @@ public final class EnvironmentConfig {
    */
   public boolean getAIShowReasoning() {
     return config.getBoolean(CFG_AI_SHOW_REASONING);
+  }
+
+  /**
+   * 取得是否啟用 Markdown 格式驗證。
+   *
+   * @return true 啟用，false 停用
+   */
+  public boolean getAIMarkdownValidationEnabled() {
+    return config.getBoolean(CFG_AI_MARKDOWN_VALIDATION_ENABLED);
+  }
+
+  /**
+   * 取得 Markdown 驗證最大重試次數。
+   *
+   * @return 最大重試次數（預設: 5）
+   */
+  public int getAIMarkdownValidationMaxRetries() {
+    return config.getInt(CFG_AI_MARKDOWN_VALIDATION_MAX_RETRIES);
   }
 }
