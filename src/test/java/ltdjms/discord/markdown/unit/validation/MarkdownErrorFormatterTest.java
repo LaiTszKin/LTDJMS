@@ -1,9 +1,12 @@
-package ltdjms.discord.markdown.validation;
+package ltdjms.discord.markdown.unit.validation;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+
+import ltdjms.discord.markdown.validation.MarkdownErrorFormatter;
+import ltdjms.discord.markdown.validation.MarkdownValidator;
 
 @DisplayName("MarkdownErrorFormatter - 錯誤報告格式化")
 class MarkdownErrorFormatterTest {

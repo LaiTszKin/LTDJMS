@@ -1,8 +1,10 @@
-package ltdjms.discord.markdown.validation;
+package ltdjms.discord.markdown.unit.validation;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 import org.junit.jupiter.api.Test;
+
+import ltdjms.discord.markdown.validation.MarkdownValidator;
 
 class MarkdownValidatorTest {
 

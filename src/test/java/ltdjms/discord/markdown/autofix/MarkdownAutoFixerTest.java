@@ -231,4 +231,78 @@ class MarkdownAutoFixerTest {
     String result = fixer.autoFix(input);
     assertEquals(expected, result);
   }
+
+  // ===== 嵌入列表修復測試 =====
+
+  @Test
+  @DisplayName("應該修復正文中嵌入的有序列表")
+  void shouldFixEmbeddedOrderedList() {
+    MarkdownAutoFixer fixer = new RegexBasedAutoFixer();
+
+    String input = "Some text 1. first item 2. second item";
+    String expected = "Some text\n1. first item\n2. second item";
+
+    String result = fixer.autoFix(input);
+    assertEquals(expected, result);
+  }
+
+  @Test
+  @DisplayName("應該修復正文中嵌入的無序列表")
+  void shouldFixEmbeddedUnorderedList() {
+    MarkdownAutoFixer fixer = new RegexBasedAutoFixer();
+
+    String input = "Some text - first item - second item";
+    String expected = "Some text\n- first item\n- second item";
+
+    String result = fixer.autoFix(input);
+    assertEquals(expected, result);
+  }
+
+  @Test
+  @DisplayName("應該處理多個嵌入的列表項")
+  void shouldFixMultipleEmbeddedListItems() {
+    MarkdownAutoFixer fixer = new RegexBasedAutoFixer();
+
+    String input = "text 1. first 2. second 3. third";
+    String expected = "text\n1. first\n2. second\n3. third";
+
+    String result = fixer.autoFix(input);
+    assertEquals(expected, result);
+  }
+
+  @Test
+  @DisplayName("不應該誤判版本號為列表")
+  void shouldNotMisinterpretVersionNumbers() {
+    MarkdownAutoFixer fixer = new RegexBasedAutoFixer();
+
+    String input = "Version 1.2.3 is the latest";
+    String expected = "Version 1.2.3 is the latest";
+
+    String result = fixer.autoFix(input);
+    assertEquals(expected, result);
+  }
+
+  @Test
+  @DisplayName("不應該修復程式碼區塊中的嵌入列表")
+  void shouldNotFixEmbeddedListsInCodeBlocks() {
+    MarkdownAutoFixer fixer = new RegexBasedAutoFixer();
+
+    String input = "```\ntext 1. first 2. second\n```\ntext 1. first 2. second";
+    String expected = "```\ntext 1. first 2. second\n```\ntext\n1. first\n2. second";
+
+    String result = fixer.autoFix(input);
+    assertEquals(expected, result);
+  }
+
+  @Test
+  @DisplayName("應該處理嵌入列表與其他修復的組合")
+  void shouldHandleEmbeddedListsWithOtherFixes() {
+    MarkdownAutoFixer fixer = new RegexBasedAutoFixer();
+
+    String input = "#Heading\ntext 1. first 2. second\n-Another item";
+    String expected = "# Heading\ntext\n1. first\n2. second\n- Another item";
+
+    String result = fixer.autoFix(input);
+    assertEquals(expected, result);
+  }
 }

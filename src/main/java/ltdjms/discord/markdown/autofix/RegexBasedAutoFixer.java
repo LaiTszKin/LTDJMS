@@ -40,6 +40,7 @@ public class RegexBasedAutoFixer implements MarkdownAutoFixer {
     // 應用修復（順序很重要）
     result = fixUnclosedCodeBlocks(result);
     result = fixHeadingFormat(result);
+    result = fixEmbeddedLists(result);
     result = fixListFormat(result);
 
     return result;
@@ -146,6 +147,7 @@ public class RegexBasedAutoFixer implements MarkdownAutoFixer {
    *   <li>包含常見的英文單詞（完整單詞匹配）
    *   <li>且不包含明顯的程式碼特徵
    *   <li>不是以 # 開頭的行（避免影響標題）
+   *   <li>不包含列表標記（避免誤判列表）
    * </ul>
    */
   private boolean looksLikePlainText(String line) {
@@ -156,6 +158,11 @@ public class RegexBasedAutoFixer implements MarkdownAutoFixer {
     // 不處理以 # 開頭的行（可能是標題）
     if (line.trim().startsWith("#")) {
       return false;
+    }
+
+    // 檢查是否包含列表標記（有序列表如 1. 2.，無序列表如 - * +）
+    if (line.matches(".*\\d+\\.\\s+.*") || line.matches(".*[-*+]\\s+.*")) {
+      return false; // 像列表項
     }
 
     // 檢查是否包含明顯的程式碼特徵 - 優先檢查這些
@@ -329,5 +336,57 @@ public class RegexBasedAutoFixer implements MarkdownAutoFixer {
       result = result.replace("\u0000CODE_BLOCK_" + i + "\u0000", codeBlocks.get(i));
     }
     return result;
+  }
+
+  /**
+   * 修復正文中嵌入的列表項。
+   *
+   * <p>識別並轉換正文中嵌入的列表項為正確的 markdown 列表格式。
+   *
+   * <p>例如：
+   *
+   * <ul>
+   *   <li>{@code text 1. item1 2. item2} → {@code text\n1. item1\n2. item2}
+   *   <li>{@code text - item1 - item2} → {@code text\n- item1\n- item2}
+   * </ul>
+   *
+   * @param markdown 原始 Markdown
+   * @return 修復後的 Markdown
+   */
+  private String fixEmbeddedLists(String markdown) {
+    // 先保護程式碼區塊
+    List<String> codeBlocks = new ArrayList<>();
+    String protectedContent = protectCodeBlocks(markdown, codeBlocks);
+
+    // 修復有序列表
+    String fixedContent = fixEmbeddedOrderedList(protectedContent);
+
+    // 修復無序列表
+    fixedContent = fixEmbeddedUnorderedList(fixedContent);
+
+    // 還原程式碼區塊
+    return restoreCodeBlocks(fixedContent, codeBlocks);
+  }
+
+  /**
+   * 修復正文中嵌入的有序列表。
+   *
+   * <p>識別類似 {@code text 1. item 2. item} 的模式，轉換為正確的列表格式。
+   */
+  private String fixEmbeddedOrderedList(String markdown) {
+    // 使用 replaceAll 一次性將所有 " 空格+數字. " 替換為 "\n數字. "
+    // 使用環視確保前面不是換行符（避免影響已經正確格式的列表）
+    return markdown.replaceAll("([^\\n])(\\s+)(\\d+\\.\\s+)", "$1\n$3");
+  }
+
+  /**
+   * 修復正文中嵌入的無序列表。
+   *
+   * <p>識別類似 {@code text - item - item} 的模式，轉換為正確的列表格式。
+   */
+  private String fixEmbeddedUnorderedList(String markdown) {
+    // 使用 replaceAll 一次性將所有 " 空格+標記 " 替換為 "\n標記 "
+    // 使用環視確保前面不是換行符（避免影響已經正確格式的列表）
+    return markdown.replaceAll("([^\\n])(\\s+)([-*+]\\s+)", "$1\n$3");
   }
 }
