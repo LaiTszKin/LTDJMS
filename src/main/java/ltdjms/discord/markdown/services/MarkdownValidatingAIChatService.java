@@ -8,6 +8,7 @@ import org.slf4j.LoggerFactory;
 import ltdjms.discord.aiagent.domain.ConversationMessage;
 import ltdjms.discord.aichat.services.AIChatService;
 import ltdjms.discord.aichat.services.StreamingResponseHandler;
+import ltdjms.discord.markdown.autofix.MarkdownAutoFixer;
 import ltdjms.discord.markdown.validation.MarkdownErrorFormatter;
 import ltdjms.discord.markdown.validation.MarkdownValidator;
 import ltdjms.discord.markdown.validation.MarkdownValidator.ValidationResult;
@@ -21,24 +22,30 @@ public final class MarkdownValidatingAIChatService implements AIChatService {
 
   private final AIChatService delegate;
   private final MarkdownValidator validator;
+  private final MarkdownAutoFixer autofixer;
   private final boolean enabled;
   private final MarkdownErrorFormatter errorFormatter;
   private final int maxRetryAttempts;
   private final boolean streamingBypassValidation;
+  private final boolean enableAutoFix;
 
   public MarkdownValidatingAIChatService(
       AIChatService delegate,
       MarkdownValidator validator,
+      MarkdownAutoFixer autofixer,
       boolean enabled,
       MarkdownErrorFormatter errorFormatter,
       int maxRetryAttempts,
-      boolean streamingBypassValidation) {
+      boolean streamingBypassValidation,
+      boolean enableAutoFix) {
     this.delegate = delegate;
     this.validator = validator;
+    this.autofixer = autofixer;
     this.enabled = enabled;
     this.errorFormatter = errorFormatter;
     this.maxRetryAttempts = maxRetryAttempts;
     this.streamingBypassValidation = streamingBypassValidation;
+    this.enableAutoFix = enableAutoFix;
   }
 
   @Override
@@ -163,6 +170,27 @@ public final class MarkdownValidatingAIChatService implements AIChatService {
       }
 
       ValidationResult.Invalid invalid = (ValidationResult.Invalid) validation;
+
+      // 嘗試自動修復
+      if (enableAutoFix && attempt == 1) {
+        String fixedContent = autofixer.autoFix(fullResponse);
+        ValidationResult fixedValidation = validator.validate(fixedContent);
+
+        if (fixedValidation instanceof ValidationResult.Valid) {
+          LOG.info("自動修復成功: {} 個錯誤被修復", invalid.errors().size());
+          return Result.ok(List.of(fixedContent));
+        }
+
+        // 自動修復不完全，記錄差異
+        int originalErrorCount = invalid.errors().size();
+        int fixedErrorCount =
+            fixedValidation instanceof ValidationResult.Invalid invalid2
+                ? invalid2.errors().size()
+                : 0;
+        LOG.debug(
+            "自動修復部分成功: {} 個錯誤中修復了 {}", originalErrorCount, originalErrorCount - fixedErrorCount);
+      }
+
       String errorReport =
           errorFormatter.formatErrorReport(originalPrompt, invalid.errors(), attempt, fullResponse);
 

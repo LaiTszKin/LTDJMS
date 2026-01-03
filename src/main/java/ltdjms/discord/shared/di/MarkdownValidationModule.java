@@ -11,6 +11,8 @@ import dagger.Provides;
 import ltdjms.discord.aichat.domain.AIServiceConfig;
 import ltdjms.discord.aichat.services.AIChatService;
 import ltdjms.discord.aichat.services.LangChain4jAIChatService;
+import ltdjms.discord.markdown.autofix.MarkdownAutoFixer;
+import ltdjms.discord.markdown.autofix.RegexBasedAutoFixer;
 import ltdjms.discord.markdown.services.MarkdownValidatingAIChatService;
 import ltdjms.discord.markdown.validation.CommonMarkValidator;
 import ltdjms.discord.markdown.validation.MarkdownErrorFormatter;
@@ -51,10 +53,17 @@ public interface MarkdownValidationModule {
 
   @Provides
   @Singleton
+  static MarkdownAutoFixer provideMarkdownAutoFixer() {
+    return new RegexBasedAutoFixer();
+  }
+
+  @Provides
+  @Singleton
   static AIChatService provideValidatingAIChatService(
       AIServiceConfig config,
       LangChain4jAIChatService delegateService,
       MarkdownValidator validator,
+      MarkdownAutoFixer autofixer,
       MarkdownErrorFormatter formatter) {
 
     if (!config.enableMarkdownValidation()) {
@@ -64,9 +73,11 @@ public interface MarkdownValidationModule {
     return new MarkdownValidatingAIChatService(
         delegateService,
         validator,
+        autofixer,
         true,
         formatter,
         config.maxMarkdownValidationRetries(),
-        config.streamingBypassValidation());
+        config.streamingBypassValidation(),
+        config.enableAutoFix());
   }
 }
