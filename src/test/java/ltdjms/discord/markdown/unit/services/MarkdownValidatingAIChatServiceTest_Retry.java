@@ -34,9 +34,10 @@ class MarkdownValidatingAIChatServiceTest_Retry {
     mockValidator = mock(MarkdownValidator.class);
     mockAutoFixer = mock(MarkdownAutoFixer.class);
     formatter = new MarkdownErrorFormatter();
+    // 注意：第四個參數 enabled 應為 true 才能測試重試邏輯
     service =
         new MarkdownValidatingAIChatService(
-            mockDelegate, mockValidator, mockAutoFixer, false, formatter, 5, false, false);
+            mockDelegate, mockValidator, mockAutoFixer, true, formatter, 5, false, false);
   }
 
   @Test

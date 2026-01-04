@@ -5,68 +5,42 @@ import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import ltdjms.discord.aiagent.services.AIAgentChannelConfigService;
 import ltdjms.discord.aichat.domain.AllowedCategory;
 import ltdjms.discord.aichat.domain.AllowedChannel;
-import ltdjms.discord.aichat.services.AIChannelRestrictionService;
 import ltdjms.discord.currency.domain.GuildCurrencyConfig;
-import ltdjms.discord.currency.services.BalanceAdjustmentService;
-import ltdjms.discord.currency.services.BalanceService;
-import ltdjms.discord.currency.services.CurrencyConfigService;
 import ltdjms.discord.gametoken.domain.DiceGame1Config;
 import ltdjms.discord.gametoken.domain.DiceGame2Config;
-import ltdjms.discord.gametoken.domain.GameTokenTransaction;
-import ltdjms.discord.gametoken.persistence.DiceGame1ConfigRepository;
-import ltdjms.discord.gametoken.persistence.DiceGame2ConfigRepository;
-import ltdjms.discord.gametoken.services.GameTokenService;
-import ltdjms.discord.gametoken.services.GameTokenTransactionService;
 import ltdjms.discord.shared.DomainError;
 import ltdjms.discord.shared.Result;
 import ltdjms.discord.shared.Unit;
-import ltdjms.discord.shared.events.DiceGameConfigChangedEvent;
-import ltdjms.discord.shared.events.DomainEventPublisher;
 
 /**
  * Service for admin panel operations. Provides methods for managing member balances, game tokens,
- * and game settings.
+ * and game settings through facade services.
+ *
+ * <p>This service has been refactored to use facade services, reducing dependencies from 10 to 4.
  */
 public class AdminPanelService {
 
   private static final Logger LOG = LoggerFactory.getLogger(AdminPanelService.class);
 
-  private final BalanceService balanceService;
-  private final BalanceAdjustmentService balanceAdjustmentService;
-  private final GameTokenService gameTokenService;
-  private final GameTokenTransactionService transactionService;
-  private final DiceGame1ConfigRepository diceGame1ConfigRepository;
-  private final DiceGame2ConfigRepository diceGame2ConfigRepository;
-  private final CurrencyConfigService currencyConfigService;
-  private final DomainEventPublisher eventPublisher;
-  private final AIChannelRestrictionService aiChannelRestrictionService;
-  private final AIAgentChannelConfigService aiAgentChannelConfigService;
+  private final CurrencyManagementFacade currencyFacade;
+  private final GameTokenManagementFacade gameTokenFacade;
+  private final GameConfigManagementFacade gameConfigFacade;
+  private final AIConfigManagementFacade aiConfigFacade;
 
   public AdminPanelService(
-      BalanceService balanceService,
-      BalanceAdjustmentService balanceAdjustmentService,
-      GameTokenService gameTokenService,
-      GameTokenTransactionService transactionService,
-      DiceGame1ConfigRepository diceGame1ConfigRepository,
-      DiceGame2ConfigRepository diceGame2ConfigRepository,
-      CurrencyConfigService currencyConfigService,
-      DomainEventPublisher eventPublisher,
-      AIChannelRestrictionService aiChannelRestrictionService,
-      AIAgentChannelConfigService aiAgentChannelConfigService) {
-    this.balanceService = balanceService;
-    this.balanceAdjustmentService = balanceAdjustmentService;
-    this.gameTokenService = gameTokenService;
-    this.transactionService = transactionService;
-    this.diceGame1ConfigRepository = diceGame1ConfigRepository;
-    this.diceGame2ConfigRepository = diceGame2ConfigRepository;
-    this.currencyConfigService = currencyConfigService;
-    this.eventPublisher = eventPublisher;
-    this.aiChannelRestrictionService = aiChannelRestrictionService;
-    this.aiAgentChannelConfigService = aiAgentChannelConfigService;
+      CurrencyManagementFacade currencyFacade,
+      GameTokenManagementFacade gameTokenFacade,
+      GameConfigManagementFacade gameConfigFacade,
+      AIConfigManagementFacade aiConfigFacade) {
+    this.currencyFacade = currencyFacade;
+    this.gameTokenFacade = gameTokenFacade;
+    this.gameConfigFacade = gameConfigFacade;
+    this.aiConfigFacade = aiConfigFacade;
   }
+
+  // ========== Currency Management ==========
 
   /**
    * Gets the currency configuration for a guild.
@@ -74,22 +48,17 @@ public class AdminPanelService {
    * @param guildId the guild ID
    * @return the currency configuration with name and icon
    */
-  public GuildCurrencyConfig getCurrencyConfig(long guildId) {
-    return currencyConfigService.getConfig(guildId);
+  public Result<GuildCurrencyConfig, DomainError> getCurrencyConfig(long guildId) {
+    return currencyFacade.getCurrencyConfig(guildId);
   }
 
   /** Gets a member's current currency balance. */
   public Result<Long, DomainError> getMemberBalance(long guildId, long userId) {
-    return balanceService.tryGetBalance(guildId, userId).map(view -> view.balance());
-  }
-
-  /** Gets a member's current game token balance. */
-  public long getMemberTokens(long guildId, long userId) {
-    return gameTokenService.getBalance(guildId, userId);
+    return currencyFacade.getMemberBalance(guildId, userId);
   }
 
   /** Adjusts a member's currency balance. */
-  public Result<BalanceAdjustmentResult, DomainError> adjustBalance(
+  public Result<CurrencyManagementFacade.BalanceAdjustmentResult, DomainError> adjustBalance(
       long guildId, long userId, String mode, long amount) {
     LOG.debug(
         "Admin panel adjusting balance: guildId={}, userId={}, mode={}, amount={}",
@@ -97,28 +66,14 @@ public class AdminPanelService {
         userId,
         mode,
         amount);
-
-    return switch (mode) {
-      case "add" ->
-          balanceAdjustmentService
-              .tryAdjustBalance(guildId, userId, amount)
-              .map(this::toBalanceAdjustmentResult);
-      case "deduct" ->
-          balanceAdjustmentService
-              .tryAdjustBalance(guildId, userId, -amount)
-              .map(this::toBalanceAdjustmentResult);
-      case "adjust" ->
-          balanceAdjustmentService
-              .tryAdjustBalanceTo(guildId, userId, amount)
-              .map(this::toBalanceAdjustmentResult);
-      default -> Result.err(DomainError.invalidInput("Unknown adjustment mode: " + mode));
-    };
+    return currencyFacade.adjustBalance(guildId, userId, mode, amount);
   }
 
-  private BalanceAdjustmentResult toBalanceAdjustmentResult(
-      BalanceAdjustmentService.BalanceAdjustmentResult result) {
-    return new BalanceAdjustmentResult(
-        result.previousBalance(), result.newBalance(), result.adjustment());
+  // ========== Game Token Management ==========
+
+  /** Gets a member's current game token balance. */
+  public long getMemberTokens(long guildId, long userId) {
+    return gameTokenFacade.getMemberTokens(guildId, userId);
   }
 
   /**
@@ -130,7 +85,7 @@ public class AdminPanelService {
    * @param amount the amount to add/deduct or target balance for "adjust" mode
    * @return the result of the adjustment
    */
-  public Result<TokenAdjustmentResult, DomainError> adjustTokens(
+  public Result<GameTokenManagementFacade.TokenAdjustmentResult, DomainError> adjustTokens(
       long guildId, long userId, String mode, long amount) {
     LOG.debug(
         "Admin panel adjusting tokens: guildId={}, userId={}, mode={}, amount={}",
@@ -138,48 +93,19 @@ public class AdminPanelService {
         userId,
         mode,
         amount);
-
-    long previousTokens = gameTokenService.getBalance(guildId, userId);
-
-    long actualAdjustment =
-        switch (mode) {
-          case "add" -> amount;
-          case "deduct" -> -amount;
-          case "adjust" -> amount - previousTokens;
-          default -> {
-            yield 0L;
-          }
-        };
-
-    if (mode.equals("adjust") && amount < 0) {
-      return Result.err(DomainError.invalidInput("目標代幣餘額不可為負數"));
-    }
-
-    return gameTokenService
-        .tryAdjustTokens(guildId, userId, actualAdjustment)
-        .map(
-            result -> {
-              transactionService.recordTransaction(
-                  guildId,
-                  userId,
-                  actualAdjustment,
-                  result.newTokens(),
-                  GameTokenTransaction.Source.ADMIN_ADJUSTMENT,
-                  null);
-
-              return new TokenAdjustmentResult(
-                  previousTokens, result.newTokens(), actualAdjustment);
-            });
+    return gameTokenFacade.adjustTokens(guildId, userId, mode, amount);
   }
+
+  // ========== Game Configuration Management ==========
 
   /** Gets the full configuration for dice-game-1. */
   public DiceGame1Config getDiceGame1Config(long guildId) {
-    return diceGame1ConfigRepository.findOrCreateDefault(guildId);
+    return gameConfigFacade.getDiceGame1Config(guildId);
   }
 
   /** Gets the full configuration for dice-game-2. */
   public DiceGame2Config getDiceGame2Config(long guildId) {
-    return diceGame2ConfigRepository.findOrCreateDefault(guildId);
+    return gameConfigFacade.getDiceGame2Config(guildId);
   }
 
   /** Updates dice-game-1 configuration. */
@@ -191,31 +117,7 @@ public class AdminPanelService {
         minTokens,
         maxTokens,
         rewardPerDice);
-
-    try {
-      DiceGame1Config current = diceGame1ConfigRepository.findOrCreateDefault(guildId);
-      DiceGame1Config updated = current;
-
-      if (minTokens != null || maxTokens != null) {
-        long newMin = minTokens != null ? minTokens : current.minTokensPerPlay();
-        long newMax = maxTokens != null ? maxTokens : current.maxTokensPerPlay();
-        updated = diceGame1ConfigRepository.updateTokensPerPlayRange(guildId, newMin, newMax);
-      }
-
-      if (rewardPerDice != null) {
-        updated = diceGame1ConfigRepository.updateRewardPerDiceValue(guildId, rewardPerDice);
-      }
-
-      LOG.info("Dice-game-1 config updated: guildId={}", guildId);
-
-      // Publish event after successful update
-      eventPublisher.publish(
-          new DiceGameConfigChangedEvent(guildId, DiceGameConfigChangedEvent.GameType.DICE_GAME_1));
-
-      return Result.ok(updated);
-    } catch (IllegalArgumentException e) {
-      return Result.err(DomainError.invalidInput(e.getMessage()));
-    }
+    return gameConfigFacade.updateDiceGame1Config(guildId, minTokens, maxTokens, rewardPerDice);
   }
 
   /** Updates dice-game-2 configuration. */
@@ -237,66 +139,14 @@ public class AdminPanelService {
         baseMultiplier,
         tripleLowBonus,
         tripleHighBonus);
-
-    try {
-      DiceGame2Config current = diceGame2ConfigRepository.findOrCreateDefault(guildId);
-      DiceGame2Config updated = current;
-
-      if (minTokens != null || maxTokens != null) {
-        long newMin = minTokens != null ? minTokens : current.minTokensPerPlay();
-        long newMax = maxTokens != null ? maxTokens : current.maxTokensPerPlay();
-        updated = diceGame2ConfigRepository.updateTokensPerPlayRange(guildId, newMin, newMax);
-      }
-
-      if (straightMultiplier != null || baseMultiplier != null) {
-        long newStraight =
-            straightMultiplier != null ? straightMultiplier : updated.straightMultiplier();
-        long newBase = baseMultiplier != null ? baseMultiplier : updated.baseMultiplier();
-        updated = diceGame2ConfigRepository.updateMultipliers(guildId, newStraight, newBase);
-      }
-
-      if (tripleLowBonus != null || tripleHighBonus != null) {
-        long newLow = tripleLowBonus != null ? tripleLowBonus : updated.tripleLowBonus();
-        long newHigh = tripleHighBonus != null ? tripleHighBonus : updated.tripleHighBonus();
-        updated = diceGame2ConfigRepository.updateTripleBonuses(guildId, newLow, newHigh);
-      }
-
-      LOG.info("Dice-game-2 config updated: guildId={}", guildId);
-
-      // Publish event after successful update
-      eventPublisher.publish(
-          new DiceGameConfigChangedEvent(guildId, DiceGameConfigChangedEvent.GameType.DICE_GAME_2));
-
-      return Result.ok(updated);
-    } catch (IllegalArgumentException e) {
-      return Result.err(DomainError.invalidInput(e.getMessage()));
-    }
-  }
-
-  public record BalanceAdjustmentResult(long previousBalance, long newBalance, long adjustment) {
-    public String formatMessage(String currencyName, String currencyIcon) {
-      String action = adjustment >= 0 ? "增加" : "扣除";
-      long displayAmount = Math.abs(adjustment);
-      return String.format(
-          "%s %,d %s %s\n調整前：%s %,d\n調整後：%s %,d",
-          action,
-          displayAmount,
-          currencyIcon,
-          currencyName,
-          currencyIcon,
-          previousBalance,
-          currencyIcon,
-          newBalance);
-    }
-  }
-
-  public record TokenAdjustmentResult(long previousTokens, long newTokens, long adjustment) {
-    public String formatMessage() {
-      String action = adjustment >= 0 ? "增加" : "扣除";
-      long displayAmount = Math.abs(adjustment);
-      return String.format(
-          "%s %,d 遊戲代幣\n調整前：🎮 %,d\n調整後：🎮 %,d", action, displayAmount, previousTokens, newTokens);
-    }
+    return gameConfigFacade.updateDiceGame2Config(
+        guildId,
+        minTokens,
+        maxTokens,
+        straightMultiplier,
+        baseMultiplier,
+        tripleLowBonus,
+        tripleHighBonus);
   }
 
   // ========== AI 頻道設定管理 ==========
@@ -309,7 +159,7 @@ public class AdminPanelService {
    */
   public Result<Set<AllowedChannel>, DomainError> getAllowedChannels(long guildId) {
     LOG.debug("Admin panel getting allowed channels for guildId={}", guildId);
-    return aiChannelRestrictionService.getAllowedChannels(guildId);
+    return aiConfigFacade.getAllowedChannels(guildId);
   }
 
   /**
@@ -320,7 +170,7 @@ public class AdminPanelService {
    */
   public Result<Set<AllowedCategory>, DomainError> getAllowedCategories(long guildId) {
     LOG.debug("Admin panel getting allowed categories for guildId={}", guildId);
-    return aiChannelRestrictionService.getAllowedCategories(guildId);
+    return aiConfigFacade.getAllowedCategories(guildId);
   }
 
   /**
@@ -338,8 +188,7 @@ public class AdminPanelService {
         guildId,
         channelId,
         channelName);
-    AllowedChannel channel = new AllowedChannel(channelId, channelName);
-    return aiChannelRestrictionService.addAllowedChannel(guildId, channel);
+    return aiConfigFacade.addAllowedChannel(guildId, channelId, channelName);
   }
 
   /**
@@ -357,8 +206,7 @@ public class AdminPanelService {
         guildId,
         categoryId,
         categoryName);
-    AllowedCategory category = new AllowedCategory(categoryId, categoryName);
-    return aiChannelRestrictionService.addAllowedCategory(guildId, category);
+    return aiConfigFacade.addAllowedCategory(guildId, categoryId, categoryName);
   }
 
   /**
@@ -370,7 +218,7 @@ public class AdminPanelService {
    */
   public Result<Unit, DomainError> removeAllowedChannel(long guildId, long channelId) {
     LOG.info("Admin panel removing allowed channel: guildId={}, channelId={}", guildId, channelId);
-    return aiChannelRestrictionService.removeAllowedChannel(guildId, channelId);
+    return aiConfigFacade.removeAllowedChannel(guildId, channelId);
   }
 
   /**
@@ -383,7 +231,7 @@ public class AdminPanelService {
   public Result<Unit, DomainError> removeAllowedCategory(long guildId, long categoryId) {
     LOG.info(
         "Admin panel removing allowed category: guildId={}, categoryId={}", guildId, categoryId);
-    return aiChannelRestrictionService.removeAllowedCategory(guildId, categoryId);
+    return aiConfigFacade.removeAllowedCategory(guildId, categoryId);
   }
 
   // ========== AI Agent 頻道配置管理 ==========
@@ -396,7 +244,7 @@ public class AdminPanelService {
    */
   public Result<java.util.List<Long>, DomainError> getEnabledAgentChannels(long guildId) {
     LOG.debug("Admin panel getting enabled agent channels for guildId={}", guildId);
-    return aiAgentChannelConfigService.getEnabledChannels(guildId);
+    return aiConfigFacade.getEnabledAgentChannels(guildId);
   }
 
   /**
@@ -407,7 +255,7 @@ public class AdminPanelService {
    * @return 是否啟用
    */
   public boolean isAgentEnabled(long guildId, long channelId) {
-    return aiAgentChannelConfigService.isAgentEnabled(guildId, channelId);
+    return aiConfigFacade.isAgentEnabled(guildId, channelId);
   }
 
   /**
@@ -420,7 +268,7 @@ public class AdminPanelService {
   public Result<Unit, DomainError> enableAgentChannel(long guildId, long channelId) {
     LOG.info(
         "Admin panel enabling agent for channel: guildId={}, channelId={}", guildId, channelId);
-    return aiAgentChannelConfigService.setAgentEnabled(guildId, channelId, true);
+    return aiConfigFacade.enableAgentChannel(guildId, channelId);
   }
 
   /**
@@ -433,7 +281,7 @@ public class AdminPanelService {
   public Result<Unit, DomainError> disableAgentChannel(long guildId, long channelId) {
     LOG.info(
         "Admin panel disabling agent for channel: guildId={}, channelId={}", guildId, channelId);
-    return aiAgentChannelConfigService.setAgentEnabled(guildId, channelId, false);
+    return aiConfigFacade.disableAgentChannel(guildId, channelId);
   }
 
   /**
@@ -446,6 +294,6 @@ public class AdminPanelService {
   public Result<Unit, DomainError> removeAgentChannel(long guildId, long channelId) {
     LOG.info(
         "Admin panel removing agent channel config: guildId={}, channelId={}", guildId, channelId);
-    return aiAgentChannelConfigService.removeChannel(guildId, channelId);
+    return aiConfigFacade.removeAgentChannel(guildId, channelId);
   }
 }

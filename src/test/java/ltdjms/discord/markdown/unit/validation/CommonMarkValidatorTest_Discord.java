@@ -1,9 +1,12 @@
-package ltdjms.discord.markdown.validation;
+package ltdjms.discord.markdown.unit.validation;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+
+import ltdjms.discord.markdown.validation.CommonMarkValidator;
+import ltdjms.discord.markdown.validation.MarkdownValidator;
 
 @DisplayName("CommonMarkValidator - Discord 特定檢查")
 class CommonMarkValidatorTest_Discord {
@@ -99,8 +102,8 @@ class CommonMarkValidatorTest_Discord {
   }
 
   @Test
-  @DisplayName("正確的表格格式應通過")
-  void validTable_shouldPass() {
+  @DisplayName("正確的表格格式應檢測為 Discord 渲染問題")
+  void validTable_shouldDetectDiscordIssue() {
     String markdown =
         """
         | 欄位 A | 欄位 B | 欄位 C |
@@ -110,6 +113,166 @@ class CommonMarkValidatorTest_Discord {
 
     MarkdownValidator.ValidationResult result = validator.validate(markdown);
 
+    assertInstanceOf(MarkdownValidator.ValidationResult.Invalid.class, result);
+    MarkdownValidator.ValidationResult.Invalid invalid =
+        (MarkdownValidator.ValidationResult.Invalid) result;
+
+    boolean hasDiscordIssue =
+        invalid.errors().stream()
+            .anyMatch(e -> e.type() == MarkdownValidator.ErrorType.DISCORD_RENDER_ISSUE);
+    assertTrue(hasDiscordIssue, "應檢測到 Discord 不支援表格");
+  }
+
+  @Test
+  @DisplayName("水平分隔線應檢測為 Discord 渲染問題")
+  void horizontalRule_shouldDetectDiscordIssue() {
+    String markdown =
+        """
+        前言
+
+        ---
+
+        後記
+        """;
+
+    MarkdownValidator.ValidationResult result = validator.validate(markdown);
+
+    assertInstanceOf(MarkdownValidator.ValidationResult.Invalid.class, result);
+    MarkdownValidator.ValidationResult.Invalid invalid =
+        (MarkdownValidator.ValidationResult.Invalid) result;
+
+    boolean hasDiscordIssue =
+        invalid.errors().stream()
+            .anyMatch(e -> e.type() == MarkdownValidator.ErrorType.DISCORD_RENDER_ISSUE);
+    assertTrue(hasDiscordIssue, "應檢測到 Discord 不支援水平分隔線");
+  }
+
+  @Test
+  @DisplayName("星號水平分隔線應檢測為 Discord 渲染問題")
+  void asteriskHorizontalRule_shouldDetectDiscordIssue() {
+    String markdown =
+        """
+        前言
+
+        ***
+
+        後記
+        """;
+
+    MarkdownValidator.ValidationResult result = validator.validate(markdown);
+
+    assertInstanceOf(MarkdownValidator.ValidationResult.Invalid.class, result);
+    MarkdownValidator.ValidationResult.Invalid invalid =
+        (MarkdownValidator.ValidationResult.Invalid) result;
+
+    boolean hasDiscordIssue =
+        invalid.errors().stream()
+            .anyMatch(e -> e.type() == MarkdownValidator.ErrorType.DISCORD_RENDER_ISSUE);
+    assertTrue(hasDiscordIssue, "應檢測到 Discord 不支援水平分隔線");
+  }
+
+  @Test
+  @DisplayName("Task List 應檢測為 Discord 渲染問題")
+  void taskList_shouldDetectDiscordIssue() {
+    String markdown =
+        """
+        - [x] 已完成的項目
+        - [ ] 未完成的項目
+        """;
+
+    MarkdownValidator.ValidationResult result = validator.validate(markdown);
+
+    assertInstanceOf(MarkdownValidator.ValidationResult.Invalid.class, result);
+    MarkdownValidator.ValidationResult.Invalid invalid =
+        (MarkdownValidator.ValidationResult.Invalid) result;
+
+    boolean hasDiscordIssue =
+        invalid.errors().stream()
+            .anyMatch(e -> e.type() == MarkdownValidator.ErrorType.DISCORD_RENDER_ISSUE);
+    assertTrue(hasDiscordIssue, "應檢測到 Discord 不支援 Task List");
+  }
+
+  @Test
+  @DisplayName("粗體使用底線應檢測為 Discord 渲染問題")
+  void boldWithUnderscore_shouldDetectDiscordIssue() {
+    String markdown =
+        """
+        這是 __粗體文字__ 的範例
+        """;
+
+    MarkdownValidator.ValidationResult result = validator.validate(markdown);
+
+    assertInstanceOf(MarkdownValidator.ValidationResult.Invalid.class, result);
+    MarkdownValidator.ValidationResult.Invalid invalid =
+        (MarkdownValidator.ValidationResult.Invalid) result;
+
+    boolean hasDiscordIssue =
+        invalid.errors().stream()
+            .anyMatch(e -> e.type() == MarkdownValidator.ErrorType.DISCORD_RENDER_ISSUE);
+    assertTrue(hasDiscordIssue, "應檢測到 Discord 粗體應使用星號");
+  }
+
+  @Test
+  @DisplayName("粗體使用星號應通過")
+  void boldWithAsterisk_shouldPass() {
+    String markdown =
+        """
+        這是 **粗體文字** 的範例
+        """;
+
+    MarkdownValidator.ValidationResult result = validator.validate(markdown);
+
+    assertInstanceOf(MarkdownValidator.ValidationResult.Valid.class, result);
+  }
+
+  @Test
+  @DisplayName("程式碼區塊中的表格語法不應被檢測為錯誤")
+  void tableInCodeBlock_shouldNotDetectError() {
+    String markdown =
+        """
+        ```
+        | 欄位 A | 欄位 B |
+        |--------|--------|
+        | 值 1   | 值 2   |
+        ```
+        """;
+
+    MarkdownValidator.ValidationResult result = validator.validate(markdown);
+
+    // 程式碼區塊中的表格不應該被檢測為 Discord 渲染問題
+    // 應該只檢測程式碼區塊是否閉合（已閉合，所以通過）
+    assertInstanceOf(MarkdownValidator.ValidationResult.Valid.class, result);
+  }
+
+  @Test
+  @DisplayName("程式碼區塊中的底線不應被檢測為錯誤")
+  void underscoreInCodeBlock_shouldNotDetectError() {
+    String markdown =
+        """
+        ```
+        __variable_name__
+        ```
+        """;
+
+    MarkdownValidator.ValidationResult result = validator.validate(markdown);
+
+    // 程式碼區塊中的底線不應該被檢測為 Discord 渲染問題
+    assertInstanceOf(MarkdownValidator.ValidationResult.Valid.class, result);
+  }
+
+  @Test
+  @DisplayName("程式碼區塊中的水平分隔線不應被檢測為錯誤")
+  void horizontalRuleInCodeBlock_shouldNotDetectError() {
+    String markdown =
+        """
+        ```
+        ---
+        ```
+        """;
+
+    MarkdownValidator.ValidationResult result = validator.validate(markdown);
+
+    // 程式碼區塊中的水平分隔線不應該被檢測為 Discord 渲染問題
     assertInstanceOf(MarkdownValidator.ValidationResult.Valid.class, result);
   }
 }

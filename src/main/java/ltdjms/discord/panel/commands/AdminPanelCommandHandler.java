@@ -9,6 +9,8 @@ import org.slf4j.LoggerFactory;
 import ltdjms.discord.currency.bot.SlashCommandListener;
 import ltdjms.discord.panel.services.AdminPanelService;
 import ltdjms.discord.panel.services.AdminPanelSessionManager;
+import ltdjms.discord.shared.DomainError;
+import ltdjms.discord.shared.Result;
 import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.entities.MessageEmbed;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
@@ -42,13 +44,20 @@ public class AdminPanelCommandHandler implements SlashCommandListener.CommandHan
     this.adminPanelSessionManager = adminPanelSessionManager;
   }
 
+  /** Helper method to safely get currency icon from config result. */
+  private String getCurrencyIcon(long guildId) {
+    Result<ltdjms.discord.currency.domain.GuildCurrencyConfig, DomainError> result =
+        adminPanelService.getCurrencyConfig(guildId);
+    return result.isOk() ? result.getValue().currencyIcon() : "💰";
+  }
+
   @Override
   public void handle(SlashCommandInteractionEvent event) {
     long guildId = event.getGuild().getIdLong();
 
     LOG.debug("Processing /admin-panel for guildId={}", guildId);
 
-    String currencyIcon = adminPanelService.getCurrencyConfig(guildId).currencyIcon();
+    String currencyIcon = getCurrencyIcon(guildId);
     MessageEmbed embed = buildMainPanelEmbed(currencyIcon);
     List<ActionRow> rows = buildMainActionRows(currencyIcon);
 

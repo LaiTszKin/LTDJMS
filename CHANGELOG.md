@@ -2,6 +2,43 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.24.0] - 2026-01-05
+
+### Breaking Changes
+- **gametoken**: `DiceGame1Service` 與 `DiceGame2Service` 重構為介面
+  - 新增 `DefaultDiceGame1Service` 與 `DefaultDiceGame2Service` 實作類別
+  - 更新 `GameTokenServiceModule` 中的 DI 綁定
+
+### Added
+- **currency**: 新增 `GameRewardService` 集中管理遊戲獎勵發放邏輯
+  - 支援大額獎勵自動分批調整（超過 `MAX_ADJUSTMENT_AMOUNT` 時）
+  - 自動記錄交易歷史並發布 `BalanceChangedEvent`
+- **markdown**: 新增 Discord 特定驗證規則
+  - 檢測不支援的表格語法（應改用列表）
+  - 檢測不支援的水平分隔線（`---`、`***`、`___`）
+  - 檢測不支援的 Task List（`- [x]`、`- [ ]`）
+  - 檢測僅支援星號的粗體格式（`**text**` 有效，`__text__` 無效）
+- **markdown**: 新增列表格式自動修復功能
+- **panel**: 引入 Facade 模式，新增 5 個 Facade 類別降低服務耦合
+  - `MemberInfoFacade`：聚合會員資訊查詢
+  - `CurrencyManagementFacade`：貨幣管理聚合
+  - `GameTokenManagementFacade`：遊戲代幣管理聚合
+  - `GameConfigManagementFacade`：遊戲配置管理聚合
+  - `AIConfigManagementFacade`：AI 功能配置管理聚合
+
+### Changed
+- **panel**: 降低面板服務的依賴複雜度
+  - `UserPanelService` 依賴從 6 個降至 1 個（僅依賴 `MemberInfoFacade`）
+  - `AdminPanelService` 依賴從 10 個降至 4 個（透過 Facade 介面存取）
+
+### Tests
+- 新增 17 個測試檔案，涵蓋：
+  - GameRewardService 單元測試
+  - DefaultDiceGame1/2Service 單元測試
+  - 5 個 Facade 類別的單元測試
+  - AI Agent 與 AIChat 模組的單元與服務測試
+  - Markdown 驗證與自動修復測試
+
 ## [0.23.3] - 2026-01-04
 
 ### Added

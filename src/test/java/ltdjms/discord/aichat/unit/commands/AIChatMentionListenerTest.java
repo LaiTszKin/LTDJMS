@@ -182,4 +182,119 @@ class AIChatMentionListenerTest {
       verify(messageChannel, never()).sendMessage(any(CharSequence.class));
     }
   }
+
+  @Nested
+  @DisplayName("Bot 訊息過濾")
+  class BotMessageFilter {
+
+    @Test
+    @DisplayName("當訊息來自 Bot 時，應忽略")
+    void shouldIgnoreWhenMessageFromBot() {
+      // Arrange
+      when(regularUser.isBot()).thenReturn(true);
+      when(guild.getIdLong()).thenReturn(123L);
+      when(messageChannel.getIdLong()).thenReturn(456L);
+      when(message.getContentRaw()).thenReturn("<@999> hello");
+
+      // Act
+      listener.onMessageReceived(event);
+
+      // Assert - 不應該觸發任何回應
+      verify(messageChannel, never()).sendMessage(any(CharSequence.class));
+    }
+  }
+
+  @Nested
+  @DisplayName("提及格式檢查")
+  class MentionFormatCheck {
+
+    @Test
+    @DisplayName("當使用暱稱提及格式時，應觸發 AI 回應")
+    void shouldTriggerWhenNicknameMentionFormat() {
+      // Arrange
+      when(channelRestrictionService.isChannelAllowed(123L, 456L, 0L)).thenReturn(true);
+      when(guild.getIdLong()).thenReturn(123L);
+      when(messageChannel.getIdLong()).thenReturn(456L);
+      when(regularUser.getId()).thenReturn("789");
+      when(message.getContentRaw()).thenReturn("<@!999> hello");
+
+      // Act
+      listener.onMessageReceived(event);
+
+      // Assert - 應該觸發 AI 回應
+      verify(messageChannel).sendMessage(any(CharSequence.class));
+    }
+
+    @Test
+    @DisplayName("當提及後訊息為空白時，應使用預設問候語")
+    void shouldUseDefaultGreetingWhenMessageEmpty() {
+      // Arrange
+      when(channelRestrictionService.isChannelAllowed(123L, 456L, 0L)).thenReturn(true);
+      when(guild.getIdLong()).thenReturn(123L);
+      when(messageChannel.getIdLong()).thenReturn(456L);
+      when(regularUser.getId()).thenReturn("789");
+      when(message.getContentRaw()).thenReturn("<@999>   ");
+
+      // Act
+      listener.onMessageReceived(event);
+
+      // Assert - 應該觸發 AI 回應
+      verify(messageChannel).sendMessage(any(CharSequence.class));
+    }
+
+    @Test
+    @DisplayName("當僅提及機器人無其他內容時，應使用預設問候語")
+    void shouldUseDefaultGreetingWhenOnlyMention() {
+      // Arrange
+      when(channelRestrictionService.isChannelAllowed(123L, 456L, 0L)).thenReturn(true);
+      when(guild.getIdLong()).thenReturn(123L);
+      when(messageChannel.getIdLong()).thenReturn(456L);
+      when(regularUser.getId()).thenReturn("789");
+      when(message.getContentRaw()).thenReturn("<@999>");
+
+      // Act
+      listener.onMessageReceived(event);
+
+      // Assert - 應該觸發 AI 回應
+      verify(messageChannel).sendMessage(any(CharSequence.class));
+    }
+
+    @Test
+    @DisplayName("當使用暱稱提及格式且僅有提及時，應使用預設問候語")
+    void shouldUseDefaultGreetingWhenOnlyNicknameMention() {
+      // Arrange
+      when(channelRestrictionService.isChannelAllowed(123L, 456L, 0L)).thenReturn(true);
+      when(guild.getIdLong()).thenReturn(123L);
+      when(messageChannel.getIdLong()).thenReturn(456L);
+      when(regularUser.getId()).thenReturn("789");
+      when(message.getContentRaw()).thenReturn("<@!999>");
+
+      // Act
+      listener.onMessageReceived(event);
+
+      // Assert - 應該觸發 AI 回應
+      verify(messageChannel).sendMessage(any(CharSequence.class));
+    }
+  }
+
+  @Nested
+  @DisplayName("非 Guild 訊息過濾")
+  class NonGuildFilter {
+
+    @Test
+    @DisplayName("當訊息來自 DM 時，應忽略")
+    void shouldIgnoreWhenFromDM() {
+      // Arrange
+      when(event.isFromGuild()).thenReturn(false);
+      when(guild.getIdLong()).thenReturn(123L);
+      when(messageChannel.getIdLong()).thenReturn(456L);
+      when(message.getContentRaw()).thenReturn("<@999> hello");
+
+      // Act
+      listener.onMessageReceived(event);
+
+      // Assert - 不應該觸發任何回應
+      verify(messageChannel, never()).sendMessage(any(CharSequence.class));
+    }
+  }
 }

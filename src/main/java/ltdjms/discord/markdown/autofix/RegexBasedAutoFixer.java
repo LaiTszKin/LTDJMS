@@ -39,9 +39,18 @@ public class RegexBasedAutoFixer implements MarkdownAutoFixer {
 
     // 應用修復（順序很重要）
     result = fixUnclosedCodeBlocks(result);
+    result = fixHeadingLevelExceeded(result);
     result = fixHeadingFormat(result);
+    result = fixHeadingContainsListMarker(result);
     result = fixEmbeddedLists(result);
     result = fixListFormat(result);
+    // 注意：fixNestedListIndentation 已停用，因為它會過度修正同層級的列表項
+    // result = fixNestedListIndentation(result);
+    result = fixDiscordUnderlineBold(result);
+    result = fixTaskList(result);
+    // 注意：fixHorizontalRules 已停用，因為水平分隔線是有效的 Markdown 語法
+    // 不應該自動移除，僅作為 Discord 渲染問題提示
+    // result = fixHorizontalRules(result);
 
     return result;
   }
@@ -272,7 +281,30 @@ public class RegexBasedAutoFixer implements MarkdownAutoFixer {
   }
 
   /**
-   * 檢查是否為分隔線。
+   * 檢查一行是否為水平分隔線。
+   *
+   * <p>水平分隔線是連續的 -、* 或 _ 字符（至少 3 個）。
+   *
+   * @param line 要檢查的行
+   * @return 如果是水平分隔線返回 true
+   */
+  private boolean isHorizontalRule(String line) {
+    if (line.isEmpty()) {
+      return false;
+    }
+    // 移除空白字符
+    String trimmed = line.replaceAll("\\s", "");
+    // 分隔線至少需要 3 個相同字符
+    if (trimmed.length() < 3) {
+      return false;
+    }
+    // 全部是 - 或 * 或 _
+    return trimmed.chars().allMatch(c -> c == '-' || c == '*' || c == '_')
+        && (trimmed.chars().distinct().count() == 1);
+  }
+
+  /**
+   * 檢查是否為分隔線（用於列表處理）。
    *
    * <p>分隔線是連續的 -、* 或 _ 字符（至少 3 個），可選前面有空格。
    *
@@ -388,5 +420,223 @@ public class RegexBasedAutoFixer implements MarkdownAutoFixer {
     // 使用 replaceAll 一次性將所有 " 空格+標記 " 替換為 "\n標記 "
     // 使用環視確保前面不是換行符（避免影響已經正確格式的列表）
     return markdown.replaceAll("([^\\n])(\\s+)([-*+]\\s+)", "$1\n$3");
+  }
+
+  /**
+   * 修復超過 H6 層級的標題。
+   *
+   * <p>將超過 6 個 # 符號的標題截斷為 6 個（Discord 限制）。
+   *
+   * @param markdown 原始 Markdown
+   * @return 修復後的 Markdown
+   */
+  private String fixHeadingLevelExceeded(String markdown) {
+    // 先保護程式碼區塊
+    List<String> codeBlocks = new ArrayList<>();
+    String protectedContent = protectCodeBlocks(markdown, codeBlocks);
+
+    // 匹配行首超過 6 個的 # 符號，截斷為 6 個
+    String fixedContent =
+        Pattern.compile("^(#{7,})(\\s?.*)$", Pattern.MULTILINE)
+            .matcher(protectedContent)
+            .replaceAll("######$2");
+
+    // 還原程式碼區塊
+    return restoreCodeBlocks(fixedContent, codeBlocks);
+  }
+
+  /**
+   * 修復標題中包含的列表標記。
+   *
+   * <p>移除標題開頭的列表標記（如 `### - 標題` → `### 標題`）。
+   *
+   * @param markdown 原始 Markdown
+   * @return 修復後的 Markdown
+   */
+  private String fixHeadingContainsListMarker(String markdown) {
+    // 先保護程式碼區塊
+    List<String> codeBlocks = new ArrayList<>();
+    String protectedContent = protectCodeBlocks(markdown, codeBlocks);
+
+    // 修復標題中的無序列表標記（-、*、+ 開頭，後面跟空格）
+    // ### - 標題 → ### 標題
+    String fixedContent =
+        Pattern.compile("^(#{1,6}\\s+)[-*+]\\s+(.*)$", Pattern.MULTILINE)
+            .matcher(protectedContent)
+            .replaceAll("$1$2");
+
+    // 修復標題中的有序列表標記（數字. 開頭，後面跟空格）
+    // ### 1. 標題 → ### 標題
+    fixedContent =
+        Pattern.compile("^(#{1,6}\\s+)\\d+\\.\\s+(.*)$", Pattern.MULTILINE)
+            .matcher(fixedContent)
+            .replaceAll("$1$2");
+
+    // 還原程式碼區塊
+    return restoreCodeBlocks(fixedContent, codeBlocks);
+  }
+
+  /**
+   * 修復嵌套列表縮排不足的問題。
+   *
+   * <p>自動為嵌套列表項添加適當的縮排（至少 4 個空格）。
+   *
+   * @param markdown 原始 Markdown
+   * @return 修復後的 Markdown
+   */
+  private String fixNestedListIndentation(String markdown) {
+    // 先保護程式碼區塊
+    List<String> codeBlocks = new ArrayList<>();
+    String protectedContent = protectCodeBlocks(markdown, codeBlocks);
+
+    String[] lines = protectedContent.split("\n");
+    StringBuilder result = new StringBuilder();
+    int parentIndent = -1;
+
+    for (int i = 0; i < lines.length; i++) {
+      String line = lines[i];
+      int leadingSpaces = countLeadingSpaces(line);
+      String trimmed = line.trim();
+
+      // 空行或程式碼區塊標記：重置狀態
+      if (trimmed.isEmpty() || trimmed.startsWith("```")) {
+        parentIndent = -1;
+        result.append(line);
+        if (i < lines.length - 1) {
+          result.append("\n");
+        }
+        continue;
+      }
+
+      // 檢查是否為列表行
+      boolean isListLine = trimmed.matches("^[-*+].*") || trimmed.matches("^\\d+\\..*");
+
+      if (isListLine) {
+        // 檢查是否需要添加縮排
+        if (parentIndent >= 0 && leadingSpaces <= parentIndent) {
+          // 當前列表項縮排不足，添加至少 4 個空格的縮排
+          int requiredIndent = parentIndent + 4;
+          String newIndent = " ".repeat(requiredIndent);
+          result.append(newIndent).append(trimmed);
+        } else {
+          result.append(line);
+          // 更新父級縮排（當前層級成為下一層的父級）
+          if (parentIndent < 0 || leadingSpaces > parentIndent) {
+            parentIndent = leadingSpaces;
+          }
+        }
+      } else {
+        // 非列表行：如果縮排減少，重置父級縮排
+        if (parentIndent >= 0 && leadingSpaces < parentIndent) {
+          parentIndent = -1;
+        }
+        result.append(line);
+      }
+
+      if (i < lines.length - 1) {
+        result.append("\n");
+      }
+    }
+
+    // 還原程式碼區塊
+    return restoreCodeBlocks(result.toString(), codeBlocks);
+  }
+
+  /** 計算行首的空格數量。 */
+  private int countLeadingSpaces(String line) {
+    int count = 0;
+    for (char c : line.toCharArray()) {
+      if (c == ' ') {
+        count++;
+      } else if (c == '\t') {
+        count += 4; // tab 視為 4 個空格
+      } else {
+        break;
+      }
+    }
+    return count;
+  }
+
+  /**
+   * 修復 Discord 不支援的底線粗體格式。
+   *
+   * <p>將 `__text__` 轉換為 `**text**`（Discord 只支援星號粗體）。
+   *
+   * @param markdown 原始 Markdown
+   * @return 修復後的 Markdown
+   */
+  private String fixDiscordUnderlineBold(String markdown) {
+    // 先保護程式碼區塊
+    List<String> codeBlocks = new ArrayList<>();
+    String protectedContent = protectCodeBlocks(markdown, codeBlocks);
+
+    // 將 __text__ 轉換為 **text**
+    // 使用非貪婪匹配，避免過度匹配
+    String fixedContent =
+        Pattern.compile("__(.+?)__").matcher(protectedContent).replaceAll("**$1**");
+
+    // 還原程式碼區塊
+    return restoreCodeBlocks(fixedContent, codeBlocks);
+  }
+
+  /**
+   * 修復 Discord 不支援的 Task List 格式。
+   *
+   * <p>將 `- [x]` 或 `- [ ]` 轉換為普通列表項 `-`。
+   *
+   * @param markdown 原始 Markdown
+   * @return 修復後的 Markdown
+   */
+  private String fixTaskList(String markdown) {
+    // 先保護程式碼區塊
+    List<String> codeBlocks = new ArrayList<>();
+    String protectedContent = protectCodeBlocks(markdown, codeBlocks);
+
+    // 移除 Task List 的方括號部分
+    // - [x] item → - item
+    // - [ ] item → - item
+    String fixedContent =
+        Pattern.compile("^([ \\t]*[-*+]\\s+)\\[([ xX])\\]\\s+(.*)$", Pattern.MULTILINE)
+            .matcher(protectedContent)
+            .replaceAll("$1$3");
+
+    // 還原程式碼區塊
+    return restoreCodeBlocks(fixedContent, codeBlocks);
+  }
+
+  /**
+   * 移除 Discord 不支援的水平分隔線。
+   *
+   * <p>移除 `---`、`***`、`___` 等水平分隔線（Discord 無法正確渲染）。
+   *
+   * @param markdown 原始 Markdown
+   * @return 修復後的 Markdown
+   */
+  private String fixHorizontalRules(String markdown) {
+    // 先保護程式碼區塊
+    List<String> codeBlocks = new ArrayList<>();
+    String protectedContent = protectCodeBlocks(markdown, codeBlocks);
+
+    String[] lines = protectedContent.split("\n");
+    StringBuilder result = new StringBuilder();
+
+    for (int i = 0; i < lines.length; i++) {
+      String line = lines[i];
+      String trimmed = line.trim();
+
+      // 檢查是否為水平分隔線
+      if (isHorizontalRule(trimmed)) {
+        // 跳過此行（移除水平分隔線）
+        continue;
+      }
+
+      result.append(line);
+      if (i < lines.length - 1) {
+        result.append("\n");
+      }
+    }
+
+    // 還原程式碼區塊
+    return restoreCodeBlocks(result.toString(), codeBlocks);
   }
 }

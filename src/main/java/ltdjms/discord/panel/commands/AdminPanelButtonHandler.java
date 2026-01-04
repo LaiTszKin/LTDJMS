@@ -13,6 +13,8 @@ import ltdjms.discord.gametoken.domain.DiceGame1Config;
 import ltdjms.discord.gametoken.domain.DiceGame2Config;
 import ltdjms.discord.panel.services.AdminPanelService;
 import ltdjms.discord.panel.services.AdminPanelSessionManager;
+import ltdjms.discord.panel.services.CurrencyManagementFacade;
+import ltdjms.discord.panel.services.GameTokenManagementFacade;
 import ltdjms.discord.shared.DomainError;
 import ltdjms.discord.shared.Result;
 import ltdjms.discord.shared.Unit;
@@ -101,6 +103,13 @@ public class AdminPanelButtonHandler extends ListenerAdapter {
       AdminPanelService adminPanelService, AdminPanelSessionManager adminPanelSessionManager) {
     this.adminPanelService = adminPanelService;
     this.adminPanelSessionManager = adminPanelSessionManager;
+  }
+
+  /** Helper method to safely get currency icon from config result. */
+  private String getCurrencyIcon(long guildId) {
+    Result<ltdjms.discord.currency.domain.GuildCurrencyConfig, DomainError> result =
+        adminPanelService.getCurrencyConfig(guildId);
+    return result.isOk() ? result.getValue().currencyIcon() : "💰";
   }
 
   @Override
@@ -247,7 +256,7 @@ public class AdminPanelButtonHandler extends ListenerAdapter {
     // Initialize or reset session state
     sessionStates.put(sessionKey, new SessionState(ManagementType.BALANCE));
 
-    String currencyIcon = adminPanelService.getCurrencyConfig(guildId).currencyIcon();
+    String currencyIcon = getCurrencyIcon(guildId);
     MessageEmbed embed = buildBalanceManagementEmbed(null, null, null, currencyIcon);
 
     EntitySelectMenu userSelect =
@@ -295,7 +304,7 @@ public class AdminPanelButtonHandler extends ListenerAdapter {
     Long currentBalance = balanceResult.isOk() ? balanceResult.getValue() : null;
     state.currentValue = currentBalance;
 
-    String currencyIcon = adminPanelService.getCurrencyConfig(guildId).currencyIcon();
+    String currencyIcon = getCurrencyIcon(guildId);
     MessageEmbed embed =
         buildBalanceManagementEmbed(
             selectedUser.getAsMention(), currentBalance, state.selectedMode, currencyIcon);
@@ -339,7 +348,7 @@ public class AdminPanelButtonHandler extends ListenerAdapter {
         sessionStates.computeIfAbsent(sessionKey, k -> new SessionState(ManagementType.BALANCE));
     state.selectedMode = mode;
 
-    String currencyIcon = adminPanelService.getCurrencyConfig(guildId).currencyIcon();
+    String currencyIcon = getCurrencyIcon(guildId);
     MessageEmbed embed =
         buildBalanceManagementEmbed(
             state.selectedUserMention, state.currentValue, mode, currencyIcon);
@@ -630,7 +639,7 @@ public class AdminPanelButtonHandler extends ListenerAdapter {
 
     DiceGame1Config game1Config = adminPanelService.getDiceGame1Config(guildId);
     DiceGame2Config game2Config = adminPanelService.getDiceGame2Config(guildId);
-    String currencyIcon = adminPanelService.getCurrencyConfig(guildId).currencyIcon();
+    String currencyIcon = getCurrencyIcon(guildId);
 
     MessageEmbed embed = buildGameManagementEmbed(game1Config, game2Config, currencyIcon);
 
@@ -660,7 +669,7 @@ public class AdminPanelButtonHandler extends ListenerAdapter {
 
   private void showDiceGame1Settings(StringSelectInteractionEvent event, long guildId) {
     DiceGame1Config config = adminPanelService.getDiceGame1Config(guildId);
-    String currencyIcon = adminPanelService.getCurrencyConfig(guildId).currencyIcon();
+    String currencyIcon = getCurrencyIcon(guildId);
 
     MessageEmbed embed = buildDiceGame1SettingsEmbed(config, currencyIcon);
 
@@ -683,7 +692,7 @@ public class AdminPanelButtonHandler extends ListenerAdapter {
 
   private void showDiceGame2Settings(StringSelectInteractionEvent event, long guildId) {
     DiceGame2Config config = adminPanelService.getDiceGame2Config(guildId);
-    String currencyIcon = adminPanelService.getCurrencyConfig(guildId).currencyIcon();
+    String currencyIcon = getCurrencyIcon(guildId);
 
     MessageEmbed embed = buildDiceGame2SettingsEmbed(config, currencyIcon);
 
@@ -939,7 +948,7 @@ public class AdminPanelButtonHandler extends ListenerAdapter {
     String sessionKey = getSessionKey(event.getUser().getIdLong(), guildId);
     sessionStates.remove(sessionKey);
 
-    String currencyIcon = adminPanelService.getCurrencyConfig(guildId).currencyIcon();
+    String currencyIcon = getCurrencyIcon(guildId);
     MessageEmbed embed = buildMainPanelEmbed(currencyIcon);
     List<ActionRow> components = buildMainPanelComponents(currencyIcon);
 
@@ -1011,7 +1020,7 @@ public class AdminPanelButtonHandler extends ListenerAdapter {
       return;
     }
 
-    Result<AdminPanelService.BalanceAdjustmentResult, DomainError> result =
+    Result<CurrencyManagementFacade.BalanceAdjustmentResult, DomainError> result =
         adminPanelService.adjustBalance(guildId, userId, mode, amount);
 
     if (result.isErr()) {
@@ -1019,8 +1028,8 @@ public class AdminPanelButtonHandler extends ListenerAdapter {
       return;
     }
 
-    AdminPanelService.BalanceAdjustmentResult adjustResult = result.getValue();
-    String currencyIcon = adminPanelService.getCurrencyConfig(guildId).currencyIcon();
+    CurrencyManagementFacade.BalanceAdjustmentResult adjustResult = result.getValue();
+    String currencyIcon = getCurrencyIcon(guildId);
 
     // Update session state and refresh UI
     String sessionKey = getSessionKey(event.getUser().getIdLong(), guildId);
@@ -1094,7 +1103,7 @@ public class AdminPanelButtonHandler extends ListenerAdapter {
       return;
     }
 
-    Result<AdminPanelService.TokenAdjustmentResult, DomainError> result =
+    Result<GameTokenManagementFacade.TokenAdjustmentResult, DomainError> result =
         adminPanelService.adjustTokens(guildId, userId, mode, amount);
 
     if (result.isErr()) {
@@ -1102,7 +1111,7 @@ public class AdminPanelButtonHandler extends ListenerAdapter {
       return;
     }
 
-    AdminPanelService.TokenAdjustmentResult adjustResult = result.getValue();
+    GameTokenManagementFacade.TokenAdjustmentResult adjustResult = result.getValue();
 
     // Update session state and refresh UI
     String sessionKey = getSessionKey(event.getUser().getIdLong(), guildId);
@@ -1173,7 +1182,7 @@ public class AdminPanelButtonHandler extends ListenerAdapter {
     }
 
     DiceGame1Config newConfig = result.getValue();
-    String currencyIcon = adminPanelService.getCurrencyConfig(guildId).currencyIcon();
+    String currencyIcon = getCurrencyIcon(guildId);
 
     MessageEmbed newEmbed = buildDiceGame1SettingsEmbed(newConfig, currencyIcon);
     long adminId = event.getUser().getIdLong();
@@ -1230,7 +1239,7 @@ public class AdminPanelButtonHandler extends ListenerAdapter {
     }
 
     DiceGame1Config newConfig = result.getValue();
-    String currencyIcon = adminPanelService.getCurrencyConfig(guildId).currencyIcon();
+    String currencyIcon = getCurrencyIcon(guildId);
 
     MessageEmbed newEmbed = buildDiceGame1SettingsEmbed(newConfig, currencyIcon);
     long adminId = event.getUser().getIdLong();
@@ -1293,7 +1302,7 @@ public class AdminPanelButtonHandler extends ListenerAdapter {
     }
 
     DiceGame2Config newConfig = result.getValue();
-    String currencyIcon = adminPanelService.getCurrencyConfig(guildId).currencyIcon();
+    String currencyIcon = getCurrencyIcon(guildId);
 
     MessageEmbed newEmbed = buildDiceGame2SettingsEmbed(newConfig, currencyIcon);
     long adminId = event.getUser().getIdLong();
@@ -1353,7 +1362,7 @@ public class AdminPanelButtonHandler extends ListenerAdapter {
     }
 
     DiceGame2Config newConfig = result.getValue();
-    String currencyIcon = adminPanelService.getCurrencyConfig(guildId).currencyIcon();
+    String currencyIcon = getCurrencyIcon(guildId);
 
     MessageEmbed newEmbed = buildDiceGame2SettingsEmbed(newConfig, currencyIcon);
     long adminId = event.getUser().getIdLong();
@@ -1415,7 +1424,7 @@ public class AdminPanelButtonHandler extends ListenerAdapter {
     }
 
     DiceGame2Config newConfig = result.getValue();
-    String currencyIcon = adminPanelService.getCurrencyConfig(guildId).currencyIcon();
+    String currencyIcon = getCurrencyIcon(guildId);
 
     MessageEmbed newEmbed = buildDiceGame2SettingsEmbed(newConfig, currencyIcon);
     long adminId = event.getUser().getIdLong();

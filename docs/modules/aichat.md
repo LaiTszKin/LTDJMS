@@ -729,7 +729,7 @@ mvn test -Dtest=LangChain4jListChannelsToolTest
 **核心特性**：
 - **自動驗證**：使用 CommonMark Java 庫驗證 Markdown 語法
 - **智能重試**：檢測到格式錯誤時自動重新生成，最多 5 次
-- **Discord 特定檢查**：驗證標題等級不超過 Discord 限制（H6）
+- **Discord 特定檢查**：驗證標題等級不超過 Discord 限制（H6），並檢測 Discord 不支援的語法
 - **降級模式**：可配置停用驗證，直接使用原始回應
 - **結構化錯誤報告**：為 LLM 提供詳細的格式錯誤說明
 
@@ -740,13 +740,20 @@ mvn test -Dtest=LangChain4jListChannelsToolTest
 使用 CommonMark Java 0.22.0 進行解析驗證，包括：
 - 程式碼區塊語法正確性
 - 列表格式正確性
-- 表格語法正確性（透過擴展支援）
+- 標題格式正確性（# 後面需要空格）
+- 嵌套列表縮排正確性
 
 #### Discord 特定檢查
+
+根據 [Discord Markdown 官方規則](https://www.markdownguide.org/tools/discord/)，驗證器會檢測以下 Discord 不支援的語法：
 
 | 檢查項目 | 規則 | 說明 |
 |---------|------|------|
 | 標題等級 | 最高 H6 | Discord 不支援 H7 及以上 |
+| 表格 | ❌ 不支援 | Discord 不會渲染表格，應改用列表 |
+| 水平分隔線 | ❌ 不支援 | `---`、`***`、`___` 不會渲染，應移除 |
+| Task List | ❌ 不支援 | `- [x]` 或 `- [ ]` 不會渲染，應改用普通列表 |
+| 粗體格式 | 僅星號 | `**text**` 有效，`__text__` 無效 |
 | 程式碼區塊 | 需正確閉合 | 缺少結束 ``` 會導致顯示錯誤 |
 | 列表格式 | 緊接內容需空行 | 列表與程式碼區塊之間需空行 |
 

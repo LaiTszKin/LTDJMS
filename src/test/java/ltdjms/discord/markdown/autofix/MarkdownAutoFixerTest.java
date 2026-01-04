@@ -305,4 +305,115 @@ class MarkdownAutoFixerTest {
     String result = fixer.autoFix(input);
     assertEquals(expected, result);
   }
+
+  // ===== 標題層級超限修復測試 =====
+
+  @Test
+  @DisplayName("應該修復超過 H6 層級的標題")
+  void shouldFixHeadingLevelExceeded() {
+    MarkdownAutoFixer fixer = new RegexBasedAutoFixer();
+
+    String input = "####### 超過限制\n######## 更超過";
+    String expected = "###### 超過限制\n###### 更超過";
+
+    String result = fixer.autoFix(input);
+    assertEquals(expected, result);
+  }
+
+  @Test
+  @DisplayName("不應該修改符合限制的標題層級")
+  void shouldNotModifyValidHeadingLevels() {
+    MarkdownAutoFixer fixer = new RegexBasedAutoFixer();
+
+    String input =
+        """
+        # 標題 1
+        ## 標題 2
+        ###### 標題 6
+        """;
+
+    String result = fixer.autoFix(input);
+    assertEquals(input, result);
+  }
+
+  // ===== 標題中包含列表標記修復測試 =====
+
+  @Test
+  @DisplayName("應該移除標題中的無序列表標記")
+  void shouldRemoveListMarkerFromHeading() {
+    MarkdownAutoFixer fixer = new RegexBasedAutoFixer();
+
+    String input = "### - 標題\n## * 另一個標題";
+    String expected = "### 標題\n## 另一個標題";
+
+    String result = fixer.autoFix(input);
+    assertEquals(expected, result);
+  }
+
+  @Test
+  @DisplayName("應該移除標題中的有序列表標記")
+  void shouldRemoveOrderedListMarkerFromHeading() {
+    MarkdownAutoFixer fixer = new RegexBasedAutoFixer();
+
+    String input = "### 1. 標題\n## 2. 另一個";
+    String expected = "### 標題\n## 另一個";
+
+    String result = fixer.autoFix(input);
+    assertEquals(expected, result);
+  }
+
+  // ===== Discord 底線粗體修復測試 =====
+
+  @Test
+  @DisplayName("應該將底線粗體轉換為星號粗體")
+  void shouldConvertUnderlineBoldToAsterisk() {
+    MarkdownAutoFixer fixer = new RegexBasedAutoFixer();
+
+    String input = "這是 __粗體文字__ 的範例";
+    String expected = "這是 **粗體文字** 的範例";
+
+    String result = fixer.autoFix(input);
+    assertEquals(expected, result);
+  }
+
+  @Test
+  @DisplayName("不應該修改程式碼區塊中的底線")
+  void shouldNotModifyUnderscoreInCodeBlocks() {
+    MarkdownAutoFixer fixer = new RegexBasedAutoFixer();
+
+    String input = "```\n__variable_name__\n```\n__bold text__";
+    String expected = "```\n__variable_name__\n```\n**bold text**";
+
+    String result = fixer.autoFix(input);
+    assertEquals(expected, result);
+  }
+
+  // ===== Task List 修復測試 =====
+
+  @Test
+  @DisplayName("應該將 Task List 轉換為普通列表")
+  void shouldConvertTaskListToRegularList() {
+    MarkdownAutoFixer fixer = new RegexBasedAutoFixer();
+
+    String input = "- [x] 已完成\n- [ ] 未完成";
+    String expected = "- 已完成\n- 未完成";
+
+    String result = fixer.autoFix(input);
+    assertEquals(expected, result);
+  }
+
+  @Test
+  @DisplayName("不應該修改程式碼區塊中的 Task List 語法")
+  void shouldNotModifyTaskListInCodeBlocks() {
+    MarkdownAutoFixer fixer = new RegexBasedAutoFixer();
+
+    String input = "```\n- [x] code task\n```\n- [x] real task";
+    String expected = "```\n- [x] code task\n```\n- real task";
+
+    String result = fixer.autoFix(input);
+    assertEquals(expected, result);
+  }
+
+  // 注意：水平分隔線和嵌套列表縮排的測試已被移除，
+  // 因為這些自動修復功能已停用（可能會產生非預期的副作用）
 }

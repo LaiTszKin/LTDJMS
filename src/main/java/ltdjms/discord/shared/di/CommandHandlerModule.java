@@ -26,9 +26,14 @@ import ltdjms.discord.panel.commands.AdminPanelCommandHandler;
 import ltdjms.discord.panel.commands.AdminProductPanelHandler;
 import ltdjms.discord.panel.commands.UserPanelButtonHandler;
 import ltdjms.discord.panel.commands.UserPanelCommandHandler;
+import ltdjms.discord.panel.services.AIConfigManagementFacade;
 import ltdjms.discord.panel.services.AdminPanelService;
 import ltdjms.discord.panel.services.AdminPanelSessionManager;
 import ltdjms.discord.panel.services.AdminPanelUpdateListener;
+import ltdjms.discord.panel.services.CurrencyManagementFacade;
+import ltdjms.discord.panel.services.GameConfigManagementFacade;
+import ltdjms.discord.panel.services.GameTokenManagementFacade;
+import ltdjms.discord.panel.services.MemberInfoFacade;
 import ltdjms.discord.panel.services.PanelSessionManager;
 import ltdjms.discord.panel.services.ProductRedemptionUpdateListener;
 import ltdjms.discord.panel.services.UserPanelService;
@@ -92,22 +97,67 @@ public class CommandHandlerModule {
         transactionService);
   }
 
+  // ========== Facade Services ==========
+
   @Provides
   @Singleton
-  public UserPanelService provideUserPanelService(
+  public CurrencyManagementFacade provideCurrencyManagementFacade(
+      BalanceService balanceService,
+      BalanceAdjustmentService balanceAdjustmentService,
+      CurrencyConfigService currencyConfigService) {
+    return new CurrencyManagementFacade(
+        balanceService, balanceAdjustmentService, currencyConfigService);
+  }
+
+  @Provides
+  @Singleton
+  public GameTokenManagementFacade provideGameTokenManagementFacade(
+      GameTokenService gameTokenService, GameTokenTransactionService transactionService) {
+    return new GameTokenManagementFacade(gameTokenService, transactionService);
+  }
+
+  @Provides
+  @Singleton
+  public GameConfigManagementFacade provideGameConfigManagementFacade(
+      DiceGame1ConfigRepository diceGame1ConfigRepository,
+      DiceGame2ConfigRepository diceGame2ConfigRepository,
+      DomainEventPublisher eventPublisher) {
+    return new GameConfigManagementFacade(
+        diceGame1ConfigRepository, diceGame2ConfigRepository, eventPublisher);
+  }
+
+  @Provides
+  @Singleton
+  public AIConfigManagementFacade provideAIConfigManagementFacade(
+      AIChannelRestrictionService aiChannelRestrictionService,
+      AIAgentChannelConfigService aiAgentChannelConfigService) {
+    return new AIConfigManagementFacade(aiChannelRestrictionService, aiAgentChannelConfigService);
+  }
+
+  @Provides
+  @Singleton
+  public MemberInfoFacade provideMemberInfoFacade(
       BalanceService balanceService,
       GameTokenService gameTokenService,
       GameTokenTransactionService gameTokenTransactionService,
       CurrencyTransactionService currencyTransactionService,
       RedemptionService redemptionService,
       ProductRedemptionTransactionService productRedemptionTransactionService) {
-    return new UserPanelService(
+    return new MemberInfoFacade(
         balanceService,
         gameTokenService,
         gameTokenTransactionService,
         currencyTransactionService,
         redemptionService,
         productRedemptionTransactionService);
+  }
+
+  // ========== Panel Services ==========
+
+  @Provides
+  @Singleton
+  public UserPanelService provideUserPanelService(MemberInfoFacade memberInfoFacade) {
+    return new UserPanelService(memberInfoFacade);
   }
 
   @Provides
@@ -145,6 +195,16 @@ public class CommandHandlerModule {
 
   @Provides
   @Singleton
+  public AdminPanelService provideAdminPanelService(
+      CurrencyManagementFacade currencyFacade,
+      GameTokenManagementFacade gameTokenFacade,
+      GameConfigManagementFacade gameConfigFacade,
+      AIConfigManagementFacade aiConfigFacade) {
+    return new AdminPanelService(currencyFacade, gameTokenFacade, gameConfigFacade, aiConfigFacade);
+  }
+
+  @Provides
+  @Singleton
   public UserPanelCommandHandler provideUserPanelCommandHandler(
       UserPanelService userPanelService, PanelSessionManager panelSessionManager) {
     return new UserPanelCommandHandler(userPanelService, panelSessionManager);
@@ -156,32 +216,6 @@ public class CommandHandlerModule {
       UserPanelService userPanelService,
       ProductRedemptionTransactionService productRedemptionTransactionService) {
     return new UserPanelButtonHandler(userPanelService, productRedemptionTransactionService);
-  }
-
-  @Provides
-  @Singleton
-  public AdminPanelService provideAdminPanelService(
-      BalanceService balanceService,
-      BalanceAdjustmentService balanceAdjustmentService,
-      GameTokenService gameTokenService,
-      GameTokenTransactionService transactionService,
-      DiceGame1ConfigRepository diceGame1ConfigRepository,
-      DiceGame2ConfigRepository diceGame2ConfigRepository,
-      CurrencyConfigService currencyConfigService,
-      DomainEventPublisher eventPublisher,
-      AIChannelRestrictionService aiChannelRestrictionService,
-      AIAgentChannelConfigService aiAgentChannelConfigService) {
-    return new AdminPanelService(
-        balanceService,
-        balanceAdjustmentService,
-        gameTokenService,
-        transactionService,
-        diceGame1ConfigRepository,
-        diceGame2ConfigRepository,
-        currencyConfigService,
-        eventPublisher,
-        aiChannelRestrictionService,
-        aiAgentChannelConfigService);
   }
 
   @Provides
@@ -207,6 +241,8 @@ public class CommandHandlerModule {
     return new AdminProductPanelHandler(
         productService, redemptionService, adminPanelSessionManager);
   }
+
+  // ========== Shop Services ==========
 
   @Provides
   @Singleton

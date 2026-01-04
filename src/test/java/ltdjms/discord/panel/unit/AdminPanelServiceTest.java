@@ -1,34 +1,33 @@
 package ltdjms.discord.panel.unit;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+
+import java.util.List;
+import java.util.Set;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
-import ltdjms.discord.aiagent.services.AIAgentChannelConfigService;
-import ltdjms.discord.aichat.services.AIChannelRestrictionService;
-import ltdjms.discord.currency.domain.BalanceView;
+import ltdjms.discord.aichat.domain.AllowedCategory;
+import ltdjms.discord.aichat.domain.AllowedChannel;
 import ltdjms.discord.currency.domain.GuildCurrencyConfig;
-import ltdjms.discord.currency.services.BalanceAdjustmentService;
-import ltdjms.discord.currency.services.BalanceService;
-import ltdjms.discord.currency.services.CurrencyConfigService;
 import ltdjms.discord.gametoken.domain.DiceGame1Config;
 import ltdjms.discord.gametoken.domain.DiceGame2Config;
-import ltdjms.discord.gametoken.domain.GameTokenTransaction;
-import ltdjms.discord.gametoken.persistence.DiceGame1ConfigRepository;
-import ltdjms.discord.gametoken.persistence.DiceGame2ConfigRepository;
-import ltdjms.discord.gametoken.services.GameTokenService;
-import ltdjms.discord.gametoken.services.GameTokenTransactionService;
 import ltdjms.discord.panel.commands.AdminPanelButtonHandler;
+import ltdjms.discord.panel.services.AIConfigManagementFacade;
 import ltdjms.discord.panel.services.AdminPanelService;
+import ltdjms.discord.panel.services.CurrencyManagementFacade;
+import ltdjms.discord.panel.services.GameConfigManagementFacade;
+import ltdjms.discord.panel.services.GameTokenManagementFacade;
 import ltdjms.discord.shared.DomainError;
 import ltdjms.discord.shared.Result;
-import ltdjms.discord.shared.events.DomainEventPublisher;
+import ltdjms.discord.shared.Unit;
 
 /** Unit tests for AdminPanelService. */
 class AdminPanelServiceTest {
@@ -36,43 +35,21 @@ class AdminPanelServiceTest {
   private static final long TEST_GUILD_ID = 123456789012345678L;
   private static final long TEST_USER_ID = 987654321098765432L;
 
-  private BalanceService balanceService;
-  private BalanceAdjustmentService balanceAdjustmentService;
-  private GameTokenService gameTokenService;
-  private GameTokenTransactionService transactionService;
-  private DiceGame1ConfigRepository diceGame1ConfigRepository;
-  private DiceGame2ConfigRepository diceGame2ConfigRepository;
-  private CurrencyConfigService currencyConfigService;
-  private DomainEventPublisher eventPublisher;
-  private AIChannelRestrictionService aiChannelRestrictionService;
-  private AIAgentChannelConfigService aiAgentChannelConfigService;
+  private CurrencyManagementFacade currencyFacade;
+  private GameTokenManagementFacade gameTokenFacade;
+  private GameConfigManagementFacade gameConfigFacade;
+  private AIConfigManagementFacade aiConfigFacade;
   private AdminPanelService adminPanelService;
 
   @BeforeEach
   void setUp() {
-    balanceService = mock(BalanceService.class);
-    balanceAdjustmentService = mock(BalanceAdjustmentService.class);
-    gameTokenService = mock(GameTokenService.class);
-    transactionService = mock(GameTokenTransactionService.class);
-    diceGame1ConfigRepository = mock(DiceGame1ConfigRepository.class);
-    diceGame2ConfigRepository = mock(DiceGame2ConfigRepository.class);
-    currencyConfigService = mock(CurrencyConfigService.class);
-    eventPublisher = mock(DomainEventPublisher.class);
-    aiChannelRestrictionService = mock(AIChannelRestrictionService.class);
-    aiAgentChannelConfigService = mock(AIAgentChannelConfigService.class);
+    currencyFacade = mock(CurrencyManagementFacade.class);
+    gameTokenFacade = mock(GameTokenManagementFacade.class);
+    gameConfigFacade = mock(GameConfigManagementFacade.class);
+    aiConfigFacade = mock(AIConfigManagementFacade.class);
 
     adminPanelService =
-        new AdminPanelService(
-            balanceService,
-            balanceAdjustmentService,
-            gameTokenService,
-            transactionService,
-            diceGame1ConfigRepository,
-            diceGame2ConfigRepository,
-            currencyConfigService,
-            eventPublisher,
-            aiChannelRestrictionService,
-            aiAgentChannelConfigService);
+        new AdminPanelService(currencyFacade, gameTokenFacade, gameConfigFacade, aiConfigFacade);
   }
 
   @Nested
@@ -85,14 +62,16 @@ class AdminPanelServiceTest {
       // Given - guild has custom currency "星幣" with icon "✨"
       GuildCurrencyConfig customConfig =
           GuildCurrencyConfig.createDefault(TEST_GUILD_ID).withUpdates("星幣", "✨");
-      when(currencyConfigService.getConfig(TEST_GUILD_ID)).thenReturn(customConfig);
+      when(currencyFacade.getCurrencyConfig(TEST_GUILD_ID)).thenReturn(Result.ok(customConfig));
 
       // When
-      GuildCurrencyConfig result = adminPanelService.getCurrencyConfig(TEST_GUILD_ID);
+      Result<GuildCurrencyConfig, DomainError> result =
+          adminPanelService.getCurrencyConfig(TEST_GUILD_ID);
 
       // Then
-      assertThat(result.currencyName()).isEqualTo("星幣");
-      assertThat(result.currencyIcon()).isEqualTo("✨");
+      assertThat(result.isOk()).isTrue();
+      assertThat(result.getValue().currencyName()).isEqualTo("星幣");
+      assertThat(result.getValue().currencyIcon()).isEqualTo("✨");
     }
 
     @Test
@@ -100,14 +79,16 @@ class AdminPanelServiceTest {
     void shouldReturnDefaultCurrencyConfig() {
       // Given - no custom config, returns default
       GuildCurrencyConfig defaultConfig = GuildCurrencyConfig.createDefault(TEST_GUILD_ID);
-      when(currencyConfigService.getConfig(TEST_GUILD_ID)).thenReturn(defaultConfig);
+      when(currencyFacade.getCurrencyConfig(TEST_GUILD_ID)).thenReturn(Result.ok(defaultConfig));
 
       // When
-      GuildCurrencyConfig result = adminPanelService.getCurrencyConfig(TEST_GUILD_ID);
+      Result<GuildCurrencyConfig, DomainError> result =
+          adminPanelService.getCurrencyConfig(TEST_GUILD_ID);
 
       // Then
-      assertThat(result.currencyName()).isEqualTo(GuildCurrencyConfig.DEFAULT_NAME);
-      assertThat(result.currencyIcon()).isEqualTo(GuildCurrencyConfig.DEFAULT_ICON);
+      assertThat(result.isOk()).isTrue();
+      assertThat(result.getValue().currencyName()).isEqualTo(GuildCurrencyConfig.DEFAULT_NAME);
+      assertThat(result.getValue().currencyIcon()).isEqualTo(GuildCurrencyConfig.DEFAULT_ICON);
     }
   }
 
@@ -119,9 +100,8 @@ class AdminPanelServiceTest {
     @DisplayName("should return balance when found")
     void shouldReturnBalanceWhenFound() {
       // Given
-      BalanceView balanceView = new BalanceView(TEST_GUILD_ID, TEST_USER_ID, 5000L, "Gold", "💰");
-      when(balanceService.tryGetBalance(TEST_GUILD_ID, TEST_USER_ID))
-          .thenReturn(Result.ok(balanceView));
+      when(currencyFacade.getMemberBalance(TEST_GUILD_ID, TEST_USER_ID))
+          .thenReturn(Result.ok(5000L));
 
       // When
       Result<Long, DomainError> result =
@@ -137,7 +117,8 @@ class AdminPanelServiceTest {
     void shouldPropagateErrorWhenFails() {
       // Given
       DomainError error = DomainError.persistenceFailure("Connection failed", null);
-      when(balanceService.tryGetBalance(TEST_GUILD_ID, TEST_USER_ID)).thenReturn(Result.err(error));
+      when(currencyFacade.getMemberBalance(TEST_GUILD_ID, TEST_USER_ID))
+          .thenReturn(Result.err(error));
 
       // When
       Result<Long, DomainError> result =
@@ -156,7 +137,7 @@ class AdminPanelServiceTest {
     @DisplayName("should return token balance")
     void shouldReturnTokenBalance() {
       // Given
-      when(gameTokenService.getBalance(TEST_GUILD_ID, TEST_USER_ID)).thenReturn(100L);
+      when(gameTokenFacade.getMemberTokens(TEST_GUILD_ID, TEST_USER_ID)).thenReturn(100L);
 
       // When
       long tokens = adminPanelService.getMemberTokens(TEST_GUILD_ID, TEST_USER_ID);
@@ -174,14 +155,13 @@ class AdminPanelServiceTest {
     @DisplayName("should add balance when mode is add")
     void shouldAddBalance() {
       // Given
-      BalanceAdjustmentService.BalanceAdjustmentResult adjustResult =
-          new BalanceAdjustmentService.BalanceAdjustmentResult(
-              TEST_GUILD_ID, TEST_USER_ID, 1000L, 2000L, 1000L, "Gold", "💰");
-      when(balanceAdjustmentService.tryAdjustBalance(TEST_GUILD_ID, TEST_USER_ID, 1000L))
+      CurrencyManagementFacade.BalanceAdjustmentResult adjustResult =
+          new CurrencyManagementFacade.BalanceAdjustmentResult(1000L, 2000L, 1000L);
+      when(currencyFacade.adjustBalance(eq(TEST_GUILD_ID), eq(TEST_USER_ID), eq("add"), anyLong()))
           .thenReturn(Result.ok(adjustResult));
 
       // When
-      Result<AdminPanelService.BalanceAdjustmentResult, DomainError> result =
+      Result<CurrencyManagementFacade.BalanceAdjustmentResult, DomainError> result =
           adminPanelService.adjustBalance(TEST_GUILD_ID, TEST_USER_ID, "add", 1000L);
 
       // Then
@@ -194,14 +174,14 @@ class AdminPanelServiceTest {
     @DisplayName("should deduct balance when mode is deduct")
     void shouldDeductBalance() {
       // Given
-      BalanceAdjustmentService.BalanceAdjustmentResult adjustResult =
-          new BalanceAdjustmentService.BalanceAdjustmentResult(
-              TEST_GUILD_ID, TEST_USER_ID, 2000L, 1500L, -500L, "Gold", "💰");
-      when(balanceAdjustmentService.tryAdjustBalance(TEST_GUILD_ID, TEST_USER_ID, -500L))
+      CurrencyManagementFacade.BalanceAdjustmentResult adjustResult =
+          new CurrencyManagementFacade.BalanceAdjustmentResult(2000L, 1500L, -500L);
+      when(currencyFacade.adjustBalance(
+              eq(TEST_GUILD_ID), eq(TEST_USER_ID), eq("deduct"), anyLong()))
           .thenReturn(Result.ok(adjustResult));
 
       // When
-      Result<AdminPanelService.BalanceAdjustmentResult, DomainError> result =
+      Result<CurrencyManagementFacade.BalanceAdjustmentResult, DomainError> result =
           adminPanelService.adjustBalance(TEST_GUILD_ID, TEST_USER_ID, "deduct", 500L);
 
       // Then
@@ -213,14 +193,14 @@ class AdminPanelServiceTest {
     @DisplayName("should set balance when mode is adjust")
     void shouldSetBalance() {
       // Given
-      BalanceAdjustmentService.BalanceAdjustmentResult adjustResult =
-          new BalanceAdjustmentService.BalanceAdjustmentResult(
-              TEST_GUILD_ID, TEST_USER_ID, 1000L, 5000L, 4000L, "Gold", "💰");
-      when(balanceAdjustmentService.tryAdjustBalanceTo(TEST_GUILD_ID, TEST_USER_ID, 5000L))
+      CurrencyManagementFacade.BalanceAdjustmentResult adjustResult =
+          new CurrencyManagementFacade.BalanceAdjustmentResult(1000L, 5000L, 4000L);
+      when(currencyFacade.adjustBalance(
+              eq(TEST_GUILD_ID), eq(TEST_USER_ID), eq("adjust"), anyLong()))
           .thenReturn(Result.ok(adjustResult));
 
       // When
-      Result<AdminPanelService.BalanceAdjustmentResult, DomainError> result =
+      Result<CurrencyManagementFacade.BalanceAdjustmentResult, DomainError> result =
           adminPanelService.adjustBalance(TEST_GUILD_ID, TEST_USER_ID, "adjust", 5000L);
 
       // Then
@@ -231,8 +211,13 @@ class AdminPanelServiceTest {
     @Test
     @DisplayName("should return error for invalid mode")
     void shouldReturnErrorForInvalidMode() {
+      // Given
+      when(currencyFacade.adjustBalance(
+              eq(TEST_GUILD_ID), eq(TEST_USER_ID), eq("invalid"), anyLong()))
+          .thenReturn(Result.err(DomainError.invalidInput("Unknown adjustment mode: invalid")));
+
       // When
-      Result<AdminPanelService.BalanceAdjustmentResult, DomainError> result =
+      Result<CurrencyManagementFacade.BalanceAdjustmentResult, DomainError> result =
           adminPanelService.adjustBalance(TEST_GUILD_ID, TEST_USER_ID, "invalid", 1000L);
 
       // Then
@@ -249,15 +234,13 @@ class AdminPanelServiceTest {
     @DisplayName("should add tokens when mode is add")
     void shouldAddTokens() {
       // Given
-      when(gameTokenService.getBalance(TEST_GUILD_ID, TEST_USER_ID)).thenReturn(50L);
-      when(gameTokenService.tryAdjustTokens(TEST_GUILD_ID, TEST_USER_ID, 20L))
-          .thenReturn(
-              Result.ok(
-                  new GameTokenService.TokenAdjustmentResult(
-                      TEST_GUILD_ID, TEST_USER_ID, 50L, 70L, 20L)));
+      GameTokenManagementFacade.TokenAdjustmentResult adjustResult =
+          new GameTokenManagementFacade.TokenAdjustmentResult(50L, 70L, 20L);
+      when(gameTokenFacade.adjustTokens(eq(TEST_GUILD_ID), eq(TEST_USER_ID), eq("add"), anyLong()))
+          .thenReturn(Result.ok(adjustResult));
 
       // When
-      Result<AdminPanelService.TokenAdjustmentResult, DomainError> result =
+      Result<GameTokenManagementFacade.TokenAdjustmentResult, DomainError> result =
           adminPanelService.adjustTokens(TEST_GUILD_ID, TEST_USER_ID, "add", 20L);
 
       // Then
@@ -270,15 +253,14 @@ class AdminPanelServiceTest {
     @DisplayName("should deduct tokens when mode is deduct")
     void shouldDeductTokens() {
       // Given
-      when(gameTokenService.getBalance(TEST_GUILD_ID, TEST_USER_ID)).thenReturn(50L);
-      when(gameTokenService.tryAdjustTokens(TEST_GUILD_ID, TEST_USER_ID, -20L))
-          .thenReturn(
-              Result.ok(
-                  new GameTokenService.TokenAdjustmentResult(
-                      TEST_GUILD_ID, TEST_USER_ID, 50L, 30L, -20L)));
+      GameTokenManagementFacade.TokenAdjustmentResult adjustResult =
+          new GameTokenManagementFacade.TokenAdjustmentResult(50L, 30L, -20L);
+      when(gameTokenFacade.adjustTokens(
+              eq(TEST_GUILD_ID), eq(TEST_USER_ID), eq("deduct"), anyLong()))
+          .thenReturn(Result.ok(adjustResult));
 
       // When
-      Result<AdminPanelService.TokenAdjustmentResult, DomainError> result =
+      Result<GameTokenManagementFacade.TokenAdjustmentResult, DomainError> result =
           adminPanelService.adjustTokens(TEST_GUILD_ID, TEST_USER_ID, "deduct", 20L);
 
       // Then
@@ -290,15 +272,14 @@ class AdminPanelServiceTest {
     @DisplayName("should set tokens when mode is adjust")
     void shouldSetTokens() {
       // Given
-      when(gameTokenService.getBalance(TEST_GUILD_ID, TEST_USER_ID)).thenReturn(50L);
-      when(gameTokenService.tryAdjustTokens(TEST_GUILD_ID, TEST_USER_ID, 50L))
-          .thenReturn(
-              Result.ok(
-                  new GameTokenService.TokenAdjustmentResult(
-                      TEST_GUILD_ID, TEST_USER_ID, 50L, 100L, 50L)));
+      GameTokenManagementFacade.TokenAdjustmentResult adjustResult =
+          new GameTokenManagementFacade.TokenAdjustmentResult(50L, 100L, 50L);
+      when(gameTokenFacade.adjustTokens(
+              eq(TEST_GUILD_ID), eq(TEST_USER_ID), eq("adjust"), anyLong()))
+          .thenReturn(Result.ok(adjustResult));
 
       // When
-      Result<AdminPanelService.TokenAdjustmentResult, DomainError> result =
+      Result<GameTokenManagementFacade.TokenAdjustmentResult, DomainError> result =
           adminPanelService.adjustTokens(TEST_GUILD_ID, TEST_USER_ID, "adjust", 100L);
 
       // Then
@@ -310,40 +291,17 @@ class AdminPanelServiceTest {
     @DisplayName("should reject negative target balance in adjust mode")
     void shouldRejectNegativeTargetBalance() {
       // Given
-      when(gameTokenService.getBalance(TEST_GUILD_ID, TEST_USER_ID)).thenReturn(50L);
+      when(gameTokenFacade.adjustTokens(
+              eq(TEST_GUILD_ID), eq(TEST_USER_ID), eq("adjust"), anyLong()))
+          .thenReturn(Result.err(DomainError.invalidInput("目標代幣餘額不可為負數")));
 
       // When
-      Result<AdminPanelService.TokenAdjustmentResult, DomainError> result =
+      Result<GameTokenManagementFacade.TokenAdjustmentResult, DomainError> result =
           adminPanelService.adjustTokens(TEST_GUILD_ID, TEST_USER_ID, "adjust", -10L);
 
       // Then
       assertThat(result.isErr()).isTrue();
       assertThat(result.getError().message()).contains("負數");
-    }
-
-    @Test
-    @DisplayName("should record transaction after successful adjustment")
-    void shouldRecordTransaction() {
-      // Given
-      when(gameTokenService.getBalance(TEST_GUILD_ID, TEST_USER_ID)).thenReturn(50L);
-      when(gameTokenService.tryAdjustTokens(TEST_GUILD_ID, TEST_USER_ID, 20L))
-          .thenReturn(
-              Result.ok(
-                  new GameTokenService.TokenAdjustmentResult(
-                      TEST_GUILD_ID, TEST_USER_ID, 50L, 70L, 20L)));
-
-      // When
-      adminPanelService.adjustTokens(TEST_GUILD_ID, TEST_USER_ID, "add", 20L);
-
-      // Then
-      verify(transactionService)
-          .recordTransaction(
-              eq(TEST_GUILD_ID),
-              eq(TEST_USER_ID),
-              eq(20L),
-              eq(70L),
-              eq(GameTokenTransaction.Source.ADMIN_ADJUSTMENT),
-              any());
     }
   }
 
@@ -356,7 +314,7 @@ class AdminPanelServiceTest {
     void shouldGetDiceGame1Config() {
       // Given
       DiceGame1Config config = DiceGame1Config.createDefault(TEST_GUILD_ID);
-      when(diceGame1ConfigRepository.findOrCreateDefault(TEST_GUILD_ID)).thenReturn(config);
+      when(gameConfigFacade.getDiceGame1Config(TEST_GUILD_ID)).thenReturn(config);
 
       // When
       DiceGame1Config result = adminPanelService.getDiceGame1Config(TEST_GUILD_ID);
@@ -372,7 +330,7 @@ class AdminPanelServiceTest {
     void shouldGetDiceGame2Config() {
       // Given
       DiceGame2Config config = DiceGame2Config.createDefault(TEST_GUILD_ID);
-      when(diceGame2ConfigRepository.findOrCreateDefault(TEST_GUILD_ID)).thenReturn(config);
+      when(gameConfigFacade.getDiceGame2Config(TEST_GUILD_ID)).thenReturn(config);
 
       // When
       DiceGame2Config result = adminPanelService.getDiceGame2Config(TEST_GUILD_ID);
@@ -389,9 +347,8 @@ class AdminPanelServiceTest {
       // Given
       DiceGame1Config oldConfig = DiceGame1Config.createDefault(TEST_GUILD_ID);
       DiceGame1Config updatedConfig = oldConfig.withTokensPerPlayRange(2L, 20L);
-      when(diceGame1ConfigRepository.findOrCreateDefault(TEST_GUILD_ID)).thenReturn(oldConfig);
-      when(diceGame1ConfigRepository.updateTokensPerPlayRange(TEST_GUILD_ID, 2L, 20L))
-          .thenReturn(updatedConfig);
+      when(gameConfigFacade.updateDiceGame1Config(eq(TEST_GUILD_ID), eq(2L), eq(20L), eq(null)))
+          .thenReturn(Result.ok(updatedConfig));
 
       // When
       Result<DiceGame1Config, DomainError> result =
@@ -409,9 +366,9 @@ class AdminPanelServiceTest {
       // Given
       DiceGame1Config oldConfig = DiceGame1Config.createDefault(TEST_GUILD_ID);
       DiceGame1Config updatedConfig = oldConfig.withRewardPerDiceValue(500_000L);
-      when(diceGame1ConfigRepository.findOrCreateDefault(TEST_GUILD_ID)).thenReturn(oldConfig);
-      when(diceGame1ConfigRepository.updateRewardPerDiceValue(TEST_GUILD_ID, 500_000L))
-          .thenReturn(updatedConfig);
+      when(gameConfigFacade.updateDiceGame1Config(
+              eq(TEST_GUILD_ID), eq(null), eq(null), eq(500_000L)))
+          .thenReturn(Result.ok(updatedConfig));
 
       // When
       Result<DiceGame1Config, DomainError> result =
@@ -428,9 +385,9 @@ class AdminPanelServiceTest {
       // Given
       DiceGame2Config oldConfig = DiceGame2Config.createDefault(TEST_GUILD_ID);
       DiceGame2Config updatedConfig = oldConfig.withTokensPerPlayRange(10L, 40L);
-      when(diceGame2ConfigRepository.findOrCreateDefault(TEST_GUILD_ID)).thenReturn(oldConfig);
-      when(diceGame2ConfigRepository.updateTokensPerPlayRange(TEST_GUILD_ID, 10L, 40L))
-          .thenReturn(updatedConfig);
+      when(gameConfigFacade.updateDiceGame2Config(
+              eq(TEST_GUILD_ID), eq(10L), eq(40L), eq(null), eq(null), eq(null), eq(null)))
+          .thenReturn(Result.ok(updatedConfig));
 
       // When
       Result<DiceGame2Config, DomainError> result =
@@ -448,9 +405,9 @@ class AdminPanelServiceTest {
       // Given
       DiceGame2Config oldConfig = DiceGame2Config.createDefault(TEST_GUILD_ID);
       DiceGame2Config updatedConfig = oldConfig.withMultipliers(200_000L, 40_000L);
-      when(diceGame2ConfigRepository.findOrCreateDefault(TEST_GUILD_ID)).thenReturn(oldConfig);
-      when(diceGame2ConfigRepository.updateMultipliers(TEST_GUILD_ID, 200_000L, 40_000L))
-          .thenReturn(updatedConfig);
+      when(gameConfigFacade.updateDiceGame2Config(
+              eq(TEST_GUILD_ID), eq(null), eq(null), eq(200_000L), eq(40_000L), eq(null), eq(null)))
+          .thenReturn(Result.ok(updatedConfig));
 
       // When
       Result<DiceGame2Config, DomainError> result =
@@ -469,9 +426,15 @@ class AdminPanelServiceTest {
       // Given
       DiceGame2Config oldConfig = DiceGame2Config.createDefault(TEST_GUILD_ID);
       DiceGame2Config updatedConfig = oldConfig.withTripleBonuses(3_000_000L, 5_000_000L);
-      when(diceGame2ConfigRepository.findOrCreateDefault(TEST_GUILD_ID)).thenReturn(oldConfig);
-      when(diceGame2ConfigRepository.updateTripleBonuses(TEST_GUILD_ID, 3_000_000L, 5_000_000L))
-          .thenReturn(updatedConfig);
+      when(gameConfigFacade.updateDiceGame2Config(
+              eq(TEST_GUILD_ID),
+              eq(null),
+              eq(null),
+              eq(null),
+              eq(null),
+              eq(3_000_000L),
+              eq(5_000_000L)))
+          .thenReturn(Result.ok(updatedConfig));
 
       // When
       Result<DiceGame2Config, DomainError> result =
@@ -486,6 +449,146 @@ class AdminPanelServiceTest {
   }
 
   @Nested
+  @DisplayName("AI configuration")
+  class AIConfiguration {
+
+    @Test
+    @DisplayName("should get allowed channels")
+    void shouldGetAllowedChannels() {
+      // Given
+      Set<AllowedChannel> channels = Set.of(new AllowedChannel(123L, "general"));
+      when(aiConfigFacade.getAllowedChannels(TEST_GUILD_ID)).thenReturn(Result.ok(channels));
+
+      // When
+      Result<Set<AllowedChannel>, DomainError> result =
+          adminPanelService.getAllowedChannels(TEST_GUILD_ID);
+
+      // Then
+      assertThat(result.isOk()).isTrue();
+      assertThat(result.getValue()).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("should get allowed categories")
+    void shouldGetAllowedCategories() {
+      // Given
+      Set<AllowedCategory> categories = Set.of(new AllowedCategory(456L, "Text Channels"));
+      when(aiConfigFacade.getAllowedCategories(TEST_GUILD_ID)).thenReturn(Result.ok(categories));
+
+      // When
+      Result<Set<AllowedCategory>, DomainError> result =
+          adminPanelService.getAllowedCategories(TEST_GUILD_ID);
+
+      // Then
+      assertThat(result.isOk()).isTrue();
+      assertThat(result.getValue()).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("should add allowed channel")
+    void shouldAddAllowedChannel() {
+      // Given
+      AllowedChannel channel = new AllowedChannel(123L, "general");
+      when(aiConfigFacade.addAllowedChannel(eq(TEST_GUILD_ID), eq(123L), eq("general")))
+          .thenReturn(Result.ok(channel));
+
+      // When
+      Result<AllowedChannel, DomainError> result =
+          adminPanelService.addAllowedChannel(TEST_GUILD_ID, 123L, "general");
+
+      // Then
+      assertThat(result.isOk()).isTrue();
+      assertThat(result.getValue().channelId()).isEqualTo(123L);
+    }
+
+    @Test
+    @DisplayName("should remove allowed channel")
+    void shouldRemoveAllowedChannel() {
+      // Given
+      when(aiConfigFacade.removeAllowedChannel(eq(TEST_GUILD_ID), eq(123L)))
+          .thenReturn(Result.ok(Unit.INSTANCE));
+
+      // When
+      Result<Unit, DomainError> result =
+          adminPanelService.removeAllowedChannel(TEST_GUILD_ID, 123L);
+
+      // Then
+      assertThat(result.isOk()).isTrue();
+    }
+
+    @Test
+    @DisplayName("should get enabled agent channels")
+    void shouldGetEnabledAgentChannels() {
+      // Given
+      List<Long> channels = List.of(123L, 456L);
+      when(aiConfigFacade.getEnabledAgentChannels(TEST_GUILD_ID)).thenReturn(Result.ok(channels));
+
+      // When
+      Result<List<Long>, DomainError> result =
+          adminPanelService.getEnabledAgentChannels(TEST_GUILD_ID);
+
+      // Then
+      assertThat(result.isOk()).isTrue();
+      assertThat(result.getValue()).containsExactly(123L, 456L);
+    }
+
+    @Test
+    @DisplayName("should check if agent is enabled")
+    void shouldCheckIfAgentEnabled() {
+      // Given
+      when(aiConfigFacade.isAgentEnabled(TEST_GUILD_ID, 123L)).thenReturn(true);
+
+      // When
+      boolean result = adminPanelService.isAgentEnabled(TEST_GUILD_ID, 123L);
+
+      // Then
+      assertThat(result).isTrue();
+    }
+
+    @Test
+    @DisplayName("should enable agent channel")
+    void shouldEnableAgentChannel() {
+      // Given
+      when(aiConfigFacade.enableAgentChannel(eq(TEST_GUILD_ID), eq(123L)))
+          .thenReturn(Result.ok(Unit.INSTANCE));
+
+      // When
+      Result<Unit, DomainError> result = adminPanelService.enableAgentChannel(TEST_GUILD_ID, 123L);
+
+      // Then
+      assertThat(result.isOk()).isTrue();
+    }
+
+    @Test
+    @DisplayName("should disable agent channel")
+    void shouldDisableAgentChannel() {
+      // Given
+      when(aiConfigFacade.disableAgentChannel(eq(TEST_GUILD_ID), eq(123L)))
+          .thenReturn(Result.ok(Unit.INSTANCE));
+
+      // When
+      Result<Unit, DomainError> result = adminPanelService.disableAgentChannel(TEST_GUILD_ID, 123L);
+
+      // Then
+      assertThat(result.isOk()).isTrue();
+    }
+
+    @Test
+    @DisplayName("should remove agent channel")
+    void shouldRemoveAgentChannel() {
+      // Given
+      when(aiConfigFacade.removeAgentChannel(eq(TEST_GUILD_ID), eq(123L)))
+          .thenReturn(Result.ok(Unit.INSTANCE));
+
+      // When
+      Result<Unit, DomainError> result = adminPanelService.removeAgentChannel(TEST_GUILD_ID, 123L);
+
+      // Then
+      assertThat(result.isOk()).isTrue();
+    }
+  }
+
+  @Nested
   @DisplayName("Result formatting")
   class ResultFormatting {
 
@@ -493,8 +596,8 @@ class AdminPanelServiceTest {
     @DisplayName("should format balance adjustment result")
     void shouldFormatBalanceAdjustmentResult() {
       // Given
-      AdminPanelService.BalanceAdjustmentResult result =
-          new AdminPanelService.BalanceAdjustmentResult(1000L, 2000L, 1000L);
+      CurrencyManagementFacade.BalanceAdjustmentResult result =
+          new CurrencyManagementFacade.BalanceAdjustmentResult(1000L, 2000L, 1000L);
 
       // When
       String message = result.formatMessage("Gold", "💰");
@@ -510,8 +613,8 @@ class AdminPanelServiceTest {
     @DisplayName("should format token adjustment result")
     void shouldFormatTokenAdjustmentResult() {
       // Given
-      AdminPanelService.TokenAdjustmentResult result =
-          new AdminPanelService.TokenAdjustmentResult(50L, 70L, 20L);
+      GameTokenManagementFacade.TokenAdjustmentResult result =
+          new GameTokenManagementFacade.TokenAdjustmentResult(50L, 70L, 20L);
 
       // When
       String message = result.formatMessage();

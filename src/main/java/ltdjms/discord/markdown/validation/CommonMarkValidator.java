@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.Deque;
 import java.util.List;
 
+import org.commonmark.ext.gfm.tables.TableBlock;
 import org.commonmark.ext.gfm.tables.TablesExtension;
 import org.commonmark.ext.task.list.items.TaskListItemsExtension;
 import org.commonmark.node.Node;
@@ -43,16 +44,20 @@ public final class CommonMarkValidator implements MarkdownValidator {
 
     List<MarkdownError> errors = new ArrayList<>();
 
-    // 1. 檢查標題層級
+    // 1. 檢查 Discord 不支援的語法
+    checkDiscordUnsupportedSyntax(markdown, errors);
+
+    // 2. 檢查標題層級
     checkHeadingLevels(markdown, errors);
 
-    // 2. 檢查列表格式
+    // 3. 檢查列表格式
     checkListFormat(markdown, errors);
 
-    // 3. 解析階段 - 檢測語法錯誤
+    // 4. 解析階段 - 檢測語法錯誤
     try {
       Node document = parser.parse(markdown);
       checkCodeBlocks(document, markdown, errors);
+      checkDiscordUnsupportedFeatures(document, markdown, errors);
     } catch (Exception e) {
       // 解析失敗視為格式錯誤
       errors.add(
@@ -299,5 +304,152 @@ public final class CommonMarkValidator implements MarkdownValidator {
               line.length() > 50 ? line.substring(0, 50) + "..." : line,
               "在程式碼區塊結束處添加 ```"));
     }
+  }
+
+  /**
+   * 檢查 Discord 不支援的 Markdown 語法（字串層級檢查）。
+   *
+   * <p>Discord 不支援以下 Markdown 語法：
+   *
+   * <ul>
+   *   <li>水平分隔線（---、***、___）
+   *   <li>粗體使用底線（__text__）
+   *   <li>Task List（- [x] 或 - [ ]）
+   * </ul>
+   *
+   * @param markdown 待檢查的 Markdown 文字
+   * @param errors 錯誤列表
+   */
+  private void checkDiscordUnsupportedSyntax(String markdown, List<MarkdownError> errors) {
+    String[] lines = markdown.split("\n");
+    boolean inCodeBlock = false;
+
+    for (int i = 0; i < lines.length; i++) {
+      String line = lines[i];
+      String trimmed = line.trim();
+
+      // 追蹤程式碼區塊狀態
+      if (trimmed.startsWith("```")) {
+        inCodeBlock = !inCodeBlock;
+        continue;
+      }
+      if (inCodeBlock) {
+        continue;
+      }
+
+      // 檢查水平分隔線（Discord 不支援）
+      if (isHorizontalRule(trimmed)) {
+        errors.add(
+            new MarkdownError(
+                ErrorType.DISCORD_RENDER_ISSUE,
+                i + 1,
+                1,
+                line.length() > 50 ? line.substring(0, 50) + "..." : line,
+                "Discord 不支援水平分隔線（---、***、___），請移除或改用粗體分隔"));
+        continue;
+      }
+
+      // 檢查粗體使用底線（Discord 僅支援星號）
+      if (trimmed.matches(".*__.+__.*")) {
+        // 確保不是誤判（如 __variable_name__ 在程式碼中）
+        if (!trimmed.startsWith("```")) {
+          errors.add(
+              new MarkdownError(
+                  ErrorType.DISCORD_RENDER_ISSUE,
+                  i + 1,
+                  1,
+                  line.length() > 50 ? line.substring(0, 50) + "..." : line,
+                  "Discord 粗體應使用雙星號（**text**），而非底線（__text__）"));
+        }
+      }
+
+      // 檢查 Task List（Discord 不支援）
+      if (trimmed.matches("^[-*+]\\s+\\[([ xX])\\]\\s+.*")) {
+        errors.add(
+            new MarkdownError(
+                ErrorType.DISCORD_RENDER_ISSUE,
+                i + 1,
+                1,
+                line.length() > 50 ? line.substring(0, 50) + "..." : line,
+                "Discord 不支援 Task List（- [ ] 或 - [x]），請改用普通列表"));
+      }
+    }
+  }
+
+  /**
+   * 檢查 Discord 不支援的 Markdown 功能（解析後檢查）。
+   *
+   * <p>Discord 不支援以下 Markdown 功能：
+   *
+   * <ul>
+   *   <li>表格
+   * </ul>
+   *
+   * @param document 解析後的文件節點
+   * @param fullMarkdown 完整的 Markdown 文字（用於定位錯誤行號）
+   * @param errors 錯誤列表
+   */
+  private void checkDiscordUnsupportedFeatures(
+      Node document, String fullMarkdown, List<MarkdownError> errors) {
+    // 遞迴遍歷 AST，檢測表格
+    checkForTables(document, fullMarkdown, errors);
+  }
+
+  /**
+   * 遞迴檢查節點樹中的表格。
+   *
+   * @param node 當前節點
+   * @param fullMarkdown 完整的 Markdown 文字
+   * @param errors 錯誤列表
+   */
+  private void checkForTables(Node node, String fullMarkdown, List<MarkdownError> errors) {
+    if (node == null) {
+      return;
+    }
+
+    // 檢查是否為表格節點
+    if (node instanceof TableBlock) {
+      int lineNumber = findLineNumber(fullMarkdown, node);
+      String tableLine =
+          lineNumber > 0 && lineNumber <= fullMarkdown.split("\n").length
+              ? fullMarkdown.split("\n")[lineNumber - 1]
+              : "| 表格內容 |";
+
+      errors.add(
+          new MarkdownError(
+              ErrorType.DISCORD_RENDER_ISSUE,
+              lineNumber,
+              1,
+              tableLine.length() > 50 ? tableLine.substring(0, 50) + "..." : tableLine,
+              "Discord 不支援表格，請改用列表或其他格式"));
+      return; // 找到表格後不需要再檢查子節點
+    }
+
+    // 遞迴檢查子節點
+    Node child = node.getFirstChild();
+    while (child != null) {
+      checkForTables(child, fullMarkdown, errors);
+      child = child.getNext();
+    }
+  }
+
+  /**
+   * 查找節點在原始 Markdown 中的行號。
+   *
+   * @param fullMarkdown 完整的 Markdown 文字
+   * @param node 要查找的節點
+   * @return 行號（從 1 開始），如果找不到返回 1
+   */
+  private int findLineNumber(String fullMarkdown, Node node) {
+    // CommonMark 不提供直接的行號資訊
+    // 這裡使用簡單的啟發式方法：查找包含 | 的行
+    String[] lines = fullMarkdown.split("\n");
+    for (int i = 0; i < lines.length; i++) {
+      String line = lines[i].trim();
+      if (line.contains("|") && line.startsWith("|")) {
+        return i + 1;
+      }
+    }
+    return 1;
   }
 }

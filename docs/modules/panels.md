@@ -29,23 +29,55 @@
 - 呼叫對應 service 取得要顯示的資料。
 - 建立 Embed 與按鈕，並以 ephemeral 的方式回覆。
 
-### 2.2 面板服務
+### 2.2 面板服務與 Facade 架構
 
-- `UserPanelService`
-  - 透過 `BalanceService` 取得貨幣餘額與貨幣設定。
-  - 透過 `GameTokenService` 取得遊戲代幣餘額。
-  - 透過 `GameTokenTransactionService` 取得代幣交易的分頁資料。
-  - V008 新增：透過 `ProductRedemptionTransactionService` 取得商品兌換歷史的分頁資料。
-  - 組裝為 `UserPanelView`，提供標題、欄位名稱與格式化後的文字。
+為了降低服務間的耦合度與複雜性，面板模組採用 **Facade 模式** 將多個底層服務的職責聚合為高層介面。
 
-- `AdminPanelService`
-  - 再包裝既有的貨幣系統與遊戲代幣服務，提供：
-    - 查詢成員貨幣餘額（`getMemberBalance`）
-    - 查詢成員遊戲代幣餘額（`getMemberTokens`）
-    - 調整成員貨幣餘額（`adjustBalance`）
-    - 調整成員遊戲代幣餘額（`adjustTokens`）
-    - 取得骰子遊戲 1 / 2 的代幣消耗設定（`getGameTokenCost`）
-  - 回傳自訂的結果 record（例如 `BalanceAdjustmentResult`、`TokenAdjustmentResult`），並內含格式化訊息方法。
+#### Facade 服務
+
+- **`MemberInfoFacade**：聚合會員資訊查詢
+  - 整合 `BalanceService`、`GameTokenService`、`CurrencyTransactionService`、`GameTokenTransactionService`、`ProductRedemptionTransactionService`、`RedemptionService`
+  - 提供 `getUserPanelView(guildId, userId)` 組裝完整的用戶面板資訊
+  - 提供交易歷史分頁查詢方法
+  - 提供兌換碼使用功能
+
+- **`CurrencyManagementFacade`**：貨幣管理聚合
+  - 整合 `BalanceService`、`BalanceAdjustmentService`、`CurrencyConfigService`
+  - 提供餘額查詢、調整、配置管理的統一介面
+  - 回傳自訂的 `BalanceAdjustmentResult` record，內含格式化訊息方法
+
+- **`GameTokenManagementFacade`**：遊戲代幣管理聚合
+  - 整合 `GameTokenService`、`GameTokenTransactionService`
+  - 提供代幣餘額查詢與調整功能
+  - 自動記錄交易歷史
+
+- **`GameConfigManagementFacade`**：遊戲配置管理聚合
+  - 整合 `DiceGame1ConfigService`、`DiceGame2ConfigService`
+  - 管理骰子遊戲的代幣消耗設定
+  - 配置更新後自動發布 `DiceGameConfigChangedEvent`
+
+- **`AIConfigManagementFacade`**：AI 功能配置管理聚合
+  - 整合 `AIChannelRestrictionService`、`AIAgentService`
+  - 管理 AI 頻道限制與 AI agent 配置
+
+#### 面板服務
+
+透過 Facade 簡化後，面板服務的依賴大幅降低：
+
+- **`UserPanelService`**（1 個依賴，原為 6 個）
+  - 依賴 `MemberInfoFacade` 獲取所有會員相關資訊
+  - 組裝為 `UserPanelView`，提供標題、欄位名稱與格式化後的文字
+
+- **`AdminPanelService`**（4 個依賴，原為 10 個）
+  - 依賴 `CurrencyManagementFacade` 處理貨幣操作
+  - 依賴 `GameTokenManagementFacade` 處理代幣操作
+  - 依賴 `GameConfigManagementFacade` 處理遊戲配置
+  - 依賴 `AIConfigManagementFacade` 處理 AI 配置
+
+**Facade 模式的優勢**：
+- 降低服務間耦合度，面板服務無需直接依賴多個底層服務
+- 簡化測試，測試時只需 mock Facade 而非多個服務
+- 提供清晰的模組邊界，便於未來重構與擴充
 
 ### 2.3 面板按鈕與表單 handler
 

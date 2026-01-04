@@ -3,12 +3,8 @@ package ltdjms.discord.panel.services;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import ltdjms.discord.currency.domain.BalanceView;
-import ltdjms.discord.currency.services.BalanceService;
 import ltdjms.discord.currency.services.CurrencyTransactionService;
-import ltdjms.discord.gametoken.services.GameTokenService;
 import ltdjms.discord.gametoken.services.GameTokenTransactionService;
-import ltdjms.discord.gametoken.services.GameTokenTransactionService.TransactionPage;
 import ltdjms.discord.redemption.services.ProductRedemptionTransactionService;
 import ltdjms.discord.redemption.services.RedemptionService;
 import ltdjms.discord.shared.DomainError;
@@ -16,32 +12,18 @@ import ltdjms.discord.shared.Result;
 
 /**
  * Service for generating user panel data. Aggregates currency balance and game token information
- * for display in the personal panel embed.
+ * for display in the personal panel embed through a facade.
+ *
+ * <p>This service has been refactored to use MemberInfoFacade, reducing dependencies from 6 to 1.
  */
 public class UserPanelService {
 
   private static final Logger LOG = LoggerFactory.getLogger(UserPanelService.class);
 
-  private final BalanceService balanceService;
-  private final GameTokenService gameTokenService;
-  private final GameTokenTransactionService gameTokenTransactionService;
-  private final CurrencyTransactionService currencyTransactionService;
-  private final RedemptionService redemptionService;
-  private final ProductRedemptionTransactionService productRedemptionTransactionService;
+  private final MemberInfoFacade memberInfoFacade;
 
-  public UserPanelService(
-      BalanceService balanceService,
-      GameTokenService gameTokenService,
-      GameTokenTransactionService gameTokenTransactionService,
-      CurrencyTransactionService currencyTransactionService,
-      RedemptionService redemptionService,
-      ProductRedemptionTransactionService productRedemptionTransactionService) {
-    this.balanceService = balanceService;
-    this.gameTokenService = gameTokenService;
-    this.gameTokenTransactionService = gameTokenTransactionService;
-    this.currencyTransactionService = currencyTransactionService;
-    this.redemptionService = redemptionService;
-    this.productRedemptionTransactionService = productRedemptionTransactionService;
+  public UserPanelService(MemberInfoFacade memberInfoFacade) {
+    this.memberInfoFacade = memberInfoFacade;
   }
 
   /**
@@ -53,40 +35,7 @@ public class UserPanelService {
    */
   public Result<UserPanelView, DomainError> getUserPanelView(long guildId, long userId) {
     LOG.debug("Getting user panel view for guildId={}, userId={}", guildId, userId);
-
-    // Get currency balance
-    Result<BalanceView, DomainError> balanceResult = balanceService.tryGetBalance(guildId, userId);
-    if (balanceResult.isErr()) {
-      LOG.warn(
-          "Failed to get balance for guildId={}, userId={}: {}",
-          guildId,
-          userId,
-          balanceResult.getError().message());
-      return Result.err(balanceResult.getError());
-    }
-
-    BalanceView balanceView = balanceResult.getValue();
-
-    // Get game token balance (this doesn't fail, returns 0 if not found)
-    long gameTokens = gameTokenService.getBalance(guildId, userId);
-
-    UserPanelView panelView =
-        new UserPanelView(
-            guildId,
-            userId,
-            balanceView.balance(),
-            balanceView.currencyName(),
-            balanceView.currencyIcon(),
-            gameTokens);
-
-    LOG.debug(
-        "User panel view created: guildId={}, userId={}, currency={}, tokens={}",
-        guildId,
-        userId,
-        balanceView.balance(),
-        gameTokens);
-
-    return Result.ok(panelView);
+    return memberInfoFacade.getUserPanelView(guildId, userId);
   }
 
   /**
@@ -97,11 +46,11 @@ public class UserPanelService {
    * @param page the page number (1-based)
    * @return the transaction page
    */
-  public TransactionPage getTokenTransactionPage(long guildId, long userId, int page) {
+  public GameTokenTransactionService.TransactionPage getTokenTransactionPage(
+      long guildId, long userId, int page) {
     LOG.debug(
         "Getting token transaction page for guildId={}, userId={}, page={}", guildId, userId, page);
-    return gameTokenTransactionService.getTransactionPage(
-        guildId, userId, page, GameTokenTransactionService.DEFAULT_PAGE_SIZE);
+    return memberInfoFacade.getTokenTransactionPage(guildId, userId, page);
   }
 
   /**
@@ -119,8 +68,7 @@ public class UserPanelService {
         guildId,
         userId,
         page);
-    return currencyTransactionService.getTransactionPage(
-        guildId, userId, page, CurrencyTransactionService.DEFAULT_PAGE_SIZE);
+    return memberInfoFacade.getCurrencyTransactionPage(guildId, userId, page);
   }
 
   /**
@@ -134,7 +82,7 @@ public class UserPanelService {
   public Result<RedemptionService.RedemptionResult, DomainError> redeemCode(
       String code, long guildId, long userId) {
     LOG.debug("Redeeming code for guildId={}, userId={}", guildId, userId);
-    return redemptionService.redeemCode(code, guildId, userId);
+    return memberInfoFacade.redeemCode(code, guildId, userId);
   }
 
   /**
@@ -152,7 +100,6 @@ public class UserPanelService {
         guildId,
         userId,
         page);
-    return productRedemptionTransactionService.getTransactionPage(
-        guildId, userId, page, ProductRedemptionTransactionService.DEFAULT_PAGE_SIZE);
+    return memberInfoFacade.getProductRedemptionTransactionPage(guildId, userId, page);
   }
 }
