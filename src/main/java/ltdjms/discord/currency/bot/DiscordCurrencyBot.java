@@ -20,6 +20,7 @@ import ltdjms.discord.shop.commands.ShopButtonHandler;
 import ltdjms.discord.shop.commands.ShopSelectMenuHandler;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
+import net.dv8tion.jda.api.requests.GatewayIntent;
 
 /**
  * Main entry point for the LTDJ management system. Bootstraps JDA with required intents and wires
@@ -86,6 +87,8 @@ public class DiscordCurrencyBot {
 
     this.jda =
         JDABuilder.createLight(envConfig.getDiscordBotToken())
+            // 啟用 MESSAGE_CONTENT 以允許在提及與討論串中讀取訊息內容
+            .enableIntents(GatewayIntent.MESSAGE_CONTENT)
             .addEventListeners(eventListeners.toArray())
             .build();
 

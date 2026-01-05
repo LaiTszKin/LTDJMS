@@ -35,6 +35,14 @@ All notable changes to this project will be documented in this file.
 ### Documentation
 - 新增實作計畫文件 docs/plans/2026-01-05-role-category-permission-tools-implementation.md，記錄角色與類別權限管理工具的完整實作細節
 
+## [0.25.1] - 2026-01-05
+
+### Fixed
+- **bot**: 修復無法讀取訊息內容的問題
+  - 啟用 MESSAGE_CONTENT Gateway Intent
+  - 恢復在提及與討論串中讀取訊息內容的能力
+  - 適應 Discord 訊息內容存取限制政策
+
 ## [0.24.0] - 2026-01-05
 
 ### Breaking Changes
