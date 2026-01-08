@@ -49,19 +49,19 @@ public final class LangChain4jCreateRoleTool {
 
     // 1. 驗證必要參數
     if (name == null || name.isBlank()) {
-      return buildErrorResponse("角色名稱不能為空");
+      return ToolJsonResponses.error("角色名稱不能為空");
     }
 
     // 2. 從 InvocationParameters 獲取執行上下文
     Long guildId = parameters.get("guildId");
     if (guildId == null) {
-      return buildErrorResponse("guildId 未設置");
+      return ToolJsonResponses.error("guildId 未設置");
     }
 
     // 3. 獲取 Guild
     Guild guild = JDAProvider.getJda().getGuildById(guildId);
     if (guild == null) {
-      return buildErrorResponse("找不到伺服器");
+      return ToolJsonResponses.error("找不到伺服器");
     }
 
     try {
@@ -109,11 +109,11 @@ public final class LangChain4jCreateRoleTool {
 
     } catch (InsufficientPermissionException e) {
       LOGGER.warn("權限不足: {}", e.getMessage());
-      return buildErrorResponse("權限不足: " + e.getMessage());
+      return ToolJsonResponses.error("權限不足: " + e.getMessage());
 
     } catch (Exception e) {
       LOGGER.error("創建角色失敗", e);
-      return buildErrorResponse("創建失敗: " + e.getMessage());
+      return ToolJsonResponses.error("創建失敗: " + e.getMessage());
     }
   }
 
@@ -124,7 +124,9 @@ public final class LangChain4jCreateRoleTool {
     json.append("  \"message\": \"角色創建成功\",\n");
     json.append("  \"role\": {\n");
     json.append("    \"id\": \"").append(role.getIdLong()).append("\",\n");
-    json.append("    \"name\": \"").append(escapeJson(role.getName())).append("\",\n");
+    json.append("    \"name\": \"")
+        .append(ToolJsonResponses.escapeJson(role.getName()))
+        .append("\",\n");
     json.append("    \"color\": ").append(role.getColorRaw()).append(",\n");
     json.append("    \"colorHex\": \"#")
         .append(String.format("%06X", role.getColorRaw()))
@@ -156,24 +158,5 @@ public final class LangChain4jCreateRoleTool {
     }
     sb.append("]");
     return sb.toString();
-  }
-
-  private String escapeJson(String value) {
-    return value
-        .replace("\\", "\\\\")
-        .replace("\"", "\\\"")
-        .replace("\n", "\\n")
-        .replace("\r", "\\r")
-        .replace("\t", "\\t");
-  }
-
-  private String buildErrorResponse(String error) {
-    return """
-    {
-      "success": false,
-      "error": "%s"
-    }
-    """
-        .formatted(escapeJson(error));
   }
 }

@@ -43,6 +43,27 @@ All notable changes to this project will be documented in this file.
   - 恢復在提及與討論串中讀取訊息內容的能力
   - 適應 Discord 訊息內容存取限制政策
 
+## [0.25.2] - 2026-01-09
+
+### Changed
+- **aiagent**: 重構工具類以使用統一的 ToolJsonResponses
+  - 移除各工具類中重複的 buildErrorResponse() 方法
+  - 移除各工具類中重複的 escapeJson() 方法
+  - 移除 LangChain4jCreateChannelTool 中的 buildSuccessResponse() 方法
+  - 統一錯誤響應格式：`{"success": false, "error": "..."}`
+  - 統一成功響應格式：`{"success": true, "message": "...", ...}`
+- **aiagent**: ToolExecutionInterceptor 新增更多工具的中文顯示名稱
+  - createRole、listCategories、listRoles
+  - getChannelPermissions、getRolePermissions
+  - modifyChannelPermissions、modifyCategoryPermissions、modifyRolePermissions
+
+### Technical
+- 新增 ToolJsonResponses 工具類，提供標準化 JSON 響應構建方法
+  - error(), success(), successWithField(), successWithFields()
+  - SuccessBuilder 用於複雜響應構建
+  - escapeJson() 進行 JSON 字串轉義
+- 內部重構，不影響現有功能與 API
+
 ## [0.24.0] - 2026-01-05
 
 ### Breaking Changes

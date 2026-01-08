@@ -108,7 +108,7 @@ public final class LangChain4jListChannelsTool {
       if (!CHANNEL_TYPE_MAP.containsKey(lowerType)) {
         String errorMsg = String.format("無效的頻道類型: %s。支援的類型: %s", type, CHANNEL_TYPE_MAP.keySet());
         LOGGER.warn("LangChain4jListChannelsTool: {}", errorMsg);
-        return buildErrorResponse(errorMsg);
+        return ToolJsonResponses.error(errorMsg);
       }
     }
 
@@ -116,7 +116,7 @@ public final class LangChain4jListChannelsTool {
     Long guildId = parameters.get("guildId");
     if (guildId == null) {
       LOGGER.error("LangChain4jListChannelsTool: guildId 未設置");
-      return buildErrorResponse("guildId 未設置");
+      return ToolJsonResponses.error("guildId 未設置");
     }
 
     // 3. 獲取 Guild
@@ -124,7 +124,7 @@ public final class LangChain4jListChannelsTool {
     if (guild == null) {
       String errorMsg = String.format("找不到指定的伺服器: %d", guildId);
       LOGGER.warn("LangChain4jListChannelsTool: {}", errorMsg);
-      return buildErrorResponse("找不到伺服器");
+      return ToolJsonResponses.error("找不到伺服器");
     }
 
     try {
@@ -152,7 +152,7 @@ public final class LangChain4jListChannelsTool {
     } catch (Exception e) {
       String errorMsg = String.format("獲取頻道列表失敗: %s", e.getMessage());
       LOGGER.error("LangChain4jListChannelsTool: {}", errorMsg, e);
-      return buildErrorResponse(errorMsg);
+      return ToolJsonResponses.error(errorMsg);
     }
   }
 
@@ -220,7 +220,9 @@ public final class LangChain4jListChannelsTool {
       Map<String, Object> info = channelInfos.get(i);
       json.append("    {\n");
       json.append("      \"id\": \"").append(info.get("id")).append("\",\n");
-      json.append("      \"name\": \"").append(info.get("name")).append("\",\n");
+      json.append("      \"name\": \"")
+          .append(ToolJsonResponses.escapeJson((String) info.get("name")))
+          .append("\",\n");
       json.append("      \"type\": \"").append(info.get("type")).append("\"");
       json.append("\n    }");
     }
@@ -228,21 +230,5 @@ public final class LangChain4jListChannelsTool {
     json.append("\n  ]\n");
     json.append("}");
     return json.toString();
-  }
-
-  /**
-   * 構建錯誤回應。
-   *
-   * @param error 錯誤訊息
-   * @return JSON 格式的錯誤回應
-   */
-  private String buildErrorResponse(String error) {
-    return """
-    {
-      "success": false,
-      "error": "%s"
-    }
-    """
-        .formatted(error);
   }
 }

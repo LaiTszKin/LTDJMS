@@ -121,14 +121,14 @@ public final class LangChain4jCreateChannelTool {
     // 1. 驗證參數
     String validationError = validateName(name);
     if (validationError != null) {
-      return buildErrorResponse(validationError);
+      return ToolJsonResponses.error(validationError);
     }
 
     // 2. 從 InvocationParameters 獲取執行上下文
     Long guildId = parameters.get("guildId");
     if (guildId == null) {
       LOGGER.error("LangChain4jCreateChannelTool: guildId 未設置");
-      return buildErrorResponse("guildId 未設置");
+      return ToolJsonResponses.error("guildId 未設置");
     }
 
     // 3. 獲取 Guild
@@ -136,7 +136,7 @@ public final class LangChain4jCreateChannelTool {
     if (guild == null) {
       String errorMsg = String.format("找不到指定的伺服器: %d", guildId);
       LOGGER.warn("LangChain4jCreateChannelTool: {}", errorMsg);
-      return buildErrorResponse("找不到伺服器");
+      return ToolJsonResponses.error("找不到伺服器");
     }
 
     try {
@@ -145,7 +145,7 @@ public final class LangChain4jCreateChannelTool {
       Long parsedCategoryId = parseSnowflakeId(categoryId);
       if (categoryId != null && parsedCategoryId == null) {
         LOGGER.warn("LangChain4jCreateChannelTool: 類別 ID 格式無效: {}", categoryId);
-        return buildErrorResponse("類別 ID 格式無效，請以字串提供完整的類別 ID");
+        return ToolJsonResponses.error("類別 ID 格式無效，請以字串提供完整的類別 ID");
       }
 
       if (parsedCategoryId != null) {
@@ -153,14 +153,14 @@ public final class LangChain4jCreateChannelTool {
         if (category == null) {
           String errorMsg = String.format("找不到指定的類別: %s", categoryId);
           LOGGER.warn("LangChain4jCreateChannelTool: {}", errorMsg);
-          return buildErrorResponse("找不到指定的類別");
+          return ToolJsonResponses.error("找不到指定的類別");
         }
       }
 
       // 5. 創建頻道
       TextChannel channel = createChannelWithTimeout(guild, name, category);
       if (channel == null) {
-        return buildErrorResponse("創建頻道失敗");
+        return ToolJsonResponses.error("創建頻道失敗");
       }
 
       // 6. 應用權限（如果有提供）
@@ -172,28 +172,29 @@ public final class LangChain4jCreateChannelTool {
       String resultMsg =
           String.format("成功創建頻道: %s (ID: %d)", channel.getName(), channel.getIdLong());
       LOGGER.info("LangChain4jCreateChannelTool: {}", resultMsg);
-      return buildSuccessResponse(resultMsg, channel.getIdLong(), channel.getName());
+      return ToolJsonResponses.successWithFields(
+          resultMsg, "channelId", channel.getIdLong(), "channelName", channel.getName());
 
     } catch (InsufficientPermissionException e) {
       String errorMsg = String.format("機器人沒有足夠的權限創建頻道: %s", e.getMessage());
       LOGGER.warn("LangChain4jCreateChannelTool: {}", errorMsg);
-      return buildErrorResponse("機器人沒有足夠的權限");
+      return ToolJsonResponses.error("機器人沒有足夠的權限");
 
     } catch (TimeoutException e) {
       String errorMsg = String.format("創建頻道逾時: %s", e.getMessage());
       LOGGER.warn("LangChain4jCreateChannelTool: {}", errorMsg);
-      return buildErrorResponse("創建頻道逾時");
+      return ToolJsonResponses.error("創建頻道逾時");
 
     } catch (InterruptedException e) {
       Thread.currentThread().interrupt();
       String errorMsg = String.format("創建頻道被中斷: %s", e.getMessage());
       LOGGER.error("LangChain4jCreateChannelTool: {}", errorMsg);
-      return buildErrorResponse("創建頻道被中斷");
+      return ToolJsonResponses.error("創建頻道被中斷");
 
     } catch (Exception e) {
       String errorMsg = String.format("創建頻道失敗: %s", e.getMessage());
       LOGGER.error("LangChain4jCreateChannelTool: {}", errorMsg, e);
-      return buildErrorResponse(errorMsg);
+      return ToolJsonResponses.error(errorMsg);
     }
   }
 
@@ -370,41 +371,5 @@ public final class LangChain4jCreateChannelTool {
       LOGGER.error(
           "LangChain4jCreateChannelTool: 設定角色 {} 權限時發生錯誤: {}", role.getIdLong(), e.getMessage(), e);
     }
-  }
-
-  /**
-   * 構建成功回應。
-   *
-   * @param message 成功訊息
-   * @param channelId 頻道 ID
-   * @param channelName 頻道名稱
-   * @return JSON 格式的成功回應
-   */
-  private String buildSuccessResponse(String message, long channelId, String channelName) {
-    return """
-    {
-      "success": true,
-      "message": "%s",
-      "channelId": "%d",
-      "channelName": "%s"
-    }
-    """
-        .formatted(message, channelId, channelName);
-  }
-
-  /**
-   * 構建錯誤回應。
-   *
-   * @param error 錯誤訊息
-   * @return JSON 格式的錯誤回應
-   */
-  private String buildErrorResponse(String error) {
-    return """
-    {
-      "success": false,
-      "error": "%s"
-    }
-    """
-        .formatted(error);
   }
 }

@@ -59,7 +59,7 @@ public final class LangChain4jListCategoriesTool {
     Long guildId = parameters.get("guildId");
     if (guildId == null) {
       LOGGER.error("LangChain4jListCategoriesTool: guildId 未設置");
-      return buildErrorResponse("guildId 未設置");
+      return ToolJsonResponses.error("guildId 未設置");
     }
 
     // 2. 獲取 Guild
@@ -67,7 +67,7 @@ public final class LangChain4jListCategoriesTool {
     if (guild == null) {
       String errorMsg = String.format("找不到指定的伺服器: %d", guildId);
       LOGGER.warn("LangChain4jListCategoriesTool: {}", errorMsg);
-      return buildErrorResponse("找不到伺服器");
+      return ToolJsonResponses.error("找不到伺服器");
     }
 
     try {
@@ -87,7 +87,7 @@ public final class LangChain4jListCategoriesTool {
     } catch (Exception e) {
       String errorMsg = String.format("獲取類別列表失敗: %s", e.getMessage());
       LOGGER.error("LangChain4jListCategoriesTool: {}", errorMsg, e);
-      return buildErrorResponse(errorMsg);
+      return ToolJsonResponses.error(errorMsg);
     }
   }
 
@@ -123,28 +123,14 @@ public final class LangChain4jListCategoriesTool {
       Map<String, Object> info = categoryInfos.get(i);
       json.append("    {\n");
       json.append("      \"id\": \"").append(info.get("id")).append("\",\n");
-      json.append("      \"name\": \"").append(info.get("name")).append("\"");
+      json.append("      \"name\": \"")
+          .append(ToolJsonResponses.escapeJson((String) info.get("name")))
+          .append("\"");
       json.append("\n    }");
     }
 
     json.append("\n  ]\n");
     json.append("}");
     return json.toString();
-  }
-
-  /**
-   * 構建錯誤回應。
-   *
-   * @param error 錯誤訊息
-   * @return JSON 格式的錯誤回應
-   */
-  private String buildErrorResponse(String error) {
-    return """
-    {
-      "success": false,
-      "error": "%s"
-    }
-    """
-        .formatted(error);
   }
 }

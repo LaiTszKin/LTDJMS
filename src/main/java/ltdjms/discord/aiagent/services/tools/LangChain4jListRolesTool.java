@@ -62,7 +62,7 @@ public final class LangChain4jListRolesTool {
     Long guildId = parameters.get("guildId");
     if (guildId == null) {
       LOGGER.error("LangChain4jListRolesTool: guildId 未設置");
-      return buildErrorResponse("guildId 未設置");
+      return ToolJsonResponses.error("guildId 未設置");
     }
 
     // 2. 獲取 Guild
@@ -70,7 +70,7 @@ public final class LangChain4jListRolesTool {
     if (guild == null) {
       String errorMsg = String.format("找不到指定的伺服器: %d", guildId);
       LOGGER.warn("LangChain4jListRolesTool: {}", errorMsg);
-      return buildErrorResponse("找不到伺服器");
+      return ToolJsonResponses.error("找不到伺服器");
     }
 
     try {
@@ -84,7 +84,7 @@ public final class LangChain4jListRolesTool {
         roleInfos.add(buildRoleInfo(role));
       }
 
-      // 4. 返回 JSON 格式結果
+      // 4. 返回 JSON 格式結果（保持向後兼容）
       String jsonResult = buildJsonResult(roleInfos);
       LOGGER.info("LangChain4jListRolesTool: 找到 {} 個角色", roleInfos.size());
       return jsonResult;
@@ -92,7 +92,7 @@ public final class LangChain4jListRolesTool {
     } catch (Exception e) {
       String errorMsg = String.format("獲取角色列表失敗: %s", e.getMessage());
       LOGGER.error("LangChain4jListRolesTool: {}", errorMsg, e);
-      return buildErrorResponse(errorMsg);
+      return ToolJsonResponses.error(errorMsg);
     }
   }
 
@@ -128,28 +128,14 @@ public final class LangChain4jListRolesTool {
       Map<String, Object> info = roleInfos.get(i);
       json.append("    {\n");
       json.append("      \"id\": ").append(info.get("id")).append(",\n");
-      json.append("      \"name\": \"").append(info.get("name")).append("\"");
+      json.append("      \"name\": \"")
+          .append(ToolJsonResponses.escapeJson((String) info.get("name")))
+          .append("\"");
       json.append("\n    }");
     }
 
     json.append("\n  ]\n");
     json.append("}");
     return json.toString();
-  }
-
-  /**
-   * 構建錯誤回應。
-   *
-   * @param error 錯誤訊息
-   * @return JSON 格式的錯誤回應
-   */
-  private String buildErrorResponse(String error) {
-    return """
-    {
-      "success": false,
-      "error": "%s"
-    }
-    """
-        .formatted(error);
   }
 }

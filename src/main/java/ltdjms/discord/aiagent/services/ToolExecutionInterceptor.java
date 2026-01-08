@@ -169,7 +169,15 @@ public final class ToolExecutionInterceptor {
     return switch (toolName) {
       case "createChannel" -> "創建頻道";
       case "createCategory" -> "創建類別";
+      case "createRole" -> "創建角色";
       case "listChannels" -> "列出頻道";
+      case "listCategories" -> "列出類別";
+      case "listRoles" -> "列出角色";
+      case "getChannelPermissions" -> "獲取頻道權限";
+      case "getRolePermissions" -> "獲取角色權限";
+      case "modifyChannelPermissions" -> "修改頻道權限";
+      case "modifyCategoryPermissions" -> "修改類別權限";
+      case "modifyRolePermissions" -> "修改角色權限";
       default -> toolName;
     };
   }

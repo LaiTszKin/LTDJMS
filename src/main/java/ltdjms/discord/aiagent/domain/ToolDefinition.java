@@ -7,7 +7,7 @@ import java.util.stream.Collectors;
 /**
  * 工具定義。
  *
- * <p>描述一個可被 AI 調用的系統工具，包含工具名稱、描述和參數定義。 此定義會被轉換為 JSON Schema 注入至 AI 系統提示詞。
+ * <p>描述一個可被 AI 調用的系統工具，包含工具名稱、描述和參數義定。 此定義會被轉換為 JSON Schema 注入至 AI 系統提示詞。
  *
  * @param name 工具名稱（唯一識別符）
  * @param description 工具描述（AI 用於理解工具用途）

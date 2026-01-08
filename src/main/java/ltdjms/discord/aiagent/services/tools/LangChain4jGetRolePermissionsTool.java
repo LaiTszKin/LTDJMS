@@ -44,7 +44,7 @@ public final class LangChain4jGetRolePermissionsTool {
 
     // 1. 驗證必要參數
     if (roleId == null || roleId.isBlank()) {
-      return buildErrorResponse("roleId 未提供");
+      return ToolJsonResponses.error("roleId 未提供");
     }
 
     // 解析 ID
@@ -52,25 +52,25 @@ public final class LangChain4jGetRolePermissionsTool {
     try {
       roleIdLong = parseId(roleId);
     } catch (NumberFormatException e) {
-      return buildErrorResponse("無效的 ID 格式");
+      return ToolJsonResponses.error("無效的 ID 格式");
     }
 
     // 2. 從 InvocationParameters 獲取執行上下文
     Long guildId = parameters.get("guildId");
     if (guildId == null) {
-      return buildErrorResponse("guildId 未設置");
+      return ToolJsonResponses.error("guildId 未設置");
     }
 
     // 3. 獲取 Guild
     Guild guild = JDAProvider.getJda().getGuildById(guildId);
     if (guild == null) {
-      return buildErrorResponse("找不到伺服器");
+      return ToolJsonResponses.error("找不到伺服器");
     }
 
     // 4. 獲取角色
     Role role = guild.getRoleById(roleIdLong);
     if (role == null) {
-      return buildErrorResponse("找不到指定的角色");
+      return ToolJsonResponses.error("找不到指定的角色");
     }
 
     try {
@@ -79,7 +79,7 @@ public final class LangChain4jGetRolePermissionsTool {
 
     } catch (Exception e) {
       LOGGER.error("讀取角色權限失敗", e);
-      return buildErrorResponse("讀取失敗: " + e.getMessage());
+      return ToolJsonResponses.error("讀取失敗: " + e.getMessage());
     }
   }
 
@@ -97,7 +97,9 @@ public final class LangChain4jGetRolePermissionsTool {
     json.append("  \"success\": true,\n");
     json.append("  \"role\": {\n");
     json.append("    \"id\": \"").append(role.getIdLong()).append("\",\n");
-    json.append("    \"name\": \"").append(escapeJson(role.getName())).append("\",\n");
+    json.append("    \"name\": \"")
+        .append(ToolJsonResponses.escapeJson(role.getName()))
+        .append("\",\n");
     json.append("    \"color\": ").append(role.getColorRaw()).append(",\n");
     json.append("    \"colorHex\": \"#")
         .append(String.format("%06X", role.getColorRaw()))
@@ -133,24 +135,5 @@ public final class LangChain4jGetRolePermissionsTool {
     }
     sb.append("]");
     return sb.toString();
-  }
-
-  private String escapeJson(String value) {
-    return value
-        .replace("\\", "\\\\")
-        .replace("\"", "\\\"")
-        .replace("\n", "\\n")
-        .replace("\r", "\\r")
-        .replace("\t", "\\t");
-  }
-
-  private String buildErrorResponse(String error) {
-    return """
-    {
-      "success": false,
-      "error": "%s"
-    }
-    """
-        .formatted(escapeJson(error));
   }
 }
