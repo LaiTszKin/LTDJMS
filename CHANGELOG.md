@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.25.5] - 2026-01-29
+
+### Fixed
+- **config**: 允許透過 `DATABASE_*` 環境變數或 .env 組合出資料庫連線資訊，修復 DB_URL 無法調整的問題
+
+### Tests
+- 新增 `DATABASE_*` 組合建構資料庫 URL 的整合測試
+
 ## [0.25.4] - 2026-01-29
 
 ### Added

@@ -35,6 +35,11 @@ public final class EnvironmentConfig {
   private static final String ENV_DB_URL = "DB_URL";
   private static final String ENV_DB_USERNAME = "DB_USERNAME";
   private static final String ENV_DB_PASSWORD = "DB_PASSWORD";
+  private static final String ENV_DATABASE_HOST = "DATABASE_HOST";
+  private static final String ENV_DATABASE_PORT = "DATABASE_PORT";
+  private static final String ENV_DATABASE_NAME = "DATABASE_NAME";
+  private static final String ENV_DATABASE_USER = "DATABASE_USER";
+  private static final String ENV_DATABASE_PASSWORD = "DATABASE_PASSWORD";
   private static final String ENV_DB_POOL_MAX_SIZE = "DB_POOL_MAX_SIZE";
   private static final String ENV_DB_POOL_MIN_IDLE = "DB_POOL_MIN_IDLE";
   private static final String ENV_DB_POOL_CONNECTION_TIMEOUT = "DB_POOL_CONNECTION_TIMEOUT";
@@ -59,6 +64,11 @@ public final class EnvironmentConfig {
   private static final String CFG_REDIS_URI = "redis.uri";
   private static final String CFG_DB_USERNAME = "db.username";
   private static final String CFG_DB_PASSWORD = "db.password";
+  private static final String CFG_DATABASE_HOST = "database.host";
+  private static final String CFG_DATABASE_PORT = "database.port";
+  private static final String CFG_DATABASE_NAME = "database.name";
+  private static final String CFG_DATABASE_USERNAME = "database.username";
+  private static final String CFG_DATABASE_PASSWORD = "database.password";
   private static final String CFG_DB_POOL_MAX_SIZE = "db.pool.maximum-pool-size";
   private static final String CFG_DB_POOL_MIN_IDLE = "db.pool.minimum-idle";
   private static final String CFG_DB_POOL_CONNECTION_TIMEOUT = "db.pool.connection-timeout";
@@ -319,6 +329,39 @@ public final class EnvironmentConfig {
     }
   }
 
+  private String getEnvOrDotEnv(String envKey) {
+    String value = System.getenv(envKey);
+    if (value != null && !value.isBlank()) {
+      return value;
+    }
+    value = dotEnvValues.get(envKey);
+    if (value != null && !value.isBlank()) {
+      return value;
+    }
+    return null;
+  }
+
+  private String getConfigOrDefault(String path, String defaultValue) {
+    if (config.hasPath(path)) {
+      String value = config.getString(path);
+      if (value != null && !value.isBlank()) {
+        return value;
+      }
+    }
+    return defaultValue;
+  }
+
+  private int getConfigIntOrDefault(String path, int defaultValue) {
+    if (config.hasPath(path)) {
+      try {
+        return config.getInt(path);
+      } catch (Exception e) {
+        LOG.warn("Invalid integer value for config {}: {}, using default", path, e.getMessage());
+      }
+    }
+    return defaultValue;
+  }
+
   /**
    * Gets the Discord bot token. This value must be set via environment variable or .env.
    *
@@ -348,6 +391,27 @@ public final class EnvironmentConfig {
    * @return the database URL
    */
   public String getDatabaseUrl() {
+    String explicitUrl = getEnvOrDotEnv(ENV_DB_URL);
+    if (explicitUrl != null) {
+      return explicitUrl;
+    }
+
+    String host = getEnvOrDotEnv(ENV_DATABASE_HOST);
+    String port = getEnvOrDotEnv(ENV_DATABASE_PORT);
+    String name = getEnvOrDotEnv(ENV_DATABASE_NAME);
+
+    if (host != null || port != null || name != null) {
+      String resolvedHost =
+          host != null ? host : getConfigOrDefault(CFG_DATABASE_HOST, "localhost");
+      int resolvedPort =
+          port != null
+              ? parsePortOrDefault(port, getConfigIntOrDefault(CFG_DATABASE_PORT, 5432))
+              : getConfigIntOrDefault(CFG_DATABASE_PORT, 5432);
+      String resolvedName =
+          name != null ? name : getConfigOrDefault(CFG_DATABASE_NAME, "currency_bot");
+      return "jdbc:postgresql://" + resolvedHost + ":" + resolvedPort + "/" + resolvedName;
+    }
+
     return config.getString(CFG_DB_URL);
   }
 
@@ -357,6 +421,17 @@ public final class EnvironmentConfig {
    * @return the database username
    */
   public String getDatabaseUsername() {
+    String username = getEnvOrDotEnv(ENV_DB_USERNAME);
+    if (username != null) {
+      return username;
+    }
+    username = getEnvOrDotEnv(ENV_DATABASE_USER);
+    if (username != null) {
+      return username;
+    }
+    if (config.hasPath(CFG_DATABASE_USERNAME)) {
+      return config.getString(CFG_DATABASE_USERNAME);
+    }
     return config.getString(CFG_DB_USERNAME);
   }
 
@@ -366,7 +441,27 @@ public final class EnvironmentConfig {
    * @return the database password
    */
   public String getDatabasePassword() {
+    String password = getEnvOrDotEnv(ENV_DB_PASSWORD);
+    if (password != null) {
+      return password;
+    }
+    password = getEnvOrDotEnv(ENV_DATABASE_PASSWORD);
+    if (password != null) {
+      return password;
+    }
+    if (config.hasPath(CFG_DATABASE_PASSWORD)) {
+      return config.getString(CFG_DATABASE_PASSWORD);
+    }
     return config.getString(CFG_DB_PASSWORD);
+  }
+
+  private int parsePortOrDefault(String value, int defaultValue) {
+    try {
+      return Integer.parseInt(value);
+    } catch (NumberFormatException e) {
+      LOG.warn("Invalid port value for {}: {}, using default", ENV_DATABASE_PORT, value);
+      return defaultValue;
+    }
   }
 
   /**

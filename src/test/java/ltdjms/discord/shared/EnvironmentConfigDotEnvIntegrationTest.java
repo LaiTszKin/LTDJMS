@@ -124,6 +124,30 @@ class EnvironmentConfigDotEnvIntegrationTest {
       assertThat(config.getDatabaseUrl())
           .isEqualTo("jdbc:postgresql://localhost:5432/currency_bot");
     }
+
+    @Test
+    @DisplayName("should build database URL from DATABASE_* values in .env when DB_URL is missing")
+    void buildsDatabaseUrlFromDatabaseEnvValues() throws IOException {
+      if (System.getenv("DB_URL") != null
+          || System.getenv("DATABASE_HOST") != null
+          || System.getenv("DATABASE_PORT") != null
+          || System.getenv("DATABASE_NAME") != null) {
+        return;
+      }
+
+      Path envFile = tempDir.resolve(".env");
+      Files.writeString(
+          envFile,
+          """
+          DATABASE_HOST=custom-host
+          DATABASE_PORT=5439
+          DATABASE_NAME=ltdjms
+          """);
+
+      EnvironmentConfig config = new EnvironmentConfig(tempDir);
+
+      assertThat(config.getDatabaseUrl()).isEqualTo("jdbc:postgresql://custom-host:5439/ltdjms");
+    }
   }
 
   @Nested
