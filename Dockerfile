@@ -32,7 +32,6 @@ USER botuser
 
 # Set default environment variables
 ENV DISCORD_BOT_TOKEN=""
-ENV DB_URL="jdbc:postgresql://postgres:5432/currency_bot"
 ENV DB_USERNAME="postgres"
 ENV DB_PASSWORD="postgres"
 
