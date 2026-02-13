@@ -1,4 +1,4 @@
-.PHONY: build test clean run docker-build docker-up docker-down docker-logs db-up db-down docker-dev format format-check setup-env
+.PHONY: build test clean run docker-build docker-up docker-down docker-logs db-up db-down docker-dev format format-check setup-env db-create db-create-test
 
 # Maven commands
 build:
@@ -57,6 +57,12 @@ db-up:
 db-down:
 	docker compose down postgres
 
+db-create:
+	@./scripts/db/create-db.sh
+
+db-create-test:
+	@./scripts/db/create-db.test.sh
+
 # Full development setup
 dev: db-up
 	@echo "PostgreSQL is running on localhost:5432"
@@ -88,4 +94,6 @@ help:
 	@echo "  logs             - Follow Docker logs"
 	@echo "  db-up            - Start PostgreSQL only"
 	@echo "  db-down          - Stop PostgreSQL"
+	@echo "  db-create        - Create database from .env if missing"
+	@echo "  db-create-test   - Run edge-case tests for scripts/db/create-db.sh"
 	@echo "  dev              - Start development environment"

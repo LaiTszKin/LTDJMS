@@ -21,7 +21,7 @@ import com.zaxxer.hikari.HikariDataSource;
  * Base class for integration tests that require a PostgreSQL database. Uses Testcontainers to start
  * a PostgreSQL container and applies schema.sql.
  */
-@Testcontainers
+@Testcontainers(disabledWithoutDocker = true)
 public abstract class PostgresIntegrationTestBase {
 
   @Container

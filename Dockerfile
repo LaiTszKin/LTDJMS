@@ -24,10 +24,12 @@ WORKDIR /app
 # Copy the built JAR from builder stage
 COPY --from=builder /app/app.jar app.jar
 
-# Create non-root user for security
+# Create non-root user for security and prepare writable log directory
 RUN groupadd -r botuser 2>/dev/null || true && \
     useradd -r -u 1000 -g botuser botuser 2>/dev/null || \
-    useradd -r -u 1001 -g botuser botuser
+    useradd -r -u 1001 -g botuser botuser && \
+    mkdir -p /app/logs && \
+    chown -R botuser:botuser /app
 USER botuser
 
 # Set default environment variables

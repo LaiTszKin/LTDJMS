@@ -22,6 +22,7 @@ dependency-reduced-pom.xml
 # Java
 *.class
 *.log
+logs/
 hs_err_pid*
 replay_pid*
 

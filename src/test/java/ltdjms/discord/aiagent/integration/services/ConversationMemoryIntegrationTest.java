@@ -50,7 +50,7 @@ import ltdjms.discord.shared.cache.RedisCacheService;
  *   <li>工具調用訊息處理
  * </ul>
  */
-@Testcontainers
+@Testcontainers(disabledWithoutDocker = true)
 @DisplayName("T035: 會話記憶整合測試")
 class ConversationMemoryIntegrationTest {
 

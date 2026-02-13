@@ -6,7 +6,7 @@
 
     <groupId>ltdjms</groupId>
     <artifactId>ltdjms</artifactId>
-  <version>0.25.5</version>
+  <version>0.26.0</version>
     <packaging>jar</packaging>
 
     <name>LTDJ Management System</name>
@@ -416,4 +416,83 @@
             </plugin>
         </plugins>
     </build>
+
+    <profiles>
+        <profile>
+            <id>unit-tests</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <excludes>
+                                <exclude>%regex[.*IntegrationTest.*]</exclude>
+                                <exclude>%regex[.*PerformanceTest.*]</exclude>
+                                <exclude>%regex[.*PropertyBasedTest.*]</exclude>
+                                <exclude>%regex[.*PropertyTest.*]</exclude>
+                            </excludes>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+
+        <profile>
+            <id>integration-tests</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <includes>
+                                <include>%regex[.*IntegrationTest.*]</include>
+                            </includes>
+                            <excludes>
+                                <exclude>%regex[.*PerformanceTest.*]</exclude>
+                                <exclude>%regex[.*PropertyBasedTest.*]</exclude>
+                                <exclude>%regex[.*PropertyTest.*]</exclude>
+                            </excludes>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+
+        <profile>
+            <id>performance-tests</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <includes>
+                                <include>%regex[.*PerformanceTest.*]</include>
+                            </includes>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+
+        <profile>
+            <id>property-based-tests</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <includes>
+                                <include>%regex[.*PropertyBasedTest.*]</include>
+                                <include>%regex[.*PropertyTest.*]</include>
+                            </includes>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 </project>

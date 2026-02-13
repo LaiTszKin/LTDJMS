@@ -18,8 +18,10 @@ LTDJMS 使用以下日誌框架：
 日誌設定位於：`src/main/resources/logback.xml`
 
 主要輸出目標：
-- **Console** - 開發環境輸出到標準輸出
-- **File** - 可設定檔案輪轉（支援壓縮與保留策略）
+- **Console** - 標準輸出（可切換一般文字或 JSON）
+- **File（持久化）** - `logs/app.log`（完整日誌）
+- **File（分層）** - `logs/warn.log`（`WARN+`）、`logs/error.log`（僅 `ERROR`）
+- **Archive（滾動）** - `logs/archive/*.log.gz`（日期 + 大小滾動）
 
 ### 1.3 日誌層級
 
@@ -196,18 +198,22 @@ make logs | grep "2025-12-24 10:"
 
 ```xml
 <!-- logback.xml -->
-<appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+<appender name="APP_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
     <file>logs/app.log</file>
-    <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
-        <fileNamePattern>logs/app.%d{yyyy-MM-dd}.log.gz</fileNamePattern>
+    <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+        <fileNamePattern>logs/archive/app.%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
+        <maxFileSize>20MB</maxFileSize>
         <maxHistory>30</maxHistory>
-        <totalSizeCap>1GB</totalSizeCap>
+        <totalSizeCap>3GB</totalSizeCap>
+        <cleanHistoryOnStart>true</cleanHistoryOnStart>
     </rollingPolicy>
     <encoder>
         <pattern>%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n</pattern>
     </encoder>
 </appender>
 ```
+
+建議同時配置 `WARN_FILE`（ThresholdFilter = WARN）與 `ERROR_FILE`（LevelFilter = ERROR）以達成日誌分層。
 
 ## 6. 效能監控
 

@@ -39,7 +39,7 @@ import ltdjms.discord.shared.Result;
  *   <li>刪除舊日誌
  * </ul>
  */
-@Testcontainers
+@Testcontainers(disabledWithoutDocker = true)
 @DisplayName("T043: 審計日誌查詢整合測試")
 class ToolExecutionLogIntegrationTest {
 

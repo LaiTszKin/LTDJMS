@@ -29,7 +29,7 @@ import ltdjms.discord.shared.events.GameTokenChangedEvent;
  *   <li>監聽器框架運作
  * </ul>
  */
-@Testcontainers
+@Testcontainers(disabledWithoutDocker = true)
 @DisplayName("緩存基礎設施端對端測試")
 class CacheInfrastructureIntegrationTest {
 

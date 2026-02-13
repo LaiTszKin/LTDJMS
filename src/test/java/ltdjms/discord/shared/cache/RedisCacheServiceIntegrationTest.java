@@ -16,7 +16,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.utility.DockerImageName;
 
 /** 整合測試：RedisCacheService 使用真實 Redis 實例。 */
-@Testcontainers
+@Testcontainers(disabledWithoutDocker = true)
 @DisplayName("RedisCacheService 整合測試")
 class RedisCacheServiceIntegrationTest {
 

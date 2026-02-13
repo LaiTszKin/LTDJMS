@@ -248,14 +248,24 @@ database {
 
 ### logback.xml
 
-日誌設定檔，預設輸出至控制台：
+日誌設定檔，支援「持久化檔案 + 滾動 + 分層」：
 
-- **應用程式日誌** (`ltdjms.discord.currency.*`) - INFO 層級
-- **JDA 日誌** (`net.dv8tion.jda`) - INFO 層級
-- **HikariCP 日誌** (`com.zaxxer.hikari`) - INFO 層級
-- **根日誌** - WARN 層級
+- **持久化檔案**：`logs/app.log`（完整應用日誌）
+- **分層日誌**：`logs/warn.log`（`WARN+`）、`logs/error.log`（僅 `ERROR`）
+- **滾動策略**：依日期 + 檔案大小自動切分，封存於 `logs/archive/`
+- **保留策略**：可設定最大保留天數與總磁碟上限
+- **Docker 持久化**：`docker-compose.yml` 已掛載 `./logs:/app/logs`
 
-如需 JSON 格式日誌（用於容器環境），可修改 logback.xml 使用 `JSON_CONSOLE` appender。
+可透過環境變數調整：
+
+- `LOG_LEVEL`（預設 `WARN`）
+- `APP_LOG_LEVEL`（預設 `INFO`，作用於 `ltdjms.discord.*`）
+- `LOG_DIR`（預設 `logs`）
+- `LOG_MAX_FILE_SIZE`（預設 `20MB`）
+- `LOG_MAX_HISTORY_DAYS`（預設 `30`）
+- `LOG_TOTAL_SIZE_CAP`（預設 `3GB`）
+
+如需 JSON 格式 console 日誌（容器收集情境），可在 `logback.xml` 將 root appender 的 `CONSOLE` 改為 `JSON_CONSOLE`。
 
 ## 資料庫
 

@@ -26,7 +26,7 @@ import ltdjms.discord.shared.di.JDAProvider;
  *
  * <p>使用真實的 Discord API 進行測試（需要有效的測試環境）。
  */
-@Testcontainers
+@Testcontainers(disabledWithoutDocker = true)
 @DisplayName("T024: LangChain4jGetChannelPermissionsTool 整合測試")
 class LangChain4jGetChannelPermissionsToolIntegrationTest {
 

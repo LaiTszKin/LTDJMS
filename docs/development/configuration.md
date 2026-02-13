@@ -151,6 +151,34 @@
   - 驗證範圍：`1024` - `10485760`（1 KB - 10 MB）
   - 說明：單一提示詞檔案的大小上限（位元組）
 
+### 2.8 日誌設定
+
+以下設定對應 `logback.xml` 的持久化與滾動策略：
+
+- `LOG_LEVEL`
+  - 預設：`WARN`
+  - 說明：root logger 層級（影響第三方套件與未單獨設定的 logger）
+
+- `APP_LOG_LEVEL`
+  - 預設：`INFO`
+  - 說明：`ltdjms.discord.*` 應用程式 logger 層級
+
+- `LOG_DIR`
+  - 預設：`logs`（Docker compose 預設為 `/app/logs`）
+  - 說明：日誌輸出資料夾
+
+- `LOG_MAX_FILE_SIZE`
+  - 預設：`20MB`
+  - 說明：單一滾動檔案最大大小
+
+- `LOG_MAX_HISTORY_DAYS`
+  - 預設：`30`
+  - 說明：滾動檔案保留天數
+
+- `LOG_TOTAL_SIZE_CAP`
+  - 預設：`3GB`
+  - 說明：所有滾動檔案總容量上限
+
 **AI 服務供應商範例**：
 
 | 供應商 | BASE_URL | MODEL |
@@ -178,6 +206,14 @@ DB_POOL_MIN_IDLE=2
 DB_POOL_CONNECTION_TIMEOUT=30000
 DB_POOL_IDLE_TIMEOUT=600000
 DB_POOL_MAX_LIFETIME=1800000
+
+# Logging (optional)
+LOG_LEVEL=WARN
+APP_LOG_LEVEL=INFO
+LOG_DIR=logs
+LOG_MAX_FILE_SIZE=20MB
+LOG_MAX_HISTORY_DAYS=30
+LOG_TOTAL_SIZE_CAP=3GB
 
 # Redis / Cache (optional, has default)
 REDIS_URI=redis://localhost:6379

@@ -1,58 +1,98 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <configuration scan="true" scanPeriod="30 seconds">
 
+    <property name="LOG_DIR" value="${LOG_DIR:-logs}"/>
+    <property name="LOG_LEVEL" value="${LOG_LEVEL:-WARN}"/>
+    <property name="APP_LOG_LEVEL" value="${APP_LOG_LEVEL:-INFO}"/>
+    <property name="LOG_MAX_FILE_SIZE" value="${LOG_MAX_FILE_SIZE:-20MB}"/>
+    <property name="LOG_MAX_HISTORY_DAYS" value="${LOG_MAX_HISTORY_DAYS:-30}"/>
+    <property name="LOG_TOTAL_SIZE_CAP" value="${LOG_TOTAL_SIZE_CAP:-3GB}"/>
+    <property
+            name="LOG_PATTERN"
+            value="%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"/>
+
     <!-- Console appender with human-readable format -->
     <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>
-            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+            <pattern>${LOG_PATTERN}</pattern>
         </encoder>
     </appender>
 
     <!-- JSON console appender for production/container environments -->
     <appender name="JSON_CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
         <encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
-            <pattern>{"timestamp":"%d{yyyy-MM-dd'T'HH:mm:ss.SSSZ}","level":"%level","logger":"%logger{36}","thread":"%thread","message":"%msg","exception":"%ex{short}"}%n</pattern>
+            <pattern>{"timestamp":"%d{yyyy-MM-dd&apos;T&apos;HH:mm:ss.SSSZ}","level":"%level","logger":"%logger{36}","thread":"%thread","message":"%msg","exception":"%ex{short}"}%n</pattern>
         </encoder>
     </appender>
 
-    <!-- Application loggers - Currency Bot -->
-    <logger name="ltdjms.discord.currency.bot" level="INFO">
-        <!-- Bot and command handling - INFO for operational visibility -->
-    </logger>
+    <!-- Persistent application log with rolling policy -->
+    <appender name="APP_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_DIR}/app.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_DIR}/archive/app.%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
+            <maxFileSize>${LOG_MAX_FILE_SIZE}</maxFileSize>
+            <maxHistory>${LOG_MAX_HISTORY_DAYS}</maxHistory>
+            <totalSizeCap>${LOG_TOTAL_SIZE_CAP}</totalSizeCap>
+            <cleanHistoryOnStart>true</cleanHistoryOnStart>
+        </rollingPolicy>
+        <encoder>
+            <pattern>${LOG_PATTERN}</pattern>
+        </encoder>
+    </appender>
 
-    <logger name="ltdjms.discord.currency.commands" level="INFO">
-        <!-- Command handlers - INFO for tracking command execution -->
-    </logger>
+    <!-- Layered warning log file (WARN and ERROR) -->
+    <appender name="WARN_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_DIR}/warn.log</file>
+        <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+            <level>WARN</level>
+        </filter>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_DIR}/archive/warn.%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
+            <maxFileSize>${LOG_MAX_FILE_SIZE}</maxFileSize>
+            <maxHistory>${LOG_MAX_HISTORY_DAYS}</maxHistory>
+            <totalSizeCap>${LOG_TOTAL_SIZE_CAP}</totalSizeCap>
+            <cleanHistoryOnStart>true</cleanHistoryOnStart>
+        </rollingPolicy>
+        <encoder>
+            <pattern>${LOG_PATTERN}</pattern>
+        </encoder>
+    </appender>
 
-    <logger name="ltdjms.discord.currency.services" level="INFO">
-        <!-- Service layer - INFO for business operation tracking -->
-    </logger>
+    <!-- Layered error-only log file -->
+    <appender name="ERROR_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_DIR}/error.log</file>
+        <filter class="ch.qos.logback.classic.filter.LevelFilter">
+            <level>ERROR</level>
+            <onMatch>ACCEPT</onMatch>
+            <onMismatch>DENY</onMismatch>
+        </filter>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_DIR}/archive/error.%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
+            <maxFileSize>${LOG_MAX_FILE_SIZE}</maxFileSize>
+            <maxHistory>${LOG_MAX_HISTORY_DAYS}</maxHistory>
+            <totalSizeCap>${LOG_TOTAL_SIZE_CAP}</totalSizeCap>
+            <cleanHistoryOnStart>true</cleanHistoryOnStart>
+        </rollingPolicy>
+        <encoder>
+            <pattern>${LOG_PATTERN}</pattern>
+        </encoder>
+    </appender>
 
-    <logger name="ltdjms.discord.currency.persistence" level="INFO">
-        <!-- Persistence layer - INFO for database operation tracking -->
-    </logger>
+    <!-- Application loggers -->
+    <logger name="ltdjms.discord" level="${APP_LOG_LEVEL}"/>
+    <logger name="ltdjms.discord.currency.bot" level="INFO"/>
+    <logger name="ltdjms.discord.currency.commands" level="INFO"/>
+    <logger name="ltdjms.discord.currency.services" level="INFO"/>
+    <logger name="ltdjms.discord.currency.persistence" level="INFO"/>
 
-    <!-- Discord API 抽象層日誌 -->
-    <logger name="ltdjms.discord.discord" level="INFO">
-        <!-- Discord abstraction layer - INFO for operational visibility -->
-    </logger>
+    <!-- Discord API abstraction logs -->
+    <logger name="ltdjms.discord.discord" level="INFO"/>
+    <logger name="ltdjms.discord.discord.adapter" level="DEBUG"/>
 
-    <logger name="ltdjms.discord.discord.adapter" level="DEBUG">
-        <!-- Adapters - DEBUG for troubleshooting event flow -->
-    </logger>
-
-    <!-- AI Chat 模組日誌 -->
-    <logger name="ltdjms.discord.aichat" level="INFO">
-        <!-- AI Chat module - INFO for operational visibility -->
-    </logger>
-
-    <logger name="ltdjms.discord.aichat.commands" level="INFO">
-        <!-- AI Chat commands - INFO for tracking AI mentions -->
-    </logger>
-
-    <logger name="ltdjms.discord.aichat.services" level="INFO">
-        <!-- AI Chat services - INFO for AI service interaction tracking -->
-    </logger>
+    <!-- AI Chat module logs -->
+    <logger name="ltdjms.discord.aichat" level="INFO"/>
+    <logger name="ltdjms.discord.aichat.commands" level="INFO"/>
+    <logger name="ltdjms.discord.aichat.services" level="INFO"/>
 
     <!-- JDA logging - INFO for connection events, WARN to reduce noise -->
     <logger name="net.dv8tion.jda" level="INFO"/>
@@ -67,11 +107,12 @@
     <logger name="org.postgresql" level="WARN"/>
 
     <!-- Root logger -->
-    <root level="WARN">
+    <root level="${LOG_LEVEL}">
         <appender-ref ref="CONSOLE"/>
+        <appender-ref ref="APP_FILE"/>
+        <appender-ref ref="WARN_FILE"/>
+        <appender-ref ref="ERROR_FILE"/>
     </root>
 
-    <!-- Profile-based configuration for Docker/Production -->
-    <!-- To use JSON logging, set LOG_FORMAT=json environment variable -->
-    <!-- Or override via logback-spring.xml if using Spring Boot -->
+    <!-- To use JSON logging, replace CONSOLE with JSON_CONSOLE in root logger -->
 </configuration>

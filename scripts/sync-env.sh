@@ -1,13 +1,17 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # 環境變數同步腳本
-# 功能：將 .env 同步到 .env.example 的狀態
+# 功能：將 .env 依照 .env.example 同步
 # - 備份現有 .env 到 .env.bak
-# - 移除過時的環境變數
-# - 添加缺失的新配置
-# - 報告所有變更
+# - 移除過時的環境變數（.env 有、.env.example 無）
+# - 添加缺失的新配置（.env.example 有、.env 無）
+# - 既有鍵保留 .env 目前值
 
 set -euo pipefail
+
+ENV_FILE=".env"
+EXAMPLE_FILE=".env.example"
+BACKUP_FILE=".env.bak"
 
 # 顏色定義
 COLOR_RESET='\033[0m'
@@ -34,42 +38,115 @@ log_error() {
     echo -e "${COLOR_RED}[✗]${COLOR_RESET} $1"
 }
 
-# 檢查檔案是否存在
+contains_key() {
+    local keys="$1"
+    local key="$2"
+    printf '%s\n' "$keys" | grep -Fqx "$key"
+}
+
+parse_env_keys() {
+    local file="$1"
+    awk '
+        {
+            line = $0
+            sub(/\r$/, "", line)
+            sub(/^[[:space:]]*export[[:space:]]+/, "", line)
+            if (line ~ /^[A-Za-z_][A-Za-z0-9_]*=/) {
+                split(line, parts, "=")
+                print parts[1]
+            }
+        }
+    ' "$file" | sort -u
+}
+
+get_env_value() {
+    local file="$1"
+    local key="$2"
+    awk -v key="$key" '
+        {
+            line = $0
+            sub(/\r$/, "", line)
+            sub(/^[[:space:]]*export[[:space:]]+/, "", line)
+            if (line ~ ("^" key "=")) {
+                sub(/^[^=]*=/, "", line)
+                print line
+                exit
+            }
+        }
+    ' "$file"
+}
+
+replace_key_value_in_file() {
+    local file="$1"
+    local key="$2"
+    local value="$3"
+    local next_file="${file}.next"
+
+    awk -v key="$key" -v value="$value" '
+        {
+            line = $0
+            raw = line
+            sub(/^[[:space:]]*export[[:space:]]+/, "", raw)
+
+            if (raw ~ ("^" key "=")) {
+                # 若 .env.example 使用 export 前綴，保留前綴
+                prefix = ""
+                if (match(line, /^[[:space:]]*export[[:space:]]+/)) {
+                    prefix = substr(line, RSTART, RLENGTH)
+                }
+                print prefix key "=" value
+            } else {
+                print line
+            }
+        }
+    ' "$file" > "$next_file"
+
+    mv "$next_file" "$file"
+}
+
 check_files() {
-    if [ ! -f .env.example ]; then
-        log_error ".env.example 檔案不存在"
+    if [ ! -f "$EXAMPLE_FILE" ]; then
+        log_error "$EXAMPLE_FILE 檔案不存在"
         exit 1
     fi
 
-    if [ ! -f .env ]; then
-        log_warning ".env 檔案不存在，從 .env.example 創建"
-        cp .env.example .env
-        log_success "已創建 .env 檔案"
+    if [ ! -f "$ENV_FILE" ]; then
+        log_warning "$ENV_FILE 檔案不存在，將以 $EXAMPLE_FILE 建立"
+        cp "$EXAMPLE_FILE" "$ENV_FILE"
+        log_success "已建立 ${ENV_FILE}（此次無舊檔可備份）"
         exit 0
     fi
 }
 
-# 解析環境變數（返回鍵名陣列）
-parse_env_keys() {
-    local file=$1
-    grep -E '^[A-Za-z_][A-Za-z0-9_]*=' "$file" | cut -d'=' -f1 | sort
-}
-
-# 獲取變數值
-get_env_value() {
-    local file=$1
-    local key=$2
-    grep -E "^${key}=" "$file" | cut -d'=' -f2-
-}
-
-# 備份 .env 檔案
 backup_env() {
-    log_info "備份 .env 到 .env.bak"
-    cp .env .env.bak
+    log_info "備份 $ENV_FILE 到 $BACKUP_FILE"
+    cp "$ENV_FILE" "$BACKUP_FILE"
     log_success "備份完成"
 }
 
-# 主函數
+sync_env() {
+    local example_keys="$1"
+    local env_keys="$2"
+    local temp_file
+
+    temp_file=$(mktemp "${ENV_FILE}.tmp.XXXXXX")
+    trap 'rm -f "$temp_file" "${temp_file}.next"' EXIT
+
+    cp "$EXAMPLE_FILE" "$temp_file"
+
+    while IFS= read -r key; do
+        [ -z "$key" ] && continue
+        if contains_key "$example_keys" "$key"; then
+            local value
+            value="$(get_env_value "$ENV_FILE" "$key")"
+            replace_key_value_in_file "$temp_file" "$key" "$value"
+        fi
+    done <<< "$env_keys"
+
+    mv "$temp_file" "$ENV_FILE"
+    trap - EXIT
+}
+
 main() {
     echo -e "${COLOR_CYAN}========================================${COLOR_RESET}"
     echo -e "${COLOR_CYAN}  環境變數同步腳本${COLOR_RESET}"
@@ -79,38 +156,35 @@ main() {
     check_files
     backup_env
 
-    # 獲取所有變數名
     local example_keys
     local env_keys
+    example_keys="$(parse_env_keys "$EXAMPLE_FILE")"
+    env_keys="$(parse_env_keys "$ENV_FILE")"
 
-    example_keys=$(parse_env_keys .env.example)
-    env_keys=$(parse_env_keys .env)
-
-    # 找出需要刪除的變數（在 .env 但不在 .env.example）
     local to_delete=()
     while IFS= read -r key; do
-        if ! echo "$example_keys" | grep -qx "$key"; then
+        [ -z "$key" ] && continue
+        if ! contains_key "$example_keys" "$key"; then
             to_delete+=("$key")
         fi
     done <<< "$env_keys"
 
-    # 找出需要添加的變數（在 .env.example 但不在 .env）
     local to_add=()
     while IFS= read -r key; do
-        if ! echo "$env_keys" | grep -qx "$key"; then
+        [ -z "$key" ] && continue
+        if ! contains_key "$env_keys" "$key"; then
             to_add+=("$key")
         fi
     done <<< "$example_keys"
 
-    # 如果沒有變更，提示並退出
     if [ ${#to_delete[@]} -eq 0 ] && [ ${#to_add[@]} -eq 0 ]; then
-        log_success ".env 已是最新狀態，無需變更"
+        log_success "$ENV_FILE 已與 $EXAMPLE_FILE 同步（無新增/刪除鍵）"
+        log_info "舊版 $ENV_FILE 已備份至 $BACKUP_FILE"
         exit 0
     fi
 
-    # 報告計劃變更
     echo ""
-    log_info "計劃執行的變更："
+    log_info "執行同步（無互動提示）"
 
     if [ ${#to_delete[@]} -gt 0 ]; then
         echo -e "  ${COLOR_RED}將刪除 ${#to_delete[@]} 個過時變數：${COLOR_RESET}"
@@ -126,43 +200,8 @@ main() {
         done
     fi
 
-    echo ""
-    read -p "是否繼續？(y/N): " -n 1 -r
-    echo ""
+    sync_env "$example_keys" "$env_keys"
 
-    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-        log_warning "已取消操作"
-        exit 0
-    fi
-
-    # 執行同步
-    log_info "正在同步 .env..."
-
-    # 創建臨時檔案
-    local temp_file
-    temp_file=$(mktemp)
-
-    # 首先複製 .env.example 到臨時檔案
-    cp .env.example "$temp_file"
-
-    # 對於 .env 中存在且 .env.example 也存在的變數，保留 .env 中的值
-    while IFS= read -r key; do
-        if echo "$example_keys" | grep -qx "$key"; then
-            local value
-            value=$(get_env_value .env "$key")
-            # 使用 awk 替換值（更安全且跨平台兼容）
-            awk -F= -v k="$key" -v v="$value" '
-                $1 == k { print k "=" v; next }
-                { print }
-            ' "$temp_file" > "${temp_file}.tmp"
-            mv "${temp_file}.tmp" "$temp_file"
-        fi
-    done <<< "$env_keys"
-
-    # 覆蓋 .env
-    mv "$temp_file" .env
-
-    # 報告結果
     echo ""
     echo -e "${COLOR_CYAN}========================================${COLOR_RESET}"
     echo -e "${COLOR_CYAN}  同步完成${COLOR_RESET}"
@@ -181,14 +220,14 @@ main() {
         echo -e "${COLOR_GREEN}已添加的變數：${COLOR_RESET}"
         for key in "${to_add[@]}"; do
             local value
-            value=$(get_env_value .env "$key")
-            echo -e "  ${COLOR_GREEN}+${COLOR_RESET} $key=${value}"
+            value="$(get_env_value "$ENV_FILE" "$key")"
+            echo -e "  ${COLOR_GREEN}+${COLOR_RESET} $key=$value"
         done
         echo ""
     fi
 
     log_success "環境變數同步完成！"
-    log_info "舊版 .env 已備份至 .env.bak"
+    log_info "舊版 $ENV_FILE 已備份至 $BACKUP_FILE"
 }
 
 main "$@"

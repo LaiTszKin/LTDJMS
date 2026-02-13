@@ -7,7 +7,7 @@ on:
     branches: ["main"]
 
 jobs:
-  build:
+  format:
     runs-on: ubuntu-latest
     steps:
       - name: "Checkout code"
@@ -20,6 +20,85 @@ jobs:
           java-version: '17'
           cache: "maven"
 
-      - name: "Build and Tests with coverage verified"
-        run: mvn -B verify
+      - name: "Check format"
+        run: mvn -B spotless:check
 
+  unit-tests:
+    runs-on: ubuntu-latest
+    needs: format
+    steps:
+      - name: "Checkout code"
+        uses: actions/checkout@v4
+
+      - name: "Set up JDK"
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          cache: "maven"
+
+      - name: "Run unit tests"
+        run: mvn -B -Punit-tests test
+
+  integration-tests:
+    runs-on: ubuntu-latest
+    needs: format
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      REDIS_URI: ${{ vars.REDIS_URI }}
+    steps:
+      - name: "Checkout code"
+        uses: actions/checkout@v4
+
+      - name: "Set up JDK"
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          cache: "maven"
+
+      - name: "Run integration tests"
+        run: mvn -B -Pintegration-tests test
+
+  performance-tests:
+    runs-on: ubuntu-latest
+    needs: format
+    steps:
+      - name: "Checkout code"
+        uses: actions/checkout@v4
+
+      - name: "Set up JDK"
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          cache: "maven"
+
+      - name: "Run performance tests"
+        run: mvn -B -Pperformance-tests test
+
+  property-based-tests:
+    runs-on: ubuntu-latest
+    needs: format
+    steps:
+      - name: "Checkout code"
+        uses: actions/checkout@v4
+
+      - name: "Set up JDK"
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          cache: "maven"
+
+      - name: "Run property-based tests"
+        run: mvn -B -Pproperty-based-tests test

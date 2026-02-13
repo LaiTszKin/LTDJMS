@@ -109,7 +109,26 @@ class MarkdownValidationIntegrationTest {
 
       // Then
       assertThat(result.isOk()).isTrue();
-      assertThat(result.getValue()).containsExactly("## 這是標題\n\n這是段落文字。\n- 列表項目 1\n- 列表項目 2");
+      assertThat(result.getValue()).containsExactly("## 這是標題\n\n這是段落文字。\n\n- 列表項目 1\n- 列表項目 2");
+      verify(mockDelegate, times(1))
+          .generateResponse(anyLong(), anyString(), anyString(), anyString());
+    }
+
+    @Test
+    @DisplayName("段落與列表緊鄰時應保留原樣")
+    void paragraphFollowedByListWithoutBlankLineShouldKeepOriginal() {
+      // Given
+      String responseWithoutBlankLine = "這是段落文字。\n- 列表項目 1\n- 列表項目 2";
+      when(mockDelegate.generateResponse(anyLong(), anyString(), anyString(), anyString()))
+          .thenReturn(Result.ok(List.of(responseWithoutBlankLine)));
+
+      // When
+      Result<List<String>, DomainError> result =
+          validatingService.generateResponse(123L, "channel-1", "user-1", "測試");
+
+      // Then
+      assertThat(result.isOk()).isTrue();
+      assertThat(result.getValue()).containsExactly("這是段落文字。\n- 列表項目 1\n- 列表項目 2");
       verify(mockDelegate, times(1))
           .generateResponse(anyLong(), anyString(), anyString(), anyString());
     }

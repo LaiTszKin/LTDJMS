@@ -23,7 +23,7 @@ import com.zaxxer.hikari.HikariDataSource;
 /**
  * Integration tests for {@link DatabaseMigrationRunner} using real PostgreSQL via Testcontainers.
  */
-@Testcontainers
+@Testcontainers(disabledWithoutDocker = true)
 class DatabaseMigrationRunnerIntegrationTest {
 
   @Container

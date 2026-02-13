@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.26.0] - 2026-02-13
+
+### Added
+- **scripts**: 新增 `scripts/db/create-db.sh` 與 `scripts/db/create-db.test.sh`，可在本機快速建立資料庫並驗證邊界情境
+- **gametoken**: 新增 `DiceGame2ConfigRepositoryIntegrationTest`，補齊 Dice Game 2 設定儲存層整合測試
+- **gametoken**: 新增 `DiceGame2ConfigPropertyBasedTest`，以隨機輸入驗證 `isValidTokenAmount` 與 `calculateDiceCount` 不變性
+- **shared**: 新增 `TestcontainersAnnotationGuardTest`，確保關鍵整合測試維持 Testcontainers 註記規範
+
+### Changed
+- **ci**: GitHub Actions 拆分為 `format`、`unit-tests`、`integration-tests`、`performance-tests`、`property-based-tests` 五個 jobs
+- **ci**: `integration-tests` job 新增 Redis service，並透過倉庫變數 `REDIS_URI` 注入整合測試環境
+- **build**: Maven 新增 `unit-tests`、`integration-tests`、`performance-tests`、`property-based-tests` 測試 profile，明確分流不同測試集合
+- **devops**: 更新 Docker / Compose、`.env.example`、`scripts/sync-env.sh`、`Makefile` 與相關文件，強化環境變數管理與本機啟動流程
+- **logging**: 更新 `logback.xml` 與監控文件，改善日誌檔案管理與操作可觀測性
+
 ## [0.25.5] - 2026-01-29
 
 ### Fixed
