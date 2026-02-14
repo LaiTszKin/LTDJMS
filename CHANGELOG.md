@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.28.1] - 2026-02-14
+
+### Fixed
+- **panel**: 修復 `/admin-panel` 首次開啟時缺少「🧰 派單售後設定」入口的問題；不需先切換其他面板再返回即可看到
+
+### Tests
+- 更新 `AdminPanelCommandHandlerTest`，新增主選單售後入口與按鈕存在性測試
+
 ## [0.28.0] - 2026-02-14
 
 ### Added

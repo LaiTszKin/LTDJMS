@@ -34,6 +34,8 @@ public class AdminPanelCommandHandler implements SlashCommandListener.CommandHan
   public static final String BUTTON_PRODUCT_MANAGEMENT = AdminProductPanelHandler.BUTTON_PRODUCTS;
   public static final String BUTTON_AI_CHANNEL_CONFIG = "admin_panel_ai_channel";
   public static final String BUTTON_AI_AGENT_CONFIG = "admin_panel_ai_agent";
+  public static final String BUTTON_DISPATCH_AFTER_SALES_CONFIG =
+      "admin_panel_dispatch_after_sales";
 
   private final AdminPanelService adminPanelService;
   private final AdminPanelSessionManager adminPanelSessionManager;
@@ -85,6 +87,7 @@ public class AdminPanelCommandHandler implements SlashCommandListener.CommandHan
         .addField("📦 商品與兌換碼管理", "建立商品、生成兌換碼、查詢兌換狀態", false)
         .addField("🤖 AI 頻道設定", "設定允許使用 AI 功能的頻道", false)
         .addField("🤖 AI Agent 配置", "管理哪些頻道啟用 AI Agent 模式", false)
+        .addField("🧰 派單售後設定", "設定派單系統的售後人員名單", false)
         .setFooter("點擊下方按鈕進入對應功能")
         .build();
   }
@@ -97,7 +100,8 @@ public class AdminPanelCommandHandler implements SlashCommandListener.CommandHan
         Button.primary(BUTTON_GAME_MANAGEMENT, "🎲 遊戲設定管理"),
         Button.primary(BUTTON_PRODUCT_MANAGEMENT, "📦 商品與兌換碼管理"),
         Button.primary(BUTTON_AI_CHANNEL_CONFIG, "🤖 AI 頻道設定"),
-        Button.primary(BUTTON_AI_AGENT_CONFIG, "🤖 AI Agent 配置"));
+        Button.primary(BUTTON_AI_AGENT_CONFIG, "🤖 AI Agent 配置"),
+        Button.primary(BUTTON_DISPATCH_AFTER_SALES_CONFIG, "🧰 派單售後設定"));
   }
 
   /** 建立主選單的 ActionRow。 */
@@ -106,6 +110,7 @@ public class AdminPanelCommandHandler implements SlashCommandListener.CommandHan
     return List.of(
         ActionRow.of(buttons.get(0), buttons.get(1)),
         ActionRow.of(buttons.get(2), buttons.get(3)),
-        ActionRow.of(buttons.get(4), buttons.get(5)));
+        ActionRow.of(buttons.get(4), buttons.get(5)),
+        ActionRow.of(buttons.get(6)));
   }
 }

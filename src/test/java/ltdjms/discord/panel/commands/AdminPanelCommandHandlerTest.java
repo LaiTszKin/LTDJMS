@@ -40,6 +40,16 @@ class AdminPanelCommandHandlerTest {
   }
 
   @Test
+  @DisplayName("主選單應包含派單售後設定入口")
+  void mainPanelShouldIncludeDispatchAfterSalesEntry() {
+    MessageEmbed embed = handler.buildMainPanelEmbed("💰");
+
+    List<String> fieldNames = embed.getFields().stream().map(MessageEmbed.Field::getName).toList();
+
+    assertThat(fieldNames).contains("🧰 派單售後設定");
+  }
+
+  @Test
   @DisplayName("主選單按鈕應包含商品管理按鈕")
   void mainPanelButtonsShouldContainProductButton() {
     List<Button> buttons = handler.buildMainActionButtons("💰");
@@ -59,5 +69,15 @@ class AdminPanelCommandHandlerTest {
         .contains(
             AdminPanelCommandHandler.BUTTON_AI_CHANNEL_CONFIG,
             AdminPanelCommandHandler.BUTTON_AI_AGENT_CONFIG);
+  }
+
+  @Test
+  @DisplayName("主選單按鈕應包含派單售後設定")
+  void mainPanelButtonsShouldContainDispatchAfterSalesButton() {
+    List<Button> buttons = handler.buildMainActionButtons("💰");
+
+    assertThat(buttons)
+        .extracting(Button::getId)
+        .contains(AdminPanelCommandHandler.BUTTON_DISPATCH_AFTER_SALES_CONFIG);
   }
 }
