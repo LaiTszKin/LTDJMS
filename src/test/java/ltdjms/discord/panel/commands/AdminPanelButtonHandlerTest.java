@@ -37,4 +37,17 @@ class AdminPanelButtonHandlerTest {
 
     assertThat(embed.getFields()).extracting(MessageEmbed.Field::getName).contains("📦 商品與兌換碼管理");
   }
+
+  @Test
+  @DisplayName("返回主選單應包含派單售後設定按鈕")
+  void mainPanelShouldIncludeDispatchAfterSalesButton() {
+    List<ActionRow> rows = handler.buildMainPanelComponents("💰");
+
+    ActionRow lastRow = rows.get(rows.size() - 1);
+    Button dispatchButton = (Button) lastRow.getComponents().get(0);
+
+    assertThat(dispatchButton.getId())
+        .isEqualTo(AdminPanelButtonHandler.BUTTON_DISPATCH_AFTER_SALES_CONFIG);
+    assertThat(dispatchButton.getLabel()).isEqualTo("🧰 派單售後設定");
+  }
 }

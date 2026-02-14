@@ -8,6 +8,7 @@ import org.slf4j.LoggerFactory;
 import ltdjms.discord.aichat.domain.AllowedCategory;
 import ltdjms.discord.aichat.domain.AllowedChannel;
 import ltdjms.discord.currency.domain.GuildCurrencyConfig;
+import ltdjms.discord.dispatch.services.DispatchAfterSalesStaffService;
 import ltdjms.discord.gametoken.domain.DiceGame1Config;
 import ltdjms.discord.gametoken.domain.DiceGame2Config;
 import ltdjms.discord.shared.DomainError;
@@ -28,16 +29,19 @@ public class AdminPanelService {
   private final GameTokenManagementFacade gameTokenFacade;
   private final GameConfigManagementFacade gameConfigFacade;
   private final AIConfigManagementFacade aiConfigFacade;
+  private final DispatchAfterSalesStaffService dispatchAfterSalesStaffService;
 
   public AdminPanelService(
       CurrencyManagementFacade currencyFacade,
       GameTokenManagementFacade gameTokenFacade,
       GameConfigManagementFacade gameConfigFacade,
-      AIConfigManagementFacade aiConfigFacade) {
+      AIConfigManagementFacade aiConfigFacade,
+      DispatchAfterSalesStaffService dispatchAfterSalesStaffService) {
     this.currencyFacade = currencyFacade;
     this.gameTokenFacade = gameTokenFacade;
     this.gameConfigFacade = gameConfigFacade;
     this.aiConfigFacade = aiConfigFacade;
+    this.dispatchAfterSalesStaffService = dispatchAfterSalesStaffService;
   }
 
   // ========== Currency Management ==========
@@ -295,5 +299,24 @@ public class AdminPanelService {
     LOG.info(
         "Admin panel removing agent channel config: guildId={}, channelId={}", guildId, channelId);
     return aiConfigFacade.removeAgentChannel(guildId, channelId);
+  }
+
+  // ========== Dispatch 售後人員設定 ==========
+
+  public Result<java.util.Set<Long>, DomainError> getDispatchAfterSalesStaff(long guildId) {
+    LOG.debug("Admin panel getting dispatch after-sales staff: guildId={}", guildId);
+    return dispatchAfterSalesStaffService.getStaffUserIds(guildId);
+  }
+
+  public Result<Unit, DomainError> addDispatchAfterSalesStaff(long guildId, long userId) {
+    LOG.info(
+        "Admin panel adding dispatch after-sales staff: guildId={}, userId={}", guildId, userId);
+    return dispatchAfterSalesStaffService.addStaff(guildId, userId);
+  }
+
+  public Result<Unit, DomainError> removeDispatchAfterSalesStaff(long guildId, long userId) {
+    LOG.info(
+        "Admin panel removing dispatch after-sales staff: guildId={}, userId={}", guildId, userId);
+    return dispatchAfterSalesStaffService.removeStaff(guildId, userId);
   }
 }

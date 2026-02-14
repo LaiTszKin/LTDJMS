@@ -19,7 +19,15 @@ public final class DispatchPanelView {
   public static final String SELECT_CUSTOMER_USER = "dispatch_select_customer_user";
 
   public static final String BUTTON_CREATE_ORDER = "dispatch_create_order";
+  public static final String BUTTON_HISTORY = "dispatch_history";
   public static final String BUTTON_CONFIRM_ORDER_PREFIX = "dispatch_confirm_order_";
+  public static final String BUTTON_COMPLETE_ORDER_PREFIX = "dispatch_complete_order_";
+  public static final String BUTTON_CUSTOMER_CONFIRM_COMPLETION_PREFIX =
+      "dispatch_customer_confirm_completion_";
+  public static final String BUTTON_CUSTOMER_REQUEST_AFTER_SALES_PREFIX =
+      "dispatch_customer_request_after_sales_";
+  public static final String BUTTON_AFTER_SALES_CLAIM_PREFIX = "dispatch_after_sales_claim_";
+  public static final String BUTTON_AFTER_SALES_CLOSE_PREFIX = "dispatch_after_sales_close_";
 
   private DispatchPanelView() {
     // Utility class
@@ -60,11 +68,12 @@ public final class DispatchPanelView {
         canCreateOrder
             ? Button.success(BUTTON_CREATE_ORDER, "✅ 建立派單")
             : Button.success(BUTTON_CREATE_ORDER, "✅ 建立派單").asDisabled();
+    Button historyButton = Button.secondary(BUTTON_HISTORY, "📜 歷史記錄");
 
     return List.of(
         ActionRow.of(escortUserSelect),
         ActionRow.of(customerUserSelect),
-        ActionRow.of(createButton));
+        ActionRow.of(createButton, historyButton));
   }
 
   private static String fallback(String value) {

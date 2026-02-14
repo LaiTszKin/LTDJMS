@@ -2,6 +2,24 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.28.0] - 2026-02-14
+
+### Added
+- **dispatch**: 新增護航完單確認流程，護航者可在私訊送出完成，客戶可在私訊「確認完成」或「申請售後」
+- **dispatch**: 新增 24 小時客戶未確認自動完成機制（lazy auto-complete）
+- **dispatch**: 新增售後人員設定資料表 `dispatch_after_sales_staff` 與管理服務，支援每個 guild 設定多位售後
+- **dispatch**: 新增派單歷史記錄查詢，管理員可於派單面板查看最近訂單與狀態
+
+### Changed
+- **dispatch**: 擴充訂單狀態流轉為 `PENDING_CUSTOMER_CONFIRMATION`、`AFTER_SALES_REQUESTED`、`AFTER_SALES_IN_PROGRESS`、`AFTER_SALES_CLOSED`
+- **dispatch**: 售後通知改為優先通知在線售後；若無在線則通知全部售後；多位在線時會同時通知
+- **dispatch**: 售後接手流程改為原子 claim，避免同一案件被多位售後同時介入；僅接手者可完成 close file
+- **panel**: 管理面板新增「🧰 派單售後設定」，可直接新增/移除售後人員名單
+
+### Tests
+- 更新 `EscortDispatchOrderServiceTest`，覆蓋完單、客戶確認、超時自動完成、售後申請/接手/結案與歷史查詢流程
+- 更新 `AdminPanelServiceTest`、`AdminPanelServiceEventTest`、`AdminPanelButtonHandlerTest`，覆蓋售後設定 DI 與管理面板互動
+
 ## [0.27.1] - 2026-02-14
 
 ### Added

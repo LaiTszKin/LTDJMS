@@ -67,6 +67,10 @@ public class AdminPanelButtonHandler extends ListenerAdapter {
   public static final String BUTTON_AI_AGENT_DISABLE = "admin_ai_agent_disable";
   public static final String BUTTON_AI_AGENT_REMOVE = "admin_ai_agent_remove";
 
+  // Dispatch 售後設定（dispatch 模組）
+  public static final String BUTTON_DISPATCH_AFTER_SALES_CONFIG =
+      "admin_panel_dispatch_after_sales";
+
   // Modal IDs
   public static final String MODAL_BALANCE_ADJUST = "admin_modal_balance_adjust";
   public static final String MODAL_TOKEN_ADJUST = "admin_modal_token_adjust";
@@ -92,6 +96,12 @@ public class AdminPanelButtonHandler extends ListenerAdapter {
 
   // AI Agent 配置 Select Menu（aiagent 模組）
   public static final String SELECT_AI_AGENT_CHANNEL = "admin_select_ai_agent_channel";
+
+  // Dispatch 售後設定 Select Menu（dispatch 模組）
+  public static final String SELECT_DISPATCH_AFTER_SALES_ADD_USER =
+      "admin_select_dispatch_after_sales_add_user";
+  public static final String SELECT_DISPATCH_AFTER_SALES_REMOVE_USER =
+      "admin_select_dispatch_after_sales_remove_user";
 
   private final AdminPanelService adminPanelService;
   private final AdminPanelSessionManager adminPanelSessionManager;
@@ -137,6 +147,7 @@ public class AdminPanelButtonHandler extends ListenerAdapter {
         case BUTTON_GAMES -> showGameManagement(event);
         case BUTTON_AI_CHANNEL_CONFIG -> showAIChannelConfig(event);
         case BUTTON_AI_AGENT_CONFIG -> showAIAgentConfig(event);
+        case BUTTON_DISPATCH_AFTER_SALES_CONFIG -> showDispatchAfterSalesConfig(event);
         case BUTTON_BACK -> showMainPanel(event);
         case BUTTON_OPEN_BALANCE_MODAL -> openBalanceModal(event);
         case BUTTON_OPEN_TOKEN_MODAL -> openTokenModal(event);
@@ -181,6 +192,10 @@ public class AdminPanelButtonHandler extends ListenerAdapter {
         handleRemoveCategorySelect(event, guildId);
       } else if (selectId.equals(SELECT_AI_AGENT_CHANNEL)) {
         handleAIAgentChannelSelect(event, guildId);
+      } else if (selectId.equals(SELECT_DISPATCH_AFTER_SALES_ADD_USER)) {
+        handleDispatchAfterSalesAddUserSelect(event, guildId);
+      } else if (selectId.equals(SELECT_DISPATCH_AFTER_SALES_REMOVE_USER)) {
+        handleDispatchAfterSalesRemoveUserSelect(event, guildId);
       }
     } catch (Exception e) {
       LOG.error("Error handling entity select: {}", selectId, e);
@@ -966,6 +981,7 @@ public class AdminPanelButtonHandler extends ListenerAdapter {
         .addField("📦 商品與兌換碼管理", "建立商品、生成兌換碼、查詢兌換狀態", false)
         .addField("🤖 AI 頻道設定", "設定允許使用 AI 功能的頻道", false)
         .addField("🤖 AI Agent 配置", "管理哪些頻道啟用 AI Agent 模式", false)
+        .addField("🧰 派單售後設定", "設定派單系統的售後人員名單", false)
         .setFooter("點擊下方按鈕進入對應功能")
         .build();
   }
@@ -980,7 +996,8 @@ public class AdminPanelButtonHandler extends ListenerAdapter {
             Button.primary(AdminProductPanelHandler.BUTTON_PRODUCTS, "📦 商品與兌換碼管理")),
         ActionRow.of(
             Button.primary(BUTTON_AI_CHANNEL_CONFIG, "🤖 AI 頻道設定"),
-            Button.primary(BUTTON_AI_AGENT_CONFIG, "🤖 AI Agent 配置")));
+            Button.primary(BUTTON_AI_AGENT_CONFIG, "🤖 AI Agent 配置")),
+        ActionRow.of(Button.primary(BUTTON_DISPATCH_AFTER_SALES_CONFIG, "🧰 派單售後設定")));
   }
 
   // ===== Modal Handlers =====
@@ -1477,6 +1494,135 @@ public class AdminPanelButtonHandler extends ListenerAdapter {
       case "adjust" -> "設定代幣";
       default -> mode;
     };
+  }
+
+  // ===== Dispatch 售後設定 =====
+
+  private void showDispatchAfterSalesConfig(ButtonInteractionEvent event) {
+    long guildId = event.getGuild().getIdLong();
+    Result<Set<Long>, DomainError> staffResult =
+        adminPanelService.getDispatchAfterSalesStaff(guildId);
+    String statusMessage = null;
+
+    Set<Long> staffUserIds = Set.of();
+    if (staffResult.isOk()) {
+      staffUserIds = staffResult.getValue();
+    } else {
+      statusMessage = "❌ 讀取售後名單失敗：" + staffResult.getError().message();
+    }
+
+    event
+        .editMessageEmbeds(buildDispatchAfterSalesConfigEmbed(staffUserIds, statusMessage))
+        .setComponents(buildDispatchAfterSalesConfigComponents())
+        .queue();
+  }
+
+  private void handleDispatchAfterSalesAddUserSelect(
+      EntitySelectInteractionEvent event, long guildId) {
+    List<User> selectedUsers = event.getMentions().getUsers();
+    if (selectedUsers.isEmpty()) {
+      event.reply("請選擇一位成員").setEphemeral(true).queue();
+      return;
+    }
+
+    User selectedUser = selectedUsers.get(0);
+    Result<Unit, DomainError> addResult =
+        adminPanelService.addDispatchAfterSalesStaff(guildId, selectedUser.getIdLong());
+
+    if (addResult.isErr()) {
+      event.reply("❌ 新增售後人員失敗：" + addResult.getError().message()).setEphemeral(true).queue();
+      refreshDispatchAfterSalesConfigMessage(
+          event, guildId, "❌ 新增失敗：" + addResult.getError().message());
+      return;
+    }
+
+    event.reply("✅ 已新增售後人員：" + selectedUser.getAsMention()).setEphemeral(true).queue();
+    refreshDispatchAfterSalesConfigMessage(event, guildId, "✅ 已新增 " + selectedUser.getAsMention());
+  }
+
+  private void handleDispatchAfterSalesRemoveUserSelect(
+      EntitySelectInteractionEvent event, long guildId) {
+    List<User> selectedUsers = event.getMentions().getUsers();
+    if (selectedUsers.isEmpty()) {
+      event.reply("請選擇一位成員").setEphemeral(true).queue();
+      return;
+    }
+
+    User selectedUser = selectedUsers.get(0);
+    Result<Unit, DomainError> removeResult =
+        adminPanelService.removeDispatchAfterSalesStaff(guildId, selectedUser.getIdLong());
+
+    if (removeResult.isErr()) {
+      event.reply("❌ 移除售後人員失敗：" + removeResult.getError().message()).setEphemeral(true).queue();
+      refreshDispatchAfterSalesConfigMessage(
+          event, guildId, "❌ 移除失敗：" + removeResult.getError().message());
+      return;
+    }
+
+    event.reply("✅ 已移除售後人員：" + selectedUser.getAsMention()).setEphemeral(true).queue();
+    refreshDispatchAfterSalesConfigMessage(event, guildId, "✅ 已移除 " + selectedUser.getAsMention());
+  }
+
+  private void refreshDispatchAfterSalesConfigMessage(
+      EntitySelectInteractionEvent event, long guildId, String statusMessage) {
+    Result<Set<Long>, DomainError> staffResult =
+        adminPanelService.getDispatchAfterSalesStaff(guildId);
+    Set<Long> staffUserIds = staffResult.isOk() ? staffResult.getValue() : Set.of();
+    String status =
+        staffResult.isErr() ? "❌ 讀取售後名單失敗：" + staffResult.getError().message() : statusMessage;
+
+    event
+        .getMessage()
+        .editMessageEmbeds(buildDispatchAfterSalesConfigEmbed(staffUserIds, status))
+        .setComponents(buildDispatchAfterSalesConfigComponents())
+        .queue();
+  }
+
+  private MessageEmbed buildDispatchAfterSalesConfigEmbed(
+      Set<Long> staffUserIds, String statusMessage) {
+    EmbedBuilder embed =
+        new EmbedBuilder()
+            .setTitle("🧰 派單售後人員設定")
+            .setDescription("設定可接手派單售後案件的成員")
+            .setColor(EMBED_COLOR);
+
+    if (staffUserIds.isEmpty()) {
+      embed.addField("目前售後名單", "尚未設定任何售後人員", false);
+    } else {
+      StringBuilder users = new StringBuilder();
+      for (Long userId : staffUserIds) {
+        users.append("<@").append(userId).append(">\n");
+      }
+      embed.addField("目前售後名單 (" + staffUserIds.size() + ")", users.toString(), false);
+    }
+
+    if (statusMessage != null && !statusMessage.isBlank()) {
+      embed.addField("狀態", statusMessage, false);
+    }
+
+    embed.setFooter("可設定多位售後；有售後申請時會優先通知在線售後");
+    return embed.build();
+  }
+
+  private List<ActionRow> buildDispatchAfterSalesConfigComponents() {
+    EntitySelectMenu addUserSelect =
+        EntitySelectMenu.create(
+                SELECT_DISPATCH_AFTER_SALES_ADD_USER, EntitySelectMenu.SelectTarget.USER)
+            .setPlaceholder("新增售後人員")
+            .setRequiredRange(1, 1)
+            .build();
+
+    EntitySelectMenu removeUserSelect =
+        EntitySelectMenu.create(
+                SELECT_DISPATCH_AFTER_SALES_REMOVE_USER, EntitySelectMenu.SelectTarget.USER)
+            .setPlaceholder("移除售後人員")
+            .setRequiredRange(1, 1)
+            .build();
+
+    return List.of(
+        ActionRow.of(addUserSelect),
+        ActionRow.of(removeUserSelect),
+        ActionRow.of(Button.secondary(BUTTON_BACK, "⬅️ 返回主選單")));
   }
 
   // ===== AI 頻道設定管理 =====

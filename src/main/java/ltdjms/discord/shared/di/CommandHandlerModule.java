@@ -14,6 +14,7 @@ import ltdjms.discord.currency.services.BalanceService;
 import ltdjms.discord.currency.services.CurrencyConfigService;
 import ltdjms.discord.currency.services.CurrencyTransactionService;
 import ltdjms.discord.dispatch.commands.DispatchPanelCommandHandler;
+import ltdjms.discord.dispatch.services.DispatchAfterSalesStaffService;
 import ltdjms.discord.gametoken.commands.DiceGame1CommandHandler;
 import ltdjms.discord.gametoken.commands.DiceGame2CommandHandler;
 import ltdjms.discord.gametoken.persistence.DiceGame1ConfigRepository;
@@ -200,8 +201,14 @@ public class CommandHandlerModule {
       CurrencyManagementFacade currencyFacade,
       GameTokenManagementFacade gameTokenFacade,
       GameConfigManagementFacade gameConfigFacade,
-      AIConfigManagementFacade aiConfigFacade) {
-    return new AdminPanelService(currencyFacade, gameTokenFacade, gameConfigFacade, aiConfigFacade);
+      AIConfigManagementFacade aiConfigFacade,
+      DispatchAfterSalesStaffService dispatchAfterSalesStaffService) {
+    return new AdminPanelService(
+        currencyFacade,
+        gameTokenFacade,
+        gameConfigFacade,
+        aiConfigFacade,
+        dispatchAfterSalesStaffService);
   }
 
   @Provides

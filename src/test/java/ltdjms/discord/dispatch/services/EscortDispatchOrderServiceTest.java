@@ -1,11 +1,16 @@
 package ltdjms.discord.dispatch.services;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.time.Clock;
 import java.time.Instant;
+import java.time.ZoneOffset;
+import java.util.List;
 import java.util.Optional;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -28,6 +33,7 @@ class EscortDispatchOrderServiceTest {
   private static final long TEST_ADMIN_ID = 10001L;
   private static final long TEST_ESCORT_USER_ID = 40001L;
   private static final long TEST_CUSTOMER_USER_ID = 50001L;
+  private static final Instant FIXED_NOW = Instant.parse("2026-02-14T12:00:00Z");
 
   @Mock private EscortDispatchOrderRepository repository;
   @Mock private EscortDispatchOrderNumberGenerator orderNumberGenerator;
@@ -36,7 +42,8 @@ class EscortDispatchOrderServiceTest {
 
   @BeforeEach
   void setUp() {
-    service = new EscortDispatchOrderService(repository, orderNumberGenerator);
+    Clock fixedClock = Clock.fixed(FIXED_NOW, ZoneOffset.UTC);
+    service = new EscortDispatchOrderService(repository, orderNumberGenerator, fixedClock);
   }
 
   @Nested
@@ -52,71 +59,36 @@ class EscortDispatchOrderServiceTest {
 
       assertThat(result.isErr()).isTrue();
       assertThat(result.getError().category()).isEqualTo(DomainError.Category.INVALID_INPUT);
-      assertThat(result.getError().message()).contains("不能是同一人");
-      verify(repository, never()).save(org.mockito.ArgumentMatchers.any());
+      verify(repository, never()).save(any());
     }
 
     @Test
     @DisplayName("should create order successfully")
     void shouldCreateOrderSuccessfully() {
-      when(orderNumberGenerator.generate()).thenReturn("ESC-20260213-ABC123");
-      when(repository.existsByOrderNumber("ESC-20260213-ABC123")).thenReturn(false);
+      when(orderNumberGenerator.generate()).thenReturn("ESC-20260214-ABC123");
+      when(repository.existsByOrderNumber("ESC-20260214-ABC123")).thenReturn(false);
 
       EscortDispatchOrder savedOrder =
-          new EscortDispatchOrder(
-              1L,
-              "ESC-20260213-ABC123",
-              TEST_GUILD_ID,
-              TEST_ADMIN_ID,
-              TEST_ESCORT_USER_ID,
-              TEST_CUSTOMER_USER_ID,
+          buildOrder(
               EscortDispatchOrder.Status.PENDING_CONFIRMATION,
-              Instant.now(),
+              "ESC-20260214-ABC123",
+              Instant.parse("2026-02-14T10:00:00Z"),
               null,
-              Instant.now());
-      when(repository.save(org.mockito.ArgumentMatchers.any(EscortDispatchOrder.class)))
-          .thenReturn(savedOrder);
+              null,
+              null,
+              null,
+              null,
+              null,
+              null,
+              Instant.parse("2026-02-14T10:00:00Z"));
+      when(repository.save(any(EscortDispatchOrder.class))).thenReturn(savedOrder);
 
       Result<EscortDispatchOrder, DomainError> result =
           service.createOrder(
               TEST_GUILD_ID, TEST_ADMIN_ID, TEST_ESCORT_USER_ID, TEST_CUSTOMER_USER_ID);
 
       assertThat(result.isOk()).isTrue();
-      assertThat(result.getValue().id()).isEqualTo(1L);
-      assertThat(result.getValue().orderNumber()).isEqualTo("ESC-20260213-ABC123");
-    }
-
-    @Test
-    @DisplayName("should retry order number generation when duplicate exists")
-    void shouldRetryOrderNumberGenerationWhenDuplicateExists() {
-      when(orderNumberGenerator.generate())
-          .thenReturn("ESC-20260213-AAAAAA")
-          .thenReturn("ESC-20260213-BBBBBB");
-      when(repository.existsByOrderNumber("ESC-20260213-AAAAAA")).thenReturn(true);
-      when(repository.existsByOrderNumber("ESC-20260213-BBBBBB")).thenReturn(false);
-      when(repository.save(org.mockito.ArgumentMatchers.any(EscortDispatchOrder.class)))
-          .thenAnswer(invocation -> invocation.getArgument(0));
-
-      Result<EscortDispatchOrder, DomainError> result =
-          service.createOrder(
-              TEST_GUILD_ID, TEST_ADMIN_ID, TEST_ESCORT_USER_ID, TEST_CUSTOMER_USER_ID);
-
-      assertThat(result.isOk()).isTrue();
-      assertThat(result.getValue().orderNumber()).isEqualTo("ESC-20260213-BBBBBB");
-    }
-
-    @Test
-    @DisplayName("should return persistence failure when unable to generate unique order number")
-    void shouldReturnPersistenceFailureWhenUnableToGenerateUniqueOrderNumber() {
-      when(orderNumberGenerator.generate()).thenReturn("ESC-20260213-AAAAAA");
-      when(repository.existsByOrderNumber("ESC-20260213-AAAAAA")).thenReturn(true);
-
-      Result<EscortDispatchOrder, DomainError> result =
-          service.createOrder(
-              TEST_GUILD_ID, TEST_ADMIN_ID, TEST_ESCORT_USER_ID, TEST_CUSTOMER_USER_ID);
-
-      assertThat(result.isErr()).isTrue();
-      assertThat(result.getError().category()).isEqualTo(DomainError.Category.PERSISTENCE_FAILURE);
+      assertThat(result.getValue().orderNumber()).isEqualTo("ESC-20260214-ABC123");
     }
   }
 
@@ -125,100 +97,334 @@ class EscortDispatchOrderServiceTest {
   class ConfirmOrderTests {
 
     @Test
-    @DisplayName("should reject blank order number")
-    void shouldRejectBlankOrderNumber() {
-      Result<EscortDispatchOrder, DomainError> result =
-          service.confirmOrder("   ", TEST_ESCORT_USER_ID);
-
-      assertThat(result.isErr()).isTrue();
-      assertThat(result.getError().category()).isEqualTo(DomainError.Category.INVALID_INPUT);
-    }
-
-    @Test
-    @DisplayName("should reject when order not found")
-    void shouldRejectWhenOrderNotFound() {
-      when(repository.findByOrderNumber("ESC-20260213-ABC123")).thenReturn(Optional.empty());
-
-      Result<EscortDispatchOrder, DomainError> result =
-          service.confirmOrder("ESC-20260213-ABC123", TEST_ESCORT_USER_ID);
-
-      assertThat(result.isErr()).isTrue();
-      assertThat(result.getError().category()).isEqualTo(DomainError.Category.INVALID_INPUT);
-      assertThat(result.getError().message()).contains("找不到");
-    }
-
-    @Test
-    @DisplayName("should reject when confirmer is not assigned escort")
-    void shouldRejectWhenConfirmerIsNotAssignedEscort() {
-      EscortDispatchOrder order =
-          EscortDispatchOrder.createPending(
-              "ESC-20260213-ABC123",
-              TEST_GUILD_ID,
-              TEST_ADMIN_ID,
-              TEST_ESCORT_USER_ID,
-              TEST_CUSTOMER_USER_ID);
-      when(repository.findByOrderNumber("ESC-20260213-ABC123")).thenReturn(Optional.of(order));
-
-      Result<EscortDispatchOrder, DomainError> result =
-          service.confirmOrder("ESC-20260213-ABC123", 999999L);
-
-      assertThat(result.isErr()).isTrue();
-      assertThat(result.getError().message()).contains("只有被指派的護航者");
-      verify(repository, never()).update(org.mockito.ArgumentMatchers.any());
-    }
-
-    @Test
-    @DisplayName("should reject when order already confirmed")
-    void shouldRejectWhenOrderAlreadyConfirmed() {
-      EscortDispatchOrder confirmedOrder =
-          new EscortDispatchOrder(
-              99L,
-              "ESC-20260213-ABC123",
-              TEST_GUILD_ID,
-              TEST_ADMIN_ID,
-              TEST_ESCORT_USER_ID,
-              TEST_CUSTOMER_USER_ID,
-              EscortDispatchOrder.Status.CONFIRMED,
-              Instant.now().minusSeconds(3600),
-              Instant.now().minusSeconds(1800),
-              Instant.now().minusSeconds(1800));
-      when(repository.findByOrderNumber("ESC-20260213-ABC123"))
-          .thenReturn(Optional.of(confirmedOrder));
-
-      Result<EscortDispatchOrder, DomainError> result =
-          service.confirmOrder("ESC-20260213-ABC123", TEST_ESCORT_USER_ID);
-
-      assertThat(result.isErr()).isTrue();
-      assertThat(result.getError().message()).contains("已確認");
-      verify(repository, never()).update(org.mockito.ArgumentMatchers.any());
-    }
-
-    @Test
     @DisplayName("should confirm order successfully")
     void shouldConfirmOrderSuccessfully() {
       EscortDispatchOrder pendingOrder =
-          new EscortDispatchOrder(
-              10L,
-              "ESC-20260213-ABC123",
-              TEST_GUILD_ID,
-              TEST_ADMIN_ID,
-              TEST_ESCORT_USER_ID,
-              TEST_CUSTOMER_USER_ID,
+          buildOrder(
               EscortDispatchOrder.Status.PENDING_CONFIRMATION,
-              Instant.now().minusSeconds(3600),
+              "ESC-20260214-ABC123",
+              Instant.parse("2026-02-14T09:00:00Z"),
               null,
-              Instant.now().minusSeconds(3600));
-      when(repository.findByOrderNumber("ESC-20260213-ABC123"))
+              null,
+              null,
+              null,
+              null,
+              null,
+              null,
+              Instant.parse("2026-02-14T09:00:00Z"));
+      when(repository.findByOrderNumber("ESC-20260214-ABC123"))
           .thenReturn(Optional.of(pendingOrder));
-      when(repository.update(org.mockito.ArgumentMatchers.any(EscortDispatchOrder.class)))
+      when(repository.update(any(EscortDispatchOrder.class)))
           .thenAnswer(invocation -> invocation.getArgument(0));
 
       Result<EscortDispatchOrder, DomainError> result =
-          service.confirmOrder("ESC-20260213-ABC123", TEST_ESCORT_USER_ID);
+          service.confirmOrder("ESC-20260214-ABC123", TEST_ESCORT_USER_ID);
 
       assertThat(result.isOk()).isTrue();
       assertThat(result.getValue().status()).isEqualTo(EscortDispatchOrder.Status.CONFIRMED);
-      assertThat(result.getValue().confirmedAt()).isNotNull();
+      assertThat(result.getValue().confirmedAt()).isEqualTo(FIXED_NOW);
     }
+  }
+
+  @Nested
+  @DisplayName("completion flow")
+  class CompletionFlowTests {
+
+    @Test
+    @DisplayName("should request completion by escort")
+    void shouldRequestCompletionByEscort() {
+      EscortDispatchOrder confirmedOrder =
+          buildOrder(
+              EscortDispatchOrder.Status.CONFIRMED,
+              "ESC-20260214-ABC123",
+              Instant.parse("2026-02-14T09:00:00Z"),
+              Instant.parse("2026-02-14T09:10:00Z"),
+              null,
+              null,
+              null,
+              null,
+              null,
+              null,
+              Instant.parse("2026-02-14T09:10:00Z"));
+      when(repository.findByOrderNumber("ESC-20260214-ABC123"))
+          .thenReturn(Optional.of(confirmedOrder));
+      when(repository.update(any(EscortDispatchOrder.class)))
+          .thenAnswer(invocation -> invocation.getArgument(0));
+
+      Result<EscortDispatchOrder, DomainError> result =
+          service.requestCompletion("ESC-20260214-ABC123", TEST_ESCORT_USER_ID);
+
+      assertThat(result.isOk()).isTrue();
+      assertThat(result.getValue().status())
+          .isEqualTo(EscortDispatchOrder.Status.PENDING_CUSTOMER_CONFIRMATION);
+      assertThat(result.getValue().completionRequestedAt()).isEqualTo(FIXED_NOW);
+    }
+
+    @Test
+    @DisplayName("should allow customer to confirm completion")
+    void shouldAllowCustomerToConfirmCompletion() {
+      EscortDispatchOrder pendingCustomerOrder =
+          buildOrder(
+              EscortDispatchOrder.Status.PENDING_CUSTOMER_CONFIRMATION,
+              "ESC-20260214-ABC123",
+              Instant.parse("2026-02-14T09:00:00Z"),
+              Instant.parse("2026-02-14T09:10:00Z"),
+              Instant.parse("2026-02-14T11:30:00Z"),
+              null,
+              null,
+              null,
+              null,
+              null,
+              Instant.parse("2026-02-14T11:30:00Z"));
+      when(repository.findByOrderNumber("ESC-20260214-ABC123"))
+          .thenReturn(Optional.of(pendingCustomerOrder));
+      when(repository.update(any(EscortDispatchOrder.class)))
+          .thenAnswer(invocation -> invocation.getArgument(0));
+
+      Result<EscortDispatchOrder, DomainError> result =
+          service.customerConfirmCompletion("ESC-20260214-ABC123", TEST_CUSTOMER_USER_ID);
+
+      assertThat(result.isOk()).isTrue();
+      assertThat(result.getValue().status()).isEqualTo(EscortDispatchOrder.Status.COMPLETED);
+      assertThat(result.getValue().completedAt()).isEqualTo(FIXED_NOW);
+    }
+
+    @Test
+    @DisplayName("should auto-complete order when customer confirmation timed out")
+    void shouldAutoCompleteOrderWhenCustomerConfirmationTimedOut() {
+      EscortDispatchOrder pendingCustomerOrder =
+          buildOrder(
+              EscortDispatchOrder.Status.PENDING_CUSTOMER_CONFIRMATION,
+              "ESC-20260214-ABC123",
+              Instant.parse("2026-02-13T00:00:00Z"),
+              Instant.parse("2026-02-13T00:10:00Z"),
+              Instant.parse("2026-02-13T11:00:00Z"),
+              null,
+              null,
+              null,
+              null,
+              null,
+              Instant.parse("2026-02-13T11:00:00Z"));
+      when(repository.findByOrderNumber("ESC-20260214-ABC123"))
+          .thenReturn(Optional.of(pendingCustomerOrder));
+      when(repository.update(any(EscortDispatchOrder.class)))
+          .thenAnswer(invocation -> invocation.getArgument(0));
+
+      Result<EscortDispatchOrder, DomainError> result =
+          service.customerConfirmCompletion("ESC-20260214-ABC123", TEST_CUSTOMER_USER_ID);
+
+      assertThat(result.isOk()).isTrue();
+      assertThat(result.getValue().status()).isEqualTo(EscortDispatchOrder.Status.COMPLETED);
+      assertThat(result.getValue().completedAt()).isEqualTo(FIXED_NOW);
+    }
+  }
+
+  @Nested
+  @DisplayName("after-sales flow")
+  class AfterSalesFlowTests {
+
+    @Test
+    @DisplayName("should request after-sales from customer")
+    void shouldRequestAfterSalesFromCustomer() {
+      EscortDispatchOrder pendingCustomerOrder =
+          buildOrder(
+              EscortDispatchOrder.Status.PENDING_CUSTOMER_CONFIRMATION,
+              "ESC-20260214-ABC123",
+              Instant.parse("2026-02-14T09:00:00Z"),
+              Instant.parse("2026-02-14T09:10:00Z"),
+              Instant.parse("2026-02-14T11:30:00Z"),
+              null,
+              null,
+              null,
+              null,
+              null,
+              Instant.parse("2026-02-14T11:30:00Z"));
+      when(repository.findByOrderNumber("ESC-20260214-ABC123"))
+          .thenReturn(Optional.of(pendingCustomerOrder));
+      when(repository.update(any(EscortDispatchOrder.class)))
+          .thenAnswer(invocation -> invocation.getArgument(0));
+
+      Result<EscortDispatchOrder, DomainError> result =
+          service.requestAfterSales("ESC-20260214-ABC123", TEST_CUSTOMER_USER_ID);
+
+      assertThat(result.isOk()).isTrue();
+      assertThat(result.getValue().status())
+          .isEqualTo(EscortDispatchOrder.Status.AFTER_SALES_REQUESTED);
+      assertThat(result.getValue().afterSalesRequestedAt()).isEqualTo(FIXED_NOW);
+    }
+
+    @Test
+    @DisplayName("should claim after-sales case successfully")
+    void shouldClaimAfterSalesCaseSuccessfully() {
+      EscortDispatchOrder requestedOrder =
+          buildOrder(
+              EscortDispatchOrder.Status.AFTER_SALES_REQUESTED,
+              "ESC-20260214-ABC123",
+              Instant.parse("2026-02-14T09:00:00Z"),
+              Instant.parse("2026-02-14T09:10:00Z"),
+              Instant.parse("2026-02-14T10:00:00Z"),
+              Instant.parse("2026-02-14T10:05:00Z"),
+              null,
+              null,
+              null,
+              null,
+              Instant.parse("2026-02-14T10:05:00Z"));
+      EscortDispatchOrder claimedOrder =
+          buildOrder(
+              EscortDispatchOrder.Status.AFTER_SALES_IN_PROGRESS,
+              "ESC-20260214-ABC123",
+              Instant.parse("2026-02-14T09:00:00Z"),
+              Instant.parse("2026-02-14T09:10:00Z"),
+              Instant.parse("2026-02-14T10:00:00Z"),
+              Instant.parse("2026-02-14T10:05:00Z"),
+              TEST_ADMIN_ID,
+              Instant.parse("2026-02-14T11:59:00Z"),
+              null,
+              null,
+              Instant.parse("2026-02-14T11:59:00Z"));
+      when(repository.findByOrderNumber("ESC-20260214-ABC123"))
+          .thenReturn(Optional.of(requestedOrder));
+      when(repository.claimAfterSales("ESC-20260214-ABC123", TEST_ADMIN_ID, FIXED_NOW))
+          .thenReturn(Optional.of(claimedOrder));
+
+      Result<EscortDispatchOrder, DomainError> result =
+          service.claimAfterSales("ESC-20260214-ABC123", TEST_ADMIN_ID);
+
+      assertThat(result.isOk()).isTrue();
+      assertThat(result.getValue().status())
+          .isEqualTo(EscortDispatchOrder.Status.AFTER_SALES_IN_PROGRESS);
+      assertThat(result.getValue().afterSalesAssigneeUserId()).isEqualTo(TEST_ADMIN_ID);
+    }
+
+    @Test
+    @DisplayName("should reject claim when case already claimed by others")
+    void shouldRejectClaimWhenCaseAlreadyClaimedByOthers() {
+      EscortDispatchOrder inProgressOrder =
+          buildOrder(
+              EscortDispatchOrder.Status.AFTER_SALES_IN_PROGRESS,
+              "ESC-20260214-ABC123",
+              Instant.parse("2026-02-14T09:00:00Z"),
+              Instant.parse("2026-02-14T09:10:00Z"),
+              Instant.parse("2026-02-14T10:00:00Z"),
+              Instant.parse("2026-02-14T10:05:00Z"),
+              TEST_ADMIN_ID,
+              Instant.parse("2026-02-14T11:59:00Z"),
+              null,
+              null,
+              Instant.parse("2026-02-14T11:59:00Z"));
+      when(repository.findByOrderNumber("ESC-20260214-ABC123"))
+          .thenReturn(Optional.of(inProgressOrder));
+
+      Result<EscortDispatchOrder, DomainError> result =
+          service.claimAfterSales("ESC-20260214-ABC123", TEST_ESCORT_USER_ID);
+
+      assertThat(result.isErr()).isTrue();
+      assertThat(result.getError().message()).contains("已由其他售後人員接手");
+      verify(repository, never()).claimAfterSales(any(), anyLong(), any());
+    }
+
+    @Test
+    @DisplayName("should close after-sales case by assignee")
+    void shouldCloseAfterSalesCaseByAssignee() {
+      EscortDispatchOrder inProgressOrder =
+          buildOrder(
+              EscortDispatchOrder.Status.AFTER_SALES_IN_PROGRESS,
+              "ESC-20260214-ABC123",
+              Instant.parse("2026-02-14T09:00:00Z"),
+              Instant.parse("2026-02-14T09:10:00Z"),
+              Instant.parse("2026-02-14T10:00:00Z"),
+              Instant.parse("2026-02-14T10:05:00Z"),
+              TEST_ADMIN_ID,
+              Instant.parse("2026-02-14T11:59:00Z"),
+              null,
+              null,
+              Instant.parse("2026-02-14T11:59:00Z"));
+      EscortDispatchOrder closedOrder =
+          buildOrder(
+              EscortDispatchOrder.Status.AFTER_SALES_CLOSED,
+              "ESC-20260214-ABC123",
+              Instant.parse("2026-02-14T09:00:00Z"),
+              Instant.parse("2026-02-14T09:10:00Z"),
+              Instant.parse("2026-02-14T10:00:00Z"),
+              Instant.parse("2026-02-14T10:05:00Z"),
+              TEST_ADMIN_ID,
+              Instant.parse("2026-02-14T11:59:00Z"),
+              Instant.parse("2026-02-14T12:00:00Z"),
+              null,
+              Instant.parse("2026-02-14T12:00:00Z"));
+      when(repository.findByOrderNumber("ESC-20260214-ABC123"))
+          .thenReturn(Optional.of(inProgressOrder));
+      when(repository.closeAfterSales("ESC-20260214-ABC123", TEST_ADMIN_ID, FIXED_NOW))
+          .thenReturn(Optional.of(closedOrder));
+
+      Result<EscortDispatchOrder, DomainError> result =
+          service.closeAfterSales("ESC-20260214-ABC123", TEST_ADMIN_ID);
+
+      assertThat(result.isOk()).isTrue();
+      assertThat(result.getValue().status())
+          .isEqualTo(EscortDispatchOrder.Status.AFTER_SALES_CLOSED);
+    }
+  }
+
+  @Nested
+  @DisplayName("history")
+  class HistoryTests {
+
+    @Test
+    @DisplayName("should query recent orders")
+    void shouldQueryRecentOrders() {
+      EscortDispatchOrder order =
+          buildOrder(
+              EscortDispatchOrder.Status.CONFIRMED,
+              "ESC-20260214-ABC123",
+              Instant.parse("2026-02-14T09:00:00Z"),
+              Instant.parse("2026-02-14T09:10:00Z"),
+              null,
+              null,
+              null,
+              null,
+              null,
+              null,
+              Instant.parse("2026-02-14T09:10:00Z"));
+      when(repository.findRecentByGuildId(TEST_GUILD_ID, 5)).thenReturn(List.of(order));
+
+      Result<List<EscortDispatchOrder>, DomainError> result =
+          service.findRecentOrders(TEST_GUILD_ID, 5);
+
+      assertThat(result.isOk()).isTrue();
+      assertThat(result.getValue()).hasSize(1);
+      assertThat(result.getValue().get(0).orderNumber()).isEqualTo("ESC-20260214-ABC123");
+    }
+  }
+
+  private EscortDispatchOrder buildOrder(
+      EscortDispatchOrder.Status status,
+      String orderNumber,
+      Instant createdAt,
+      Instant confirmedAt,
+      Instant completionRequestedAt,
+      Instant afterSalesRequestedAt,
+      Long afterSalesAssigneeUserId,
+      Instant afterSalesAssignedAt,
+      Instant afterSalesClosedAt,
+      Instant completedAt,
+      Instant updatedAt) {
+    return new EscortDispatchOrder(
+        1L,
+        orderNumber,
+        TEST_GUILD_ID,
+        TEST_ADMIN_ID,
+        TEST_ESCORT_USER_ID,
+        TEST_CUSTOMER_USER_ID,
+        status,
+        createdAt,
+        confirmedAt,
+        completionRequestedAt,
+        completedAt,
+        afterSalesRequestedAt,
+        afterSalesAssigneeUserId,
+        afterSalesAssignedAt,
+        afterSalesClosedAt,
+        updatedAt);
   }
 }

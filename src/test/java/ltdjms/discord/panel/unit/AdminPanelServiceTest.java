@@ -17,6 +17,7 @@ import org.junit.jupiter.api.Test;
 import ltdjms.discord.aichat.domain.AllowedCategory;
 import ltdjms.discord.aichat.domain.AllowedChannel;
 import ltdjms.discord.currency.domain.GuildCurrencyConfig;
+import ltdjms.discord.dispatch.services.DispatchAfterSalesStaffService;
 import ltdjms.discord.gametoken.domain.DiceGame1Config;
 import ltdjms.discord.gametoken.domain.DiceGame2Config;
 import ltdjms.discord.panel.commands.AdminPanelButtonHandler;
@@ -39,6 +40,7 @@ class AdminPanelServiceTest {
   private GameTokenManagementFacade gameTokenFacade;
   private GameConfigManagementFacade gameConfigFacade;
   private AIConfigManagementFacade aiConfigFacade;
+  private DispatchAfterSalesStaffService dispatchAfterSalesStaffService;
   private AdminPanelService adminPanelService;
 
   @BeforeEach
@@ -47,9 +49,15 @@ class AdminPanelServiceTest {
     gameTokenFacade = mock(GameTokenManagementFacade.class);
     gameConfigFacade = mock(GameConfigManagementFacade.class);
     aiConfigFacade = mock(AIConfigManagementFacade.class);
+    dispatchAfterSalesStaffService = mock(DispatchAfterSalesStaffService.class);
 
     adminPanelService =
-        new AdminPanelService(currencyFacade, gameTokenFacade, gameConfigFacade, aiConfigFacade);
+        new AdminPanelService(
+            currencyFacade,
+            gameTokenFacade,
+            gameConfigFacade,
+            aiConfigFacade,
+            dispatchAfterSalesStaffService);
   }
 
   @Nested
@@ -624,6 +632,48 @@ class AdminPanelServiceTest {
       assertThat(message).contains("20");
       assertThat(message).contains("50");
       assertThat(message).contains("70");
+    }
+  }
+
+  @Nested
+  @DisplayName("Dispatch after-sales staff")
+  class DispatchAfterSalesStaffTests {
+
+    @Test
+    @DisplayName("should get dispatch after-sales staff list")
+    void shouldGetDispatchAfterSalesStaffList() {
+      when(dispatchAfterSalesStaffService.getStaffUserIds(TEST_GUILD_ID))
+          .thenReturn(Result.ok(Set.of(TEST_USER_ID, 123L)));
+
+      Result<Set<Long>, DomainError> result =
+          adminPanelService.getDispatchAfterSalesStaff(TEST_GUILD_ID);
+
+      assertThat(result.isOk()).isTrue();
+      assertThat(result.getValue()).contains(TEST_USER_ID, 123L);
+    }
+
+    @Test
+    @DisplayName("should add dispatch after-sales staff")
+    void shouldAddDispatchAfterSalesStaff() {
+      when(dispatchAfterSalesStaffService.addStaff(TEST_GUILD_ID, TEST_USER_ID))
+          .thenReturn(Result.ok(Unit.INSTANCE));
+
+      Result<Unit, DomainError> result =
+          adminPanelService.addDispatchAfterSalesStaff(TEST_GUILD_ID, TEST_USER_ID);
+
+      assertThat(result.isOk()).isTrue();
+    }
+
+    @Test
+    @DisplayName("should remove dispatch after-sales staff")
+    void shouldRemoveDispatchAfterSalesStaff() {
+      when(dispatchAfterSalesStaffService.removeStaff(TEST_GUILD_ID, TEST_USER_ID))
+          .thenReturn(Result.ok(Unit.INSTANCE));
+
+      Result<Unit, DomainError> result =
+          adminPanelService.removeDispatchAfterSalesStaff(TEST_GUILD_ID, TEST_USER_ID);
+
+      assertThat(result.isOk()).isTrue();
     }
   }
 

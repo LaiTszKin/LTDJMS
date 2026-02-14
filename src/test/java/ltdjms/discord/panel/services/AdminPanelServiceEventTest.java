@@ -9,6 +9,7 @@ import java.time.Instant;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import ltdjms.discord.dispatch.services.DispatchAfterSalesStaffService;
 import ltdjms.discord.gametoken.domain.DiceGame1Config;
 import ltdjms.discord.gametoken.domain.DiceGame2Config;
 import ltdjms.discord.shared.Result;
@@ -19,6 +20,7 @@ class AdminPanelServiceEventTest {
   private GameTokenManagementFacade gameTokenFacade;
   private GameConfigManagementFacade gameConfigFacade;
   private AIConfigManagementFacade aiConfigFacade;
+  private DispatchAfterSalesStaffService dispatchAfterSalesStaffService;
   private AdminPanelService service;
 
   @BeforeEach
@@ -27,9 +29,15 @@ class AdminPanelServiceEventTest {
     gameTokenFacade = mock(GameTokenManagementFacade.class);
     gameConfigFacade = mock(GameConfigManagementFacade.class);
     aiConfigFacade = mock(AIConfigManagementFacade.class);
+    dispatchAfterSalesStaffService = mock(DispatchAfterSalesStaffService.class);
 
     service =
-        new AdminPanelService(currencyFacade, gameTokenFacade, gameConfigFacade, aiConfigFacade);
+        new AdminPanelService(
+            currencyFacade,
+            gameTokenFacade,
+            gameConfigFacade,
+            aiConfigFacade,
+            dispatchAfterSalesStaffService);
   }
 
   @Test

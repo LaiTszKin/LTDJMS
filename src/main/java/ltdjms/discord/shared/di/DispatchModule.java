@@ -7,8 +7,11 @@ import dagger.Module;
 import dagger.Provides;
 import ltdjms.discord.dispatch.commands.DispatchPanelCommandHandler;
 import ltdjms.discord.dispatch.commands.DispatchPanelInteractionHandler;
+import ltdjms.discord.dispatch.domain.DispatchAfterSalesStaffRepository;
 import ltdjms.discord.dispatch.domain.EscortDispatchOrderRepository;
+import ltdjms.discord.dispatch.persistence.JdbcDispatchAfterSalesStaffRepository;
 import ltdjms.discord.dispatch.persistence.JdbcEscortDispatchOrderRepository;
+import ltdjms.discord.dispatch.services.DispatchAfterSalesStaffService;
 import ltdjms.discord.dispatch.services.EscortDispatchOrderService;
 
 /** Dagger module for escort dispatch system dependencies. */
@@ -30,6 +33,20 @@ public class DispatchModule {
 
   @Provides
   @Singleton
+  public DispatchAfterSalesStaffRepository provideDispatchAfterSalesStaffRepository(
+      DataSource dataSource) {
+    return new JdbcDispatchAfterSalesStaffRepository(dataSource);
+  }
+
+  @Provides
+  @Singleton
+  public DispatchAfterSalesStaffService provideDispatchAfterSalesStaffService(
+      DispatchAfterSalesStaffRepository repository) {
+    return new DispatchAfterSalesStaffService(repository);
+  }
+
+  @Provides
+  @Singleton
   public DispatchPanelCommandHandler provideDispatchPanelCommandHandler() {
     return new DispatchPanelCommandHandler();
   }
@@ -37,7 +54,8 @@ public class DispatchModule {
   @Provides
   @Singleton
   public DispatchPanelInteractionHandler provideDispatchPanelInteractionHandler(
-      EscortDispatchOrderService orderService) {
-    return new DispatchPanelInteractionHandler(orderService);
+      EscortDispatchOrderService orderService,
+      DispatchAfterSalesStaffService afterSalesStaffService) {
+    return new DispatchPanelInteractionHandler(orderService, afterSalesStaffService);
   }
 }
