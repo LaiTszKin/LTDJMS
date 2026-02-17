@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.28.3] - 2026-02-17
+
+### Added
+- **aiagent**: 新增 `LangChain4jToolExecutionStartedEvent`，工具呼叫前會先發送進度訊息，降低使用者等待時的空窗感
+
+### Changed
+- **aichat**: `ToolExecutionListener` 改為先通知「即將呼叫工具」，再在工具完成後通知 `✅/❌` 結果
+- **prompt**: 強化 `prompts/agent/AgentSystemPrompt.md`，要求每次工具呼叫前必須先說明呼叫原因與預期結果
+
+### Tests
+- 更新 `ToolExecutionListenerTest`，覆蓋工具開始通知與 guild 不存在時不發訊息的邊界情境
+- 更新 `ToolExecutionInterceptorTest`，覆蓋工具開始事件發布與無上下文時不發布事件
+
 ## [0.28.2] - 2026-02-17
 
 ### Fixed

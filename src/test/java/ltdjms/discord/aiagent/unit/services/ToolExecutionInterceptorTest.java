@@ -22,6 +22,7 @@ import ltdjms.discord.aiagent.services.ToolExecutionContext;
 import ltdjms.discord.aiagent.services.ToolExecutionInterceptor;
 import ltdjms.discord.shared.events.DomainEventPublisher;
 import ltdjms.discord.shared.events.LangChain4jToolExecutedEvent;
+import ltdjms.discord.shared.events.LangChain4jToolExecutionStartedEvent;
 
 /**
  * 測試 {@link ToolExecutionInterceptor} 的審計日誌功能。
@@ -88,6 +89,20 @@ class ToolExecutionInterceptorTest {
 
       // When & Then - 不應拋出異常
       interceptor.onToolExecutionStarted("createChannel", Map.of("name", "test"));
+      verify(mockEventPublisher, never()).publish(any(LangChain4jToolExecutionStartedEvent.class));
+    }
+
+    @Test
+    @DisplayName("應發布工具執行開始事件")
+    void shouldPublishStartedEvent() {
+      // Given
+      ToolExecutionContext.setContext(TEST_GUILD_ID, TEST_CHANNEL_ID, TEST_USER_ID);
+
+      // When
+      interceptor.onToolExecutionStarted("listChannels", Map.of());
+
+      // Then
+      verify(mockEventPublisher).publish(any(LangChain4jToolExecutionStartedEvent.class));
     }
   }
 

@@ -17,6 +17,7 @@ import org.junit.jupiter.api.Test;
 
 import ltdjms.discord.shared.di.JDAProvider;
 import ltdjms.discord.shared.events.LangChain4jToolExecutedEvent;
+import ltdjms.discord.shared.events.LangChain4jToolExecutionStartedEvent;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.channel.concrete.ThreadChannel;
@@ -52,6 +53,23 @@ class ToolExecutionListenerTest {
   @Nested
   @DisplayName("accept")
   class AcceptTests {
+
+    @Test
+    @DisplayName("should handle LangChain4jToolExecutionStartedEvent")
+    void shouldHandleToolExecutionStartedEvent() {
+      // Given
+      when(jda.getGuildById(anyLong())).thenReturn(guild);
+      when(guild.getThreadChannelById(anyLong())).thenReturn(threadChannel);
+
+      LangChain4jToolExecutionStartedEvent event =
+          new LangChain4jToolExecutionStartedEvent(123L, 456L, 789L, "TestTool", Instant.now());
+
+      // When
+      listener.accept(event);
+
+      // Then
+      verify(threadChannel).sendMessage(any(CharSequence.class));
+    }
 
     @Test
     @DisplayName("should handle LangChain4jToolExecutedEvent with success")
@@ -96,6 +114,44 @@ class ToolExecutionListenerTest {
       listener.accept(null);
 
       // Then - should not throw exception
+      verify(threadChannel, never()).sendMessage(any(CharSequence.class));
+    }
+  }
+
+  @Nested
+  @DisplayName("handleToolExecutionStarted")
+  class HandleToolExecutionStartedTests {
+
+    @Test
+    @DisplayName("should send started message when tool is about to execute")
+    void shouldSendStartedMessage() {
+      // Given
+      when(jda.getGuildById(123L)).thenReturn(guild);
+      when(guild.getThreadChannelById(456L)).thenReturn(threadChannel);
+
+      LangChain4jToolExecutionStartedEvent event =
+          new LangChain4jToolExecutionStartedEvent(123L, 456L, 789L, "WeatherTool", Instant.now());
+
+      // When
+      listener.accept(event);
+
+      // Then
+      verify(threadChannel).sendMessage("🤖 我先執行這一步：正在呼叫工具「WeatherTool」...");
+    }
+
+    @Test
+    @DisplayName("should not send started message when guild is not found")
+    void shouldNotSendStartedMessageWhenGuildNotFound() {
+      // Given
+      when(jda.getGuildById(123L)).thenReturn(null);
+
+      LangChain4jToolExecutionStartedEvent event =
+          new LangChain4jToolExecutionStartedEvent(123L, 456L, 789L, "WeatherTool", Instant.now());
+
+      // When
+      listener.accept(event);
+
+      // Then
       verify(threadChannel, never()).sendMessage(any(CharSequence.class));
     }
   }

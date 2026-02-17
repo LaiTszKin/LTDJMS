@@ -11,6 +11,7 @@ import ltdjms.discord.aichat.services.MessageSplitter;
 import ltdjms.discord.shared.di.JDAProvider;
 import ltdjms.discord.shared.events.DomainEvent;
 import ltdjms.discord.shared.events.LangChain4jToolExecutedEvent;
+import ltdjms.discord.shared.events.LangChain4jToolExecutionStartedEvent;
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.channel.middleman.GuildChannel;
 import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel;
@@ -29,8 +30,28 @@ public final class ToolExecutionListener implements Consumer<DomainEvent> {
 
   @Override
   public void accept(DomainEvent event) {
-    if (event instanceof LangChain4jToolExecutedEvent e) {
+    if (event instanceof LangChain4jToolExecutionStartedEvent e) {
+      handleToolExecutionStarted(e);
+    } else if (event instanceof LangChain4jToolExecutedEvent e) {
       handleToolExecuted(e);
+    }
+  }
+
+  private void handleToolExecutionStarted(LangChain4jToolExecutionStartedEvent event) {
+    try {
+      MessageChannel channel = resolveMessageChannel(event.guildId(), event.channelId());
+      if (channel == null) {
+        LOGGER.warn("無法取得工具通知頻道: guildId={}, channelId={}", event.guildId(), event.channelId());
+        return;
+      }
+
+      String message = "🤖 我先執行這一步：正在呼叫工具「%s」...".formatted(event.toolName());
+      List<String> chunks = MessageSplitter.split(message);
+      for (String chunk : chunks) {
+        channel.sendMessage(chunk).queue();
+      }
+    } catch (Exception e) {
+      LOGGER.error("處理工具開始事件時發生錯誤", e);
     }
   }
 

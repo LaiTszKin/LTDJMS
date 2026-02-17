@@ -13,6 +13,7 @@ import ltdjms.discord.aiagent.domain.ToolExecutionLog;
 import ltdjms.discord.aiagent.persistence.ToolExecutionLogRepository;
 import ltdjms.discord.shared.events.DomainEventPublisher;
 import ltdjms.discord.shared.events.LangChain4jToolExecutedEvent;
+import ltdjms.discord.shared.events.LangChain4jToolExecutionStartedEvent;
 
 /**
  * 工具執行審計攔截器。
@@ -64,6 +65,11 @@ public final class ToolExecutionInterceptor {
               toolName,
               parameters,
               System.currentTimeMillis()));
+
+      LangChain4jToolExecutionStartedEvent event =
+          new LangChain4jToolExecutionStartedEvent(
+              ctx.guildId(), ctx.channelId(), ctx.userId(), toolName, Instant.now());
+      eventPublisher.publish(event);
     } catch (IllegalStateException e) {
       LOGGER.warn("無法獲取工具執行上下文，跳過審計記錄");
     }
