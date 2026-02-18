@@ -209,7 +209,8 @@ public class AIChatMentionListener extends ListenerAdapter {
                     userMessage,
                     channel,
                     thinkingMessage,
-                    event.getMessage().getIdLong());
+                    event.getMessage().getIdLong(),
+                    streamProcessed);
                 return;
               }
 
@@ -311,8 +312,9 @@ public class AIChatMentionListener extends ListenerAdapter {
       String userMessage,
       MessageChannelUnion channel,
       Message thinkingMessage,
-      long messageId) {
-    StringBuilder contentBuffer = new StringBuilder();
+      long messageId,
+      boolean streamProcessed) {
+    List<String> finalContentChunks = new ArrayList<>();
     AtomicBoolean completed = new AtomicBoolean(false);
     final ReasoningMessageTracker reasoningTracker = new ReasoningMessageTracker();
     reasoningTracker.setInitialMessage(thinkingMessage);
@@ -346,7 +348,11 @@ public class AIChatMentionListener extends ListenerAdapter {
               }
             } else if (type == StreamingResponseHandler.ChunkType.CONTENT) {
               if (!chunk.isBlank()) {
-                contentBuffer.append(chunk);
+                finalContentChunks.add(chunk);
+              }
+            } else if (type == StreamingResponseHandler.ChunkType.TOOL_INTENT) {
+              if (!chunk.isBlank()) {
+                sendToolIntentMessage(channel, chunk);
               }
             }
           }
@@ -355,15 +361,14 @@ public class AIChatMentionListener extends ListenerAdapter {
             return;
           }
 
-          String fullContent = contentBuffer.toString().trim();
           reasoningTracker.deleteAll(
               () -> {
-                if (fullContent.isEmpty()) {
+                if (finalContentChunks.isEmpty()) {
                   channel.sendMessage(":question: AI 沒有產生回應").queue();
                   return;
                 }
 
-                sendBufferedContent(channel, null, fullContent);
+                sendAgentFinalContent(channel, finalContentChunks, streamProcessed);
                 LOGGER.info("AI streaming completed");
               });
         });
@@ -383,6 +388,52 @@ public class AIChatMentionListener extends ListenerAdapter {
     }
     for (int i = 1; i < parts.size(); i++) {
       channel.sendMessage(parts.get(i)).queue();
+    }
+  }
+
+  private void sendToolIntentMessage(MessageChannelUnion channel, String content) {
+    for (String part : MessageSplitter.split(content)) {
+      if (part != null && !part.isBlank()) {
+        channel.sendMessage(part).queue();
+      }
+    }
+  }
+
+  private void sendAgentFinalContent(
+      MessageChannelUnion channel, List<String> finalContentChunks, boolean streamProcessed) {
+    if (!streamProcessed) {
+      String fullContent = String.join("", finalContentChunks).trim();
+      if (fullContent.isEmpty()) {
+        channel.sendMessage(":question: AI 沒有產生回應").queue();
+        return;
+      }
+      sendBufferedContent(channel, null, fullContent);
+      return;
+    }
+
+    boolean sent = false;
+    for (String chunk : finalContentChunks) {
+      if (chunk == null || chunk.isBlank()) {
+        continue;
+      }
+      sendMessageWithLimit(channel, chunk);
+      sent = true;
+    }
+
+    if (!sent) {
+      channel.sendMessage(":question: AI 沒有產生回應").queue();
+    }
+  }
+
+  private void sendMessageWithLimit(MessageChannelUnion channel, String content) {
+    if (content.length() <= 2000) {
+      channel.sendMessage(content).queue();
+      return;
+    }
+    for (String part : MessageSplitter.split(content)) {
+      if (part != null && !part.isBlank()) {
+        channel.sendMessage(part).queue();
+      }
     }
   }
 

@@ -151,8 +151,8 @@ public final class MarkdownValidatingAIChatService implements AIChatService {
               handler.onChunk("", true, error, ChunkType.CONTENT);
               return;
             }
-            if (type == ChunkType.REASONING) {
-              handler.onChunk(chunk, isComplete, null, ChunkType.REASONING);
+            if (type == ChunkType.REASONING || type == ChunkType.TOOL_INTENT) {
+              handler.onChunk(chunk, isComplete, null, type);
               return;
             }
 

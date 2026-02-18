@@ -22,6 +22,8 @@ public interface StreamingResponseHandler {
   enum ChunkType {
     /** 推理內容（reasoning_content）。 */
     REASONING,
+    /** 工具呼叫前的說明內容（例如：為何要呼叫某工具）。 */
+    TOOL_INTENT,
     /** 實際回應內容（content）。 */
     CONTENT
   }
@@ -32,7 +34,7 @@ public interface StreamingResponseHandler {
    * @param chunk 文本片段
    * @param isComplete 是否為最後一個片段
    * @param error 錯誤（如果發生）
-   * @param type 片段類型（REASONING 或 CONTENT）
+   * @param type 片段類型（REASONING / TOOL_INTENT / CONTENT）
    */
   void onChunk(String chunk, boolean isComplete, DomainError error, ChunkType type);
 

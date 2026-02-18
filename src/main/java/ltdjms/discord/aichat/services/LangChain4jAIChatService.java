@@ -416,10 +416,14 @@ public final class LangChain4jAIChatService implements AIChatService {
 
       // 處理串流回應
       StringBuilder fullResponse = new StringBuilder();
+      StringBuilder pendingContent = new StringBuilder();
 
       tokenStream
           .beforeToolExecution(
-              before -> handleBeforeToolExecution(before, guildIdLong, channelIdLong, userIdLong))
+              before -> {
+                emitToolIntentChunkIfNeeded(agentEnabled, pendingContent, handler);
+                handleBeforeToolExecution(before, guildIdLong, channelIdLong, userIdLong);
+              })
           .onToolExecuted(
               toolExecution -> handleToolExecuted(guildId, channelId, userIdLong, toolExecution))
           // 處理推理內容 (reasoning_content)，僅在需要顯示推理時才轉發
@@ -441,6 +445,10 @@ public final class LangChain4jAIChatService implements AIChatService {
                 if (token == null || token.isBlank()) {
                   return;
                 }
+                if (agentEnabled) {
+                  pendingContent.append(token);
+                  return;
+                }
                 fullResponse.append(token);
                 try {
                   handler.onChunk(token, false, null, StreamingResponseHandler.ChunkType.CONTENT);
@@ -452,7 +460,18 @@ public final class LangChain4jAIChatService implements AIChatService {
           .onCompleteResponse(
               response -> {
                 try {
-                  handler.onChunk("", true, null, StreamingResponseHandler.ChunkType.CONTENT);
+                  if (agentEnabled) {
+                    String finalChunk = drainPendingContent(pendingContent);
+                    if (finalChunk.isBlank()) {
+                      handler.onChunk("", true, null, StreamingResponseHandler.ChunkType.CONTENT);
+                    } else {
+                      fullResponse.append(finalChunk);
+                      handler.onChunk(
+                          finalChunk, true, null, StreamingResponseHandler.ChunkType.CONTENT);
+                    }
+                  } else {
+                    handler.onChunk("", true, null, StreamingResponseHandler.ChunkType.CONTENT);
+                  }
 
                   // 發布 AIMessageEvent（僅用於日誌和審計）
                   if (eventPublisher != null) {
@@ -527,10 +546,14 @@ public final class LangChain4jAIChatService implements AIChatService {
 
       // 開始串流對話，傳遞調用參數
       TokenStream tokenStream = agentService.chat(conversationId, lastUserMessage, parameters);
+      StringBuilder pendingContent = new StringBuilder();
 
       tokenStream
           .beforeToolExecution(
-              before -> handleBeforeToolExecution(before, guildIdLong, channelIdLong, userIdLong))
+              before -> {
+                emitToolIntentChunkIfNeeded(agentEnabled, pendingContent, handler);
+                handleBeforeToolExecution(before, guildIdLong, channelIdLong, userIdLong);
+              })
           .onToolExecuted(
               toolExecution -> handleToolExecuted(guildId, channelId, userIdLong, toolExecution))
           // 處理推理內容
@@ -549,6 +572,13 @@ public final class LangChain4jAIChatService implements AIChatService {
           // 處理部分回應
           .onPartialResponse(
               token -> {
+                if (token == null || token.isBlank()) {
+                  return;
+                }
+                if (agentEnabled) {
+                  pendingContent.append(token);
+                  return;
+                }
                 try {
                   handler.onChunk(token, false, null, StreamingResponseHandler.ChunkType.CONTENT);
                 } catch (Exception e) {
@@ -559,7 +589,17 @@ public final class LangChain4jAIChatService implements AIChatService {
           .onCompleteResponse(
               response -> {
                 try {
-                  handler.onChunk("", true, null, StreamingResponseHandler.ChunkType.CONTENT);
+                  if (agentEnabled) {
+                    String finalChunk = drainPendingContent(pendingContent);
+                    if (finalChunk.isBlank()) {
+                      handler.onChunk("", true, null, StreamingResponseHandler.ChunkType.CONTENT);
+                    } else {
+                      handler.onChunk(
+                          finalChunk, true, null, StreamingResponseHandler.ChunkType.CONTENT);
+                    }
+                  } else {
+                    handler.onChunk("", true, null, StreamingResponseHandler.ChunkType.CONTENT);
+                  }
                 } catch (Exception e) {
                   LOG.error("Error in handler.onChunk (complete with history)", e);
                 }
@@ -678,6 +718,30 @@ public final class LangChain4jAIChatService implements AIChatService {
     } catch (Exception e) {
       LOG.warn("工具執行前置處理失敗", e);
     }
+  }
+
+  private void emitToolIntentChunkIfNeeded(
+      boolean agentEnabled, StringBuilder pendingContent, StreamingResponseHandler handler) {
+    if (!agentEnabled) {
+      return;
+    }
+
+    String intentChunk = drainPendingContent(pendingContent);
+    if (intentChunk.isBlank()) {
+      return;
+    }
+
+    try {
+      handler.onChunk(intentChunk, false, null, StreamingResponseHandler.ChunkType.TOOL_INTENT);
+    } catch (Exception e) {
+      LOG.error("Error in handler.onChunk (tool intent)", e);
+    }
+  }
+
+  private String drainPendingContent(StringBuilder pendingContent) {
+    String content = pendingContent.toString();
+    pendingContent.setLength(0);
+    return content;
   }
 
   /** 處理工具執行完成後的事件、歷史記錄與通知。 */

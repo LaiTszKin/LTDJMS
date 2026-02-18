@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.29.4] - 2026-02-18
+
+### Fixed
+- **aichat/agent**: Agent 模式將工具呼叫前的說明改為即時前置訊息（tool intent）發送，不再混入最後結論內容
+- **aichat/agent**: Agent 最終結論僅輸出最終回覆，與工具前說明分離，避免使用者看到混雜的中間推理描述
+- **markdown**: Agent 模式在啟用 markdown 驗證時保留原本分段輸出（含段落），不再被合併成單一訊息
+
+### Tests
+- 更新 `AIChatMentionListenerAgentConclusionTest`，覆蓋工具前說明先送出、最終內容分段保留、以及僅有工具說明但無最終內容時的回退提示
+
 ## [0.29.2] - 2026-02-17
 
 ### Fixed
