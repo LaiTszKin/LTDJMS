@@ -496,6 +496,58 @@ class RedemptionServiceTest {
     }
 
     @Test
+    @DisplayName("should redeem short code with currency reward")
+    void shouldRedeemShortCodeWithCurrencyReward() {
+      // Given
+      Instant now = Instant.now();
+      Product product =
+          new Product(
+              Long.valueOf(TEST_PRODUCT_ID),
+              TEST_GUILD_ID,
+              "禮包",
+              null,
+              Product.RewardType.CURRENCY,
+              1000L,
+              null,
+              now,
+              now);
+      RedemptionCode code =
+          new RedemptionCode(
+              1L, "ABC", TEST_PRODUCT_ID, TEST_GUILD_ID, null, null, null, now, null, 1);
+      ProductRedemptionTransaction transaction =
+          ProductRedemptionTransaction.create(
+              TEST_GUILD_ID,
+              TEST_USER_ID,
+              TEST_PRODUCT_ID,
+              "禮包",
+              "ABC",
+              1,
+              ProductRedemptionTransaction.RewardType.CURRENCY,
+              1000L);
+
+      when(codeRepository.findByCode("ABC")).thenReturn(Optional.of(code));
+      when(productRepository.findById(TEST_PRODUCT_ID)).thenReturn(Optional.of(product));
+      when(codeRepository.markAsRedeemedIfAvailable(anyLong(), anyLong(), any())).thenReturn(true);
+      when(balanceAdjustmentService.tryAdjustBalance(TEST_GUILD_ID, TEST_USER_ID, 1000L))
+          .thenReturn(
+              Result.ok(
+                  new BalanceAdjustmentService.BalanceAdjustmentResult(
+                      TEST_GUILD_ID, TEST_USER_ID, 0L, 1000L, 1000L, "Coins", "🪙")));
+      when(productRedemptionTransactionService.recordTransaction(
+              eq(TEST_GUILD_ID), eq(TEST_USER_ID), eq(product), any()))
+          .thenReturn(transaction);
+
+      // When
+      Result<RedemptionService.RedemptionResult, DomainError> result =
+          redemptionService.redeemCode("ABC", TEST_GUILD_ID, TEST_USER_ID);
+
+      // Then
+      assertThat(result.isOk()).isTrue();
+      assertThat(result.getValue().rewardedAmount()).isEqualTo(1000L);
+      verify(balanceAdjustmentService).tryAdjustBalance(TEST_GUILD_ID, TEST_USER_ID, 1000L);
+    }
+
+    @Test
     @DisplayName("should redeem code with token reward")
     void shouldRedeemCodeWithTokenReward() {
       // Given
