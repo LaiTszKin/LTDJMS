@@ -332,9 +332,7 @@ public class RedemptionService {
     // Calculate total reward based on quantity
     long totalAmount = product.rewardAmount() * code.quantity();
     String description =
-        String.format(
-            "兌換碼: %s (%s) x%d",
-            code.code().substring(0, 4) + "****", product.name(), code.quantity());
+        String.format("兌換碼: %s (%s) x%d", code.getMaskedCode(), product.name(), code.quantity());
 
     return switch (product.rewardType()) {
       case CURRENCY -> {
