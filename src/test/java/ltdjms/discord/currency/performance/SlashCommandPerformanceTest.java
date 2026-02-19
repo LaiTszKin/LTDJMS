@@ -177,7 +177,7 @@ class SlashCommandPerformanceTest extends PostgresIntegrationTestBase {
     }
 
     // Wait for all commands to complete
-    CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]))
+    CompletableFuture.allOf(futures.toArray(new CompletableFuture<?>[0]))
         .orTimeout(30, TimeUnit.SECONDS)
         .join();
 
@@ -282,7 +282,7 @@ class SlashCommandPerformanceTest extends PostgresIntegrationTestBase {
               executor));
     }
 
-    CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+    CompletableFuture.allOf(futures.toArray(new CompletableFuture<?>[0])).join();
     executor.shutdown();
     executor.awaitTermination(10, TimeUnit.SECONDS);
 

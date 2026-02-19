@@ -22,7 +22,6 @@ import org.junit.jupiter.api.Test;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import dev.langchain4j.data.message.AiMessage;
-import dev.langchain4j.data.message.ChatMessage;
 import dev.langchain4j.data.message.UserMessage;
 import dev.langchain4j.memory.ChatMemory;
 import ltdjms.discord.aiagent.domain.ConversationMessage;
@@ -80,14 +79,7 @@ class PersistentChatMemoryProviderTest {
     @Test
     @DisplayName("當 Redis 快取命中時，應直接返回快取的訊息")
     void shouldReturnCachedMessagesWhenCacheHit() {
-      // Given - 準備快取的訊息
-      List<ChatMessage> cachedMessages =
-          List.of(UserMessage.from("Hello"), AiMessage.from("Hi there!"));
-
-      @SuppressWarnings("unchecked")
-      List<ChatMessage> cachedMessagesCast = (List<ChatMessage>) cachedMessages;
-
-      when(mockCacheService.get(anyString(), any(Class.class)))
+      when(mockCacheService.get(anyString(), anyClassToken()))
           .thenReturn(
               Optional.of("\"[{\\\"type\\\":\\\"USER\\\",\\\"content\\\":\\\"Hello\\\"}]\""));
 
@@ -107,7 +99,7 @@ class PersistentChatMemoryProviderTest {
       // Given - Redis 返回無效的 JSON (導致反序列化返回空列表)
       // 反序列化失敗返回空列表，Optional.ofNullable(emptyList) = Optional.of(emptyList)
       // 空列表被視為有效快取命中
-      when(mockCacheService.get(anyString(), any(Class.class)))
+      when(mockCacheService.get(anyString(), anyClassToken()))
           .thenReturn(Optional.of("invalid-json"));
 
       when(mockTokenEstimator.getMaxTokens()).thenReturn(100000);
@@ -129,7 +121,7 @@ class PersistentChatMemoryProviderTest {
     @DisplayName("當 Redis 快取未命中時，應從 PostgreSQL 載入並寫入快取")
     void shouldLoadFromDatabaseAndCacheWhenCacheMiss() {
       // Given - Redis 快取未命中
-      when(mockCacheService.get(anyString(), any(Class.class))).thenReturn(Optional.empty());
+      when(mockCacheService.get(anyString(), anyClassToken())).thenReturn(Optional.empty());
 
       when(mockTokenEstimator.getMaxTokens()).thenReturn(100000);
 
@@ -156,7 +148,7 @@ class PersistentChatMemoryProviderTest {
     @DisplayName("當資料庫返回空列表時，應返回空的 ChatMemory")
     void shouldReturnEmptyMemoryWhenDatabaseReturnsEmpty() {
       // Given
-      when(mockCacheService.get(anyString(), any(Class.class))).thenReturn(Optional.empty());
+      when(mockCacheService.get(anyString(), anyClassToken())).thenReturn(Optional.empty());
       when(mockTokenEstimator.getMaxTokens()).thenReturn(100000);
       when(mockRepository.findByConversationId(TEST_CONVERSATION_ID, 100000)).thenReturn(List.of());
 
@@ -171,7 +163,7 @@ class PersistentChatMemoryProviderTest {
     @DisplayName("當資料庫拋出異常時，應拋出異常")
     void shouldHandleDatabaseExceptionGracefully() {
       // Given - 資料庫拋出異常
-      when(mockCacheService.get(anyString(), any(Class.class))).thenReturn(Optional.empty());
+      when(mockCacheService.get(anyString(), anyClassToken())).thenReturn(Optional.empty());
       when(mockTokenEstimator.getMaxTokens()).thenReturn(100000);
       when(mockRepository.findByConversationId(anyString(), anyInt()))
           .thenThrow(new RuntimeException("Database error"));
@@ -190,7 +182,7 @@ class PersistentChatMemoryProviderTest {
     @DisplayName("應正確轉換 USER 訊息為 ChatMessage")
     void shouldCorrectlyConvertUserMessage() {
       // Given
-      when(mockCacheService.get(anyString(), any(Class.class))).thenReturn(Optional.empty());
+      when(mockCacheService.get(anyString(), anyClassToken())).thenReturn(Optional.empty());
       when(mockTokenEstimator.getMaxTokens()).thenReturn(100000);
 
       ConversationMessage userMessage =
@@ -210,7 +202,7 @@ class PersistentChatMemoryProviderTest {
     @DisplayName("應正確轉換 ASSISTANT 訊息為 ChatMessage")
     void shouldCorrectlyConvertAssistantMessage() {
       // Given
-      when(mockCacheService.get(anyString(), any(Class.class))).thenReturn(Optional.empty());
+      when(mockCacheService.get(anyString(), anyClassToken())).thenReturn(Optional.empty());
       when(mockTokenEstimator.getMaxTokens()).thenReturn(100000);
 
       ConversationMessage assistantMessage =
@@ -231,7 +223,7 @@ class PersistentChatMemoryProviderTest {
     @DisplayName("應正確轉換 TOOL 訊息為 ChatMessage")
     void shouldCorrectlyConvertToolMessage() {
       // Given
-      when(mockCacheService.get(anyString(), any(Class.class))).thenReturn(Optional.empty());
+      when(mockCacheService.get(anyString(), anyClassToken())).thenReturn(Optional.empty());
       when(mockTokenEstimator.getMaxTokens()).thenReturn(100000);
 
       var toolCallInfo =
@@ -307,7 +299,7 @@ class PersistentChatMemoryProviderTest {
     @DisplayName("當訊息超過 Token 限制時，應裁剪歷史訊息")
     void shouldTrimMessagesWhenTokenLimitExceeded() {
       // Given
-      when(mockCacheService.get(anyString(), any(Class.class))).thenReturn(Optional.empty());
+      when(mockCacheService.get(anyString(), anyClassToken())).thenReturn(Optional.empty());
       when(mockTokenEstimator.getMaxTokens()).thenReturn(100);
 
       // 創建大量訊息（超過 Token 限制）
@@ -334,5 +326,9 @@ class PersistentChatMemoryProviderTest {
 
   private static String eq(String value) {
     return org.mockito.ArgumentMatchers.eq(value);
+  }
+
+  private static <T> Class<T> anyClassToken() {
+    return any();
   }
 }

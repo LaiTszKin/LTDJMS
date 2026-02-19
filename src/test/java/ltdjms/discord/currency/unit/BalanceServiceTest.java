@@ -53,7 +53,7 @@ class BalanceServiceTest {
   @BeforeEach
   void setUp() {
     // CacheService returns empty by default (cache miss)
-    when(cacheService.get(any(), any(Class.class))).thenReturn(Optional.empty());
+    when(cacheService.get(any(), anyClassToken())).thenReturn(Optional.empty());
 
     balanceService =
         new DefaultBalanceService(
@@ -219,5 +219,9 @@ class BalanceServiceTest {
     DomainError error = result.getError();
     assertThat(error.category()).isEqualTo(DomainError.Category.PERSISTENCE_FAILURE);
     assertThat(error.message()).contains("Failed to retrieve balance");
+  }
+
+  private static <T> Class<T> anyClassToken() {
+    return any();
   }
 }

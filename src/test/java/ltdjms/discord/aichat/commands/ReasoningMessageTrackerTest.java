@@ -38,7 +38,7 @@ class ReasoningMessageTrackerTest {
 
   private Message mockMessage() {
     Message message = mock(Message.class);
-    AuditableRestAction<Void> deleteAction = mock(AuditableRestAction.class);
+    AuditableRestAction<Void> deleteAction = mockDeleteAction();
     when(message.delete()).thenReturn(deleteAction);
     doAnswer(
             invocation -> {
@@ -52,5 +52,10 @@ class ReasoningMessageTrackerTest {
         .when(deleteAction)
         .queue(any(), any());
     return message;
+  }
+
+  @SuppressWarnings("unchecked")
+  private static AuditableRestAction<Void> mockDeleteAction() {
+    return mock(AuditableRestAction.class);
   }
 }

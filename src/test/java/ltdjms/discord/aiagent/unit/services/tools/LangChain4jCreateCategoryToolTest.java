@@ -26,6 +26,7 @@ import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.entities.Role;
 import net.dv8tion.jda.api.entities.channel.concrete.Category;
+import net.dv8tion.jda.api.entities.channel.middleman.GuildChannel;
 import net.dv8tion.jda.api.exceptions.InsufficientPermissionException;
 import net.dv8tion.jda.api.requests.restaction.ChannelAction;
 
@@ -111,7 +112,7 @@ class LangChain4jCreateCategoryToolTest {
       String categoryName = "test-category";
 
       // 設定 Guild 行為
-      ChannelAction<Category> categoryAction = mock(ChannelAction.class);
+      ChannelAction<Category> categoryAction = mockChannelAction();
       when(mockGuild.createCategory(categoryName)).thenReturn(categoryAction);
 
       // 設定異步操作成功的 RestAction
@@ -139,7 +140,7 @@ class LangChain4jCreateCategoryToolTest {
       String categoryName = "general-category";
 
       // 設定 Guild 行為
-      ChannelAction<Category> categoryAction = mock(ChannelAction.class);
+      ChannelAction<Category> categoryAction = mockChannelAction();
       when(mockGuild.createCategory(categoryName)).thenReturn(categoryAction);
 
       // 設定異步操作成功
@@ -164,7 +165,7 @@ class LangChain4jCreateCategoryToolTest {
       String validName = "a".repeat(100);
 
       // 設定 Guild 行為
-      ChannelAction<Category> categoryAction = mock(ChannelAction.class);
+      ChannelAction<Category> categoryAction = mockChannelAction();
       when(mockGuild.createCategory(validName)).thenReturn(categoryAction);
       setupSuccessfulRestAction(categoryAction, mockCategory);
       when(mockCategory.getIdLong()).thenReturn(TEST_CATEGORY_ID);
@@ -263,7 +264,7 @@ class LangChain4jCreateCategoryToolTest {
       // Given
       String categoryName = "slow-category";
 
-      ChannelAction<Category> categoryAction = mock(ChannelAction.class);
+      ChannelAction<Category> categoryAction = mockChannelAction();
       when(mockGuild.createCategory(categoryName)).thenReturn(categoryAction);
 
       // 設定逾時的 RestAction
@@ -287,7 +288,7 @@ class LangChain4jCreateCategoryToolTest {
       // Given
       String categoryName = "restricted-category";
 
-      ChannelAction<Category> categoryAction = mock(ChannelAction.class);
+      ChannelAction<Category> categoryAction = mockChannelAction();
       when(mockGuild.createCategory(categoryName)).thenReturn(categoryAction);
 
       // 設定權限不足的 RestAction
@@ -311,7 +312,7 @@ class LangChain4jCreateCategoryToolTest {
       // Given
       String categoryName = "failing-category";
 
-      ChannelAction<Category> categoryAction = mock(ChannelAction.class);
+      ChannelAction<Category> categoryAction = mockChannelAction();
       when(mockGuild.createCategory(categoryName)).thenReturn(categoryAction);
 
       // 設定 API 失敗的 RestAction
@@ -348,7 +349,7 @@ class LangChain4jCreateCategoryToolTest {
       // Given
       String categoryName = "interrupted-category";
 
-      ChannelAction<Category> categoryAction = mock(ChannelAction.class);
+      ChannelAction<Category> categoryAction = mockChannelAction();
       when(mockGuild.createCategory(categoryName)).thenReturn(categoryAction);
 
       // 設定中斷的 RestAction
@@ -379,7 +380,7 @@ class LangChain4jCreateCategoryToolTest {
       when(mockRole.getIdLong()).thenReturn(TEST_ROLE_ID);
       when(mockGuild.getRoleById(TEST_ROLE_ID)).thenReturn(mockRole);
 
-      ChannelAction<Category> categoryAction = mock(ChannelAction.class);
+      ChannelAction<Category> categoryAction = mockChannelAction();
       when(mockGuild.createCategory(categoryName)).thenReturn(categoryAction);
       setupSuccessfulRestAction(categoryAction, mockCategory);
 
@@ -409,7 +410,7 @@ class LangChain4jCreateCategoryToolTest {
       when(mockRole.getIdLong()).thenReturn(TEST_ROLE_ID);
       when(mockGuild.getRoleById(TEST_ROLE_ID)).thenReturn(mockRole);
 
-      ChannelAction<Category> categoryAction = mock(ChannelAction.class);
+      ChannelAction<Category> categoryAction = mockChannelAction();
       when(mockGuild.createCategory(categoryName)).thenReturn(categoryAction);
       setupSuccessfulRestAction(categoryAction, mockCategory);
 
@@ -451,7 +452,7 @@ class LangChain4jCreateCategoryToolTest {
       when(mockGuild.getRoleById(TEST_ROLE_ID)).thenReturn(mockRole1);
       when(mockGuild.getRoleById(roleId2)).thenReturn(mockRole2);
 
-      ChannelAction<Category> categoryAction = mock(ChannelAction.class);
+      ChannelAction<Category> categoryAction = mockChannelAction();
       when(mockGuild.createCategory(categoryName)).thenReturn(categoryAction);
       setupSuccessfulRestAction(categoryAction, mockCategory);
 
@@ -486,7 +487,7 @@ class LangChain4jCreateCategoryToolTest {
 
       when(mockGuild.getRoleById(TEST_ROLE_ID)).thenReturn(null);
 
-      ChannelAction<Category> categoryAction = mock(ChannelAction.class);
+      ChannelAction<Category> categoryAction = mockChannelAction();
       when(mockGuild.createCategory(categoryName)).thenReturn(categoryAction);
       setupSuccessfulRestAction(categoryAction, mockCategory);
 
@@ -512,7 +513,7 @@ class LangChain4jCreateCategoryToolTest {
       // Given
       String categoryName = "no-perms-category";
 
-      ChannelAction<Category> categoryAction = mock(ChannelAction.class);
+      ChannelAction<Category> categoryAction = mockChannelAction();
       when(mockGuild.createCategory(categoryName)).thenReturn(categoryAction);
       setupSuccessfulRestAction(categoryAction, mockCategory);
 
@@ -533,7 +534,7 @@ class LangChain4jCreateCategoryToolTest {
       // Given
       String categoryName = "missing-role-id-category";
 
-      ChannelAction<Category> categoryAction = mock(ChannelAction.class);
+      ChannelAction<Category> categoryAction = mockChannelAction();
       when(mockGuild.createCategory(categoryName)).thenReturn(categoryAction);
       setupSuccessfulRestAction(categoryAction, mockCategory);
 
@@ -561,7 +562,7 @@ class LangChain4jCreateCategoryToolTest {
       // Given
       String categoryName = "null-perms-category";
 
-      ChannelAction<Category> categoryAction = mock(ChannelAction.class);
+      ChannelAction<Category> categoryAction = mockChannelAction();
       when(mockGuild.createCategory(categoryName)).thenReturn(categoryAction);
       setupSuccessfulRestAction(categoryAction, mockCategory);
 
@@ -586,7 +587,7 @@ class LangChain4jCreateCategoryToolTest {
       // Given
       String categoryName = "result-test-category";
 
-      ChannelAction<Category> categoryAction = mock(ChannelAction.class);
+      ChannelAction<Category> categoryAction = mockChannelAction();
       when(mockGuild.createCategory(categoryName)).thenReturn(categoryAction);
       setupSuccessfulRestAction(categoryAction, mockCategory);
 
@@ -625,7 +626,7 @@ class LangChain4jCreateCategoryToolTest {
       // Given
       String categoryName = "success-msg-category";
 
-      ChannelAction<Category> categoryAction = mock(ChannelAction.class);
+      ChannelAction<Category> categoryAction = mockChannelAction();
       when(mockGuild.createCategory(categoryName)).thenReturn(categoryAction);
       setupSuccessfulRestAction(categoryAction, mockCategory);
 
@@ -646,6 +647,11 @@ class LangChain4jCreateCategoryToolTest {
    * @param restAction 要設定的 RestAction
    * @param result 要返回的結果
    */
+  @SuppressWarnings("unchecked")
+  private static <T extends GuildChannel> ChannelAction<T> mockChannelAction() {
+    return mock(ChannelAction.class);
+  }
+
   private void setupSuccessfulRestAction(ChannelAction<Category> restAction, Category result) {
     CompletableFuture<Category> future = CompletableFuture.completedFuture(result);
     when(restAction.submit()).thenReturn(future);

@@ -76,7 +76,7 @@ class AIChatMentionListenerAgentConclusionTest {
     when(agentConfigService.isAgentEnabled(123L, 456L)).thenReturn(true);
 
     Message thinkingMessage = mock(Message.class);
-    AuditableRestAction<Void> deleteAction = mock(AuditableRestAction.class);
+    AuditableRestAction<Void> deleteAction = mockDeleteAction();
     when(thinkingMessage.delete()).thenReturn(deleteAction);
     doAnswer(
             invocation -> {
@@ -182,7 +182,7 @@ class AIChatMentionListenerAgentConclusionTest {
     when(agentConfigService.isAgentEnabled(123L, 456L)).thenReturn(true);
 
     Message thinkingMessage = mock(Message.class);
-    AuditableRestAction<Void> deleteAction = mock(AuditableRestAction.class);
+    AuditableRestAction<Void> deleteAction = mockDeleteAction();
     when(thinkingMessage.delete()).thenReturn(deleteAction);
     doAnswer(
             invocation -> {
@@ -282,7 +282,7 @@ class AIChatMentionListenerAgentConclusionTest {
     when(agentConfigService.isAgentEnabled(123L, 456L)).thenReturn(true);
 
     Message thinkingMessage = mock(Message.class);
-    AuditableRestAction<Void> deleteAction = mock(AuditableRestAction.class);
+    AuditableRestAction<Void> deleteAction = mockDeleteAction();
     when(thinkingMessage.delete()).thenReturn(deleteAction);
     doAnswer(
             invocation -> {
@@ -340,5 +340,10 @@ class AIChatMentionListenerAgentConclusionTest {
     assertThat(sentMessages.getAllValues())
         .containsExactly(":thought_balloon: AI 正在思考...", "我先確認設定狀態。", ":question: AI 沒有產生回應");
     verify(thinkingMessage).delete();
+  }
+
+  @SuppressWarnings("unchecked")
+  private static AuditableRestAction<Void> mockDeleteAction() {
+    return mock(AuditableRestAction.class);
   }
 }

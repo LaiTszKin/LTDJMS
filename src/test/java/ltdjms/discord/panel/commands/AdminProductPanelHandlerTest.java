@@ -18,6 +18,7 @@ import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.entities.Message;
 import net.dv8tion.jda.api.entities.MessageEmbed;
 import net.dv8tion.jda.api.interactions.InteractionHook;
+import net.dv8tion.jda.api.interactions.components.LayoutComponent;
 import net.dv8tion.jda.api.requests.restaction.WebhookMessageEditAction;
 
 /** 驗證商品面板的即時刷新邏輯會觸發對原訊息的更新。 */
@@ -38,10 +39,10 @@ class AdminProductPanelHandlerTest {
   void setUp() {
     sessionManager = new AdminPanelSessionManager();
     hook = mock(InteractionHook.class);
-    editAction = mock(WebhookMessageEditAction.class);
+    editAction = mockEditAction();
 
     when(hook.editOriginalEmbeds(any(MessageEmbed.class))).thenReturn(editAction);
-    when(editAction.setComponents(any(List.class))).thenReturn(editAction);
+    when(editAction.setComponents(anyLayoutComponents())).thenReturn(editAction);
     doAnswer(invocation -> null).when(editAction).queue(any(), any());
 
     sessionManager.registerSession(guildId, adminId, hook);
@@ -78,7 +79,7 @@ class AdminProductPanelHandlerTest {
     handler.refreshProductPanels(guildId);
 
     verify(hook, atLeastOnce()).editOriginalEmbeds(any(MessageEmbed.class));
-    verify(editAction, atLeastOnce()).setComponents(any(List.class));
+    verify(editAction, atLeastOnce()).setComponents(anyLayoutComponents());
   }
 
   @Test
@@ -141,5 +142,14 @@ class AdminProductPanelHandlerTest {
     handler.onModalInteraction(event);
 
     verify(hook, atLeastOnce()).editOriginalEmbeds(any(MessageEmbed.class));
+  }
+
+  @SuppressWarnings("unchecked")
+  private static WebhookMessageEditAction<Message> mockEditAction() {
+    return mock(WebhookMessageEditAction.class);
+  }
+
+  private static List<? extends LayoutComponent> anyLayoutComponents() {
+    return anyList();
   }
 }

@@ -51,8 +51,7 @@ class UserPanelUpdateListenerTest {
     listener = new UserPanelUpdateListener(sessionManager, userPanelService);
 
     interactionHook = mock(InteractionHook.class);
-    //noinspection unchecked
-    editAction = (WebhookMessageEditAction<Message>) mock(WebhookMessageEditAction.class);
+    editAction = mockEditAction();
 
     when(interactionHook.editOriginalEmbeds(any(MessageEmbed.class))).thenReturn(editAction);
     // 避免 queue() 呼叫真的發出 HTTP 請求，只要吞掉 callback 即可
@@ -149,5 +148,10 @@ class UserPanelUpdateListenerTest {
       verify(interactionHook, org.mockito.Mockito.never())
           .editOriginalEmbeds(any(MessageEmbed.class));
     }
+  }
+
+  @SuppressWarnings("unchecked")
+  private static WebhookMessageEditAction<Message> mockEditAction() {
+    return mock(WebhookMessageEditAction.class);
   }
 }

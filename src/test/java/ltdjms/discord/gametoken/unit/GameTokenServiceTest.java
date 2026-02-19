@@ -53,7 +53,7 @@ class GameTokenServiceTest {
         .thenReturn("cache:gametoken:" + TEST_GUILD_ID + ":" + TEST_USER_ID);
 
     // CacheService returns empty by default (cache miss)
-    when(cacheService.get(any(String.class), any(Class.class))).thenReturn(Optional.empty());
+    when(cacheService.get(any(String.class), anyClassToken())).thenReturn(Optional.empty());
 
     tokenService =
         new GameTokenService(accountRepository, eventPublisher, cacheService, cacheKeyGenerator);
@@ -430,5 +430,9 @@ class GameTokenServiceTest {
       // Verify NO event
       verifyNoInteractions(eventPublisher);
     }
+  }
+
+  private static <T> Class<T> anyClassToken() {
+    return any();
   }
 }

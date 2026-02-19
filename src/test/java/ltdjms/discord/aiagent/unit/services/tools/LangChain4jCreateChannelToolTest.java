@@ -27,6 +27,7 @@ import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.entities.Role;
 import net.dv8tion.jda.api.entities.channel.concrete.Category;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
+import net.dv8tion.jda.api.entities.channel.middleman.GuildChannel;
 import net.dv8tion.jda.api.exceptions.InsufficientPermissionException;
 import net.dv8tion.jda.api.requests.restaction.ChannelAction;
 
@@ -115,7 +116,7 @@ class LangChain4jCreateChannelToolTest {
       String channelName = "test-channel";
 
       // 設定 Guild 行為
-      ChannelAction<TextChannel> channelAction = mock(ChannelAction.class);
+      ChannelAction<TextChannel> channelAction = mockChannelAction();
       when(mockGuild.createTextChannel(channelName)).thenReturn(channelAction);
 
       // 設定異步操作成功的 RestAction
@@ -141,7 +142,7 @@ class LangChain4jCreateChannelToolTest {
       String channelName = "general-chat";
 
       // 設定 Guild 行為
-      ChannelAction<TextChannel> channelAction = mock(ChannelAction.class);
+      ChannelAction<TextChannel> channelAction = mockChannelAction();
       when(mockGuild.createTextChannel(channelName)).thenReturn(channelAction);
 
       // 設定異步操作成功
@@ -166,7 +167,7 @@ class LangChain4jCreateChannelToolTest {
       String validName = "a".repeat(100);
 
       // 設定 Guild 行為
-      ChannelAction<TextChannel> channelAction = mock(ChannelAction.class);
+      ChannelAction<TextChannel> channelAction = mockChannelAction();
       when(mockGuild.createTextChannel(validName)).thenReturn(channelAction);
       setupSuccessfulRestAction(channelAction, mockTextChannel);
       when(mockTextChannel.getIdLong()).thenReturn(TEST_CHANNEL_ID);
@@ -189,7 +190,7 @@ class LangChain4jCreateChannelToolTest {
       when(mockGuild.getCategoryById(TEST_CATEGORY_ID)).thenReturn(mockCategory);
 
       // 設定 Guild 行為
-      ChannelAction<TextChannel> channelAction = mock(ChannelAction.class);
+      ChannelAction<TextChannel> channelAction = mockChannelAction();
       when(mockGuild.createTextChannel(channelName)).thenReturn(channelAction);
 
       // 設定異步操作成功的 RestAction
@@ -297,7 +298,7 @@ class LangChain4jCreateChannelToolTest {
       // Given
       String channelName = "slow-channel";
 
-      ChannelAction<TextChannel> channelAction = mock(ChannelAction.class);
+      ChannelAction<TextChannel> channelAction = mockChannelAction();
       when(mockGuild.createTextChannel(channelName)).thenReturn(channelAction);
 
       // 設定逾時的 RestAction
@@ -321,7 +322,7 @@ class LangChain4jCreateChannelToolTest {
       // Given
       String channelName = "restricted-channel";
 
-      ChannelAction<TextChannel> channelAction = mock(ChannelAction.class);
+      ChannelAction<TextChannel> channelAction = mockChannelAction();
       when(mockGuild.createTextChannel(channelName)).thenReturn(channelAction);
 
       // 設定權限不足的 RestAction
@@ -345,7 +346,7 @@ class LangChain4jCreateChannelToolTest {
       // Given
       String channelName = "failing-channel";
 
-      ChannelAction<TextChannel> channelAction = mock(ChannelAction.class);
+      ChannelAction<TextChannel> channelAction = mockChannelAction();
       when(mockGuild.createTextChannel(channelName)).thenReturn(channelAction);
 
       // 設定 API 失敗的 RestAction
@@ -422,7 +423,7 @@ class LangChain4jCreateChannelToolTest {
       when(mockRole.getIdLong()).thenReturn(TEST_ROLE_ID);
       when(mockGuild.getRoleById(TEST_ROLE_ID)).thenReturn(mockRole);
 
-      ChannelAction<TextChannel> channelAction = mock(ChannelAction.class);
+      ChannelAction<TextChannel> channelAction = mockChannelAction();
       when(mockGuild.createTextChannel(channelName)).thenReturn(channelAction);
       setupSuccessfulRestAction(channelAction, mockTextChannel);
 
@@ -452,7 +453,7 @@ class LangChain4jCreateChannelToolTest {
       when(mockRole.getIdLong()).thenReturn(TEST_ROLE_ID);
       when(mockGuild.getRoleById(TEST_ROLE_ID)).thenReturn(mockRole);
 
-      ChannelAction<TextChannel> channelAction = mock(ChannelAction.class);
+      ChannelAction<TextChannel> channelAction = mockChannelAction();
       when(mockGuild.createTextChannel(channelName)).thenReturn(channelAction);
       setupSuccessfulRestAction(channelAction, mockTextChannel);
 
@@ -494,7 +495,7 @@ class LangChain4jCreateChannelToolTest {
       when(mockGuild.getRoleById(TEST_ROLE_ID)).thenReturn(mockRole1);
       when(mockGuild.getRoleById(roleId2)).thenReturn(mockRole2);
 
-      ChannelAction<TextChannel> channelAction = mock(ChannelAction.class);
+      ChannelAction<TextChannel> channelAction = mockChannelAction();
       when(mockGuild.createTextChannel(channelName)).thenReturn(channelAction);
       setupSuccessfulRestAction(channelAction, mockTextChannel);
 
@@ -529,7 +530,7 @@ class LangChain4jCreateChannelToolTest {
 
       when(mockGuild.getRoleById(TEST_ROLE_ID)).thenReturn(null);
 
-      ChannelAction<TextChannel> channelAction = mock(ChannelAction.class);
+      ChannelAction<TextChannel> channelAction = mockChannelAction();
       when(mockGuild.createTextChannel(channelName)).thenReturn(channelAction);
       setupSuccessfulRestAction(channelAction, mockTextChannel);
 
@@ -555,7 +556,7 @@ class LangChain4jCreateChannelToolTest {
       // Given
       String channelName = "no-perms-channel";
 
-      ChannelAction<TextChannel> channelAction = mock(ChannelAction.class);
+      ChannelAction<TextChannel> channelAction = mockChannelAction();
       when(mockGuild.createTextChannel(channelName)).thenReturn(channelAction);
       setupSuccessfulRestAction(channelAction, mockTextChannel);
 
@@ -576,7 +577,7 @@ class LangChain4jCreateChannelToolTest {
       // Given
       String channelName = "missing-role-id-channel";
 
-      ChannelAction<TextChannel> channelAction = mock(ChannelAction.class);
+      ChannelAction<TextChannel> channelAction = mockChannelAction();
       when(mockGuild.createTextChannel(channelName)).thenReturn(channelAction);
       setupSuccessfulRestAction(channelAction, mockTextChannel);
 
@@ -609,7 +610,7 @@ class LangChain4jCreateChannelToolTest {
       // Given
       String channelName = "result-test-channel";
 
-      ChannelAction<TextChannel> channelAction = mock(ChannelAction.class);
+      ChannelAction<TextChannel> channelAction = mockChannelAction();
       when(mockGuild.createTextChannel(channelName)).thenReturn(channelAction);
       setupSuccessfulRestAction(channelAction, mockTextChannel);
 
@@ -648,7 +649,7 @@ class LangChain4jCreateChannelToolTest {
       // Given
       String channelName = "success-msg-channel";
 
-      ChannelAction<TextChannel> channelAction = mock(ChannelAction.class);
+      ChannelAction<TextChannel> channelAction = mockChannelAction();
       when(mockGuild.createTextChannel(channelName)).thenReturn(channelAction);
       setupSuccessfulRestAction(channelAction, mockTextChannel);
 
@@ -669,6 +670,11 @@ class LangChain4jCreateChannelToolTest {
    * @param restAction 要設定的 RestAction
    * @param result 要返回的結果
    */
+  @SuppressWarnings("unchecked")
+  private static <T extends GuildChannel> ChannelAction<T> mockChannelAction() {
+    return mock(ChannelAction.class);
+  }
+
   private void setupSuccessfulRestAction(
       ChannelAction<TextChannel> restAction, TextChannel result) {
     CompletableFuture<TextChannel> future = CompletableFuture.completedFuture(result);

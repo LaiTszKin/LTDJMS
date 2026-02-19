@@ -39,4 +39,13 @@ if ! git diff --quiet; then
     echo -e "${GREEN}✓ 程式碼格式化完成${NC}"
 fi
 
+echo -e "${YELLOW}執行型別安全檢查...${NC}"
+
+if mvn -B -Ptype-safety -DskipTests test-compile; then
+    echo -e "${GREEN}✓ 型別安全檢查通過${NC}"
+else
+    echo -e "${RED}✗ 型別安全檢查失敗，請修復後再提交${NC}"
+    exit 1
+fi
+
 exit 0

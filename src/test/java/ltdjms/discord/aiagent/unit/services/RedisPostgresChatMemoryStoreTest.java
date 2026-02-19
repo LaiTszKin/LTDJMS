@@ -74,7 +74,7 @@ class RedisPostgresChatMemoryStoreTest {
     @DisplayName("當 Redis 快取未命中時，應從 PostgreSQL 載入並嘗試寫入快取")
     void shouldLoadFromDatabaseWhenCacheMiss() {
       // Given - Redis 快取未命中
-      when(mockCacheService.get(anyString(), any(Class.class))).thenReturn(Optional.empty());
+      when(mockCacheService.get(anyString(), anyClassToken())).thenReturn(Optional.empty());
 
       List<ConversationMessage> dbMessages =
           List.of(
@@ -100,7 +100,7 @@ class RedisPostgresChatMemoryStoreTest {
     @DisplayName("當資料庫返回空列表時，應返回空列表")
     void shouldReturnEmptyListWhenDatabaseReturnsEmpty() {
       // Given
-      when(mockCacheService.get(anyString(), any(Class.class))).thenReturn(Optional.empty());
+      when(mockCacheService.get(anyString(), anyClassToken())).thenReturn(Optional.empty());
       when(mockRepository.findByConversationId(TEST_MEMORY_ID, Integer.MAX_VALUE))
           .thenReturn(List.of());
 
@@ -177,7 +177,7 @@ class RedisPostgresChatMemoryStoreTest {
     @DisplayName("應正確轉換 USER 訊息為 ChatMessage")
     void shouldCorrectlyConvertUserMessage() {
       // Given
-      when(mockCacheService.get(anyString(), any(Class.class))).thenReturn(Optional.empty());
+      when(mockCacheService.get(anyString(), anyClassToken())).thenReturn(Optional.empty());
 
       ConversationMessage userMessage =
           new ConversationMessage(MessageRole.USER, "User input", Instant.now(), Optional.empty());
@@ -198,7 +198,7 @@ class RedisPostgresChatMemoryStoreTest {
     @DisplayName("應正確轉換 ASSISTANT 訊息為 ChatMessage")
     void shouldCorrectlyConvertAssistantMessage() {
       // Given
-      when(mockCacheService.get(anyString(), any(Class.class))).thenReturn(Optional.empty());
+      when(mockCacheService.get(anyString(), anyClassToken())).thenReturn(Optional.empty());
 
       ConversationMessage assistantMessage =
           new ConversationMessage(
@@ -220,7 +220,7 @@ class RedisPostgresChatMemoryStoreTest {
     @DisplayName("應正確轉換 TOOL 訊息為 ChatMessage")
     void shouldCorrectlyConvertToolMessage() {
       // Given
-      when(mockCacheService.get(anyString(), any(Class.class))).thenReturn(Optional.empty());
+      when(mockCacheService.get(anyString(), anyClassToken())).thenReturn(Optional.empty());
 
       ToolCallInfo toolCallInfo =
           new ToolCallInfo("testTool", java.util.Map.of("arg", "value"), true, "Tool result");
@@ -296,5 +296,9 @@ class RedisPostgresChatMemoryStoreTest {
       assertThat(conversationMessages.get(2).toolCall()).isPresent();
       assertThat(conversationMessages.get(2).toolCall().get().toolName()).isEqualTo("calculator");
     }
+  }
+
+  private static <T> Class<T> anyClassToken() {
+    return any();
   }
 }

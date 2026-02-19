@@ -48,7 +48,7 @@ class JdaDiscordInteractionTest {
 
   @Mock private WebhookMessageCreateAction<net.dv8tion.jda.api.entities.Message> mockMessageAction;
 
-  @Mock private WebhookMessageEditAction mockEditAction;
+  @Mock private WebhookMessageEditAction<net.dv8tion.jda.api.entities.Message> mockEditAction;
 
   @Mock private RestAction<InteractionHook> mockHookRestAction;
 

@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.31.1] - 2026-02-20
+
+### Added
+- **build**: 新增 Maven `type-safety` profile，啟用 `-Xlint:unchecked` / `-Xlint:rawtypes`，並在 warning 時直接失敗
+- **ci**: GitHub Actions 新增 `type-safety` job，所有測試 job 改為依賴型別安全檢查
+- **devx**: `.git-hooks/pre-commit` 新增型別安全檢查（`mvn -Ptype-safety -DskipTests test-compile`）
+
+### Changed
+- **build**: Maven compiler 設定從 `source/target` 改為 `release 17`，避免 JDK 模組位置警告
+- **tests**: 修正既有測試中的 raw type / unchecked 泛型警告，確保型別安全檢查可通過
+
+### Tests
+- 驗證 `spotless:check` 與 `-Ptype-safety -DskipTests clean test-compile` 皆可穩定通過
+- 執行受影響測試集（共 125 tests）並全部通過
+
 ## [0.31.0] - 2026-02-20
 
 ### Added
