@@ -71,7 +71,7 @@ class LangChain4jManageMessageToolTest {
     when(action.complete()).thenReturn(null);
 
     String result =
-        tool.manageMessage(String.valueOf(TEST_MESSAGE_ID), "pin", null, null, parameters);
+        tool.manageMessage(String.valueOf(TEST_MESSAGE_ID), "pin", null, null, null, parameters);
 
     assertThat(result).contains("\"success\": true");
     assertThat(result).contains("\"action\": \"pin\"");
@@ -86,7 +86,7 @@ class LangChain4jManageMessageToolTest {
     when(action.complete()).thenReturn(null);
 
     String result =
-        tool.manageMessage(String.valueOf(TEST_MESSAGE_ID), "delete", null, null, parameters);
+        tool.manageMessage(String.valueOf(TEST_MESSAGE_ID), "delete", null, null, null, parameters);
 
     assertThat(result).contains("\"success\": true");
     assertThat(result).contains("\"action\": \"delete\"");
@@ -102,18 +102,102 @@ class LangChain4jManageMessageToolTest {
 
     String result =
         tool.manageMessage(
-            String.valueOf(TEST_MESSAGE_ID), "edit", null, "updated content", parameters);
+            String.valueOf(TEST_MESSAGE_ID),
+            "edit",
+            null,
+            "updated content",
+            "replace",
+            parameters);
 
     assertThat(result).contains("\"success\": true");
     assertThat(result).contains("\"action\": \"edit\"");
+    assertThat(result).contains("\"editMode\": \"replace\"");
     assertThat(result).contains("updated content");
+  }
+
+  @Test
+  @DisplayName("未提供 editMode 且內容較短時，應預設 append")
+  void shouldDefaultToAppendWhenEditContentLooksIncremental() {
+    @SuppressWarnings("unchecked")
+    RestAction<Message> retrieveAction = mock(RestAction.class);
+    Message originalMessage = mock(Message.class);
+    MessageEditAction editAction = mock(MessageEditAction.class);
+    Message editedMessage = mock(Message.class);
+
+    when(mockChannel.retrieveMessageById(TEST_MESSAGE_ID)).thenReturn(retrieveAction);
+    when(retrieveAction.complete()).thenReturn(originalMessage);
+    when(originalMessage.getContentRaw()).thenReturn("原始訊息內容");
+    when(mockChannel.editMessageById(TEST_MESSAGE_ID, "原始訊息內容\n測試")).thenReturn(editAction);
+    when(editAction.complete()).thenReturn(editedMessage);
+
+    String result =
+        tool.manageMessage(String.valueOf(TEST_MESSAGE_ID), "edit", null, "測試", null, parameters);
+
+    assertThat(result).contains("\"success\": true");
+    assertThat(result).contains("\"action\": \"edit\"");
+    assertThat(result).contains("\"editMode\": \"append\"");
+    assertThat(result).contains("原始訊息內容 測試");
+  }
+
+  @Test
+  @DisplayName("editMode=prepend 時應保留原文並加在前方")
+  void shouldPrependContentWhenEditModeIsPrepend() {
+    @SuppressWarnings("unchecked")
+    RestAction<Message> retrieveAction = mock(RestAction.class);
+    Message originalMessage = mock(Message.class);
+    MessageEditAction editAction = mock(MessageEditAction.class);
+    Message editedMessage = mock(Message.class);
+
+    when(mockChannel.retrieveMessageById(TEST_MESSAGE_ID)).thenReturn(retrieveAction);
+    when(retrieveAction.complete()).thenReturn(originalMessage);
+    when(originalMessage.getContentRaw()).thenReturn("原始內容");
+    when(mockChannel.editMessageById(TEST_MESSAGE_ID, "前置說明\n原始內容")).thenReturn(editAction);
+    when(editAction.complete()).thenReturn(editedMessage);
+
+    String result =
+        tool.manageMessage(
+            String.valueOf(TEST_MESSAGE_ID), "edit", null, "前置說明", "prepend", parameters);
+
+    assertThat(result).contains("\"success\": true");
+    assertThat(result).contains("\"editMode\": \"prepend\"");
+    assertThat(result).contains("前置說明 原始內容");
+  }
+
+  @Test
+  @DisplayName("editMode 非法時應回傳錯誤")
+  void shouldReturnErrorWhenEditModeInvalid() {
+    String result =
+        tool.manageMessage(
+            String.valueOf(TEST_MESSAGE_ID), "edit", null, "updated content", "merge", parameters);
+
+    assertThat(result).contains("\"success\": false");
+    assertThat(result).contains("editMode 必須是 replace、append 或 prepend");
+  }
+
+  @Test
+  @DisplayName("append 後超過長度上限時應回傳錯誤")
+  void shouldReturnErrorWhenAppendedContentExceedsLimit() {
+    @SuppressWarnings("unchecked")
+    RestAction<Message> retrieveAction = mock(RestAction.class);
+    Message originalMessage = mock(Message.class);
+
+    when(mockChannel.retrieveMessageById(TEST_MESSAGE_ID)).thenReturn(retrieveAction);
+    when(retrieveAction.complete()).thenReturn(originalMessage);
+    when(originalMessage.getContentRaw()).thenReturn("a".repeat(1995));
+
+    String result =
+        tool.manageMessage(
+            String.valueOf(TEST_MESSAGE_ID), "edit", null, "1234567890", "append", parameters);
+
+    assertThat(result).contains("\"success\": false");
+    assertThat(result).contains("編輯後內容長度不可超過 2000 字元");
   }
 
   @Test
   @DisplayName("action=edit 且 newContent 為空時應回傳錯誤")
   void shouldReturnErrorWhenEditContentMissing() {
     String result =
-        tool.manageMessage(String.valueOf(TEST_MESSAGE_ID), "edit", null, "   ", parameters);
+        tool.manageMessage(String.valueOf(TEST_MESSAGE_ID), "edit", null, "   ", null, parameters);
 
     assertThat(result).contains("\"success\": false");
     assertThat(result).contains("newContent 不能為空");
@@ -123,7 +207,8 @@ class LangChain4jManageMessageToolTest {
   @DisplayName("不支援的 action 應回傳錯誤")
   void shouldReturnErrorForUnsupportedAction() {
     String result =
-        tool.manageMessage(String.valueOf(TEST_MESSAGE_ID), "archive", null, null, parameters);
+        tool.manageMessage(
+            String.valueOf(TEST_MESSAGE_ID), "archive", null, null, null, parameters);
 
     assertThat(result).contains("\"success\": false");
     assertThat(result).contains("action 必須是 pin、delete 或 edit");
@@ -132,7 +217,7 @@ class LangChain4jManageMessageToolTest {
   @Test
   @DisplayName("無效 messageId 應回傳錯誤")
   void shouldReturnErrorForInvalidMessageId() {
-    String result = tool.manageMessage("invalid-id", "pin", null, null, parameters);
+    String result = tool.manageMessage("invalid-id", "pin", null, null, null, parameters);
 
     assertThat(result).contains("\"success\": false");
     assertThat(result).contains("無效的 messageId 格式");

@@ -2,6 +2,23 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.30.1] - 2026-02-19
+
+### Fixed
+- **panel/security**: 限制 `/admin-panel` 相關互動入口僅管理員可操作，修補非管理員誤觸管理流程風險
+- **redemption**: 修正短兌換碼遮罩邏輯，避免短碼顯示時產生錯誤或遮罩異常
+- **aiagent**: `manage_message` 的 `edit` 操作新增 `append` / `prepend` 模式與自動增量判斷，降低把原訊息整段覆蓋成短字串（如「測試」）的風險
+
+### Changed
+- **aiagent**: `AIAgentTools` 的 `manage_message` 工具參數新增 `editMode`（`replace` / `append` / `prepend`）
+- **prompt**: `prompts/agent/AgentSystemPrompt.md` 調整為伺服器管理任務預設直接執行工具，不需先徵求確認
+
+### Tests
+- **panel**: 更新 `AdminPanelCommandHandlerTest` 與 `AdminProductPanelHandlerTest`，覆蓋管理員守衛後的互動流程
+- **redemption**: 更新 `RedemptionServiceTest`，覆蓋短兌換碼遮罩邊界情境
+- **aiagent**: 更新 `LangChain4jManageMessageToolTest`，補齊 `append` / `prepend` / 長度上限 / 非法 `editMode` 邊界案例
+- **aiagent**: 更新 `AIAgentDomainTest`，對齊 `manage_message` 參數數量變更
+
 ## [0.30.0] - 2026-02-18
 
 ### Added

@@ -13,8 +13,7 @@
 - 需要在指定頻道查找關鍵字歷史訊息時，使用 `search_messages`。
 - 需要管理單一訊息狀態（釘選/刪除/編輯）時，使用 `manage_message`。
 - 使用者需求不明確時，先用工具探索，再提出必要的澄清問題。
-- 每一次工具呼叫前，都必須先向使用者說明「為什麼要呼叫這個工具」與「預期取得/改變什麼」。
-- 未先說明理由時，不得直接執行工具呼叫。
+- 伺服器管理任務預設直接執行工具，不需要先徵求使用者確認。
 </tooling_rules>
 
 <default_to_action>
@@ -57,9 +56,12 @@
     - `action`（必填，字串）：`pin`、`delete`、`edit`。
     - `channelId`（可選，字串）：目標頻道 ID；未提供時使用當前頻道。
     - `newContent`（`action=edit` 必填，字串）：新訊息內容。
+    - `editMode`（`action=edit` 可選，字串）：`replace`（覆寫）、`append`（接在原文後）、`prepend`（接在原文前）。
   - 規則：
-    - `delete` 與 `edit` 屬於高風險操作，執行前應向使用者確認目標訊息。
+    - `delete` 與 `edit` 預設直接執行，不需先詢問確認。
     - `edit` 必須帶 `newContent`，不可留空。
+    - `edit` 時禁止使用「測試」等佔位內容，除非使用者明確要求該文字。
+    - 使用者只提供增量文字時，優先使用 `editMode=append` 或 `editMode=prepend`，避免覆蓋原文。
 </new_tools_instructions>
 
 # 錯誤處理

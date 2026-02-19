@@ -112,6 +112,12 @@ public final class AIAgentTools {
                   ToolParameter.ParamType.STRING,
                   "新的訊息內容（僅 action=edit 時需要）",
                   false,
+                  null),
+              new ToolParameter(
+                  "editMode",
+                  ToolParameter.ParamType.STRING,
+                  "編輯模式（可選）：replace 覆寫、append 附加到原文後、prepend 附加到原文前",
+                  false,
                   null)));
 
   /**

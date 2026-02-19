@@ -11,6 +11,7 @@ import dev.langchain4j.agent.tool.Tool;
 import dev.langchain4j.invocation.InvocationParameters;
 import ltdjms.discord.shared.di.JDAProvider;
 import net.dv8tion.jda.api.entities.Guild;
+import net.dv8tion.jda.api.entities.Message;
 import net.dv8tion.jda.api.entities.channel.middleman.GuildChannel;
 import net.dv8tion.jda.api.entities.channel.middleman.GuildMessageChannel;
 
@@ -49,12 +50,17 @@ public final class LangChain4jManageMessageTool {
       - action：操作類型，必須是 pin/delete/edit
       - channelId：訊息所在頻道 ID（可省略，省略時使用當前頻道）
       - newContent：只有 action=edit 時需要提供
+      - editMode：僅 action=edit 時可選，replace（覆寫）、append（附加到原文後）、prepend（附加到原文前）
       """)
   public String manageMessage(
       @P(value = "目標訊息 ID。", required = true) String messageId,
       @P(value = "操作類型，必須是 pin、delete、edit 之一。", required = true) String action,
       @P(value = "目標頻道 ID（可選，未提供時使用當前頻道）。", required = false) String channelId,
       @P(value = "新的訊息內容（僅 action=edit 時需要）。", required = false) String newContent,
+      @P(
+              value = "編輯模式（僅 action=edit 時可選）：replace=覆寫全文，append=附加到原文後，prepend=附加到原文前。",
+              required = false)
+          String editMode,
       InvocationParameters parameters) {
 
     if (messageId == null || messageId.isBlank()) {
@@ -111,6 +117,7 @@ public final class LangChain4jManageMessageTool {
 
     try {
       String editedContent = null;
+      String appliedEditMode = null;
       switch (normalizedAction) {
         case "pin" -> messageChannel.pinMessageById(targetMessageId).complete();
         case "delete" -> messageChannel.deleteMessageById(targetMessageId).complete();
@@ -123,15 +130,33 @@ public final class LangChain4jManageMessageTool {
             return ToolJsonResponses.error(
                 String.format("newContent 長度不可超過 %d 字元", MAX_MESSAGE_CONTENT_LENGTH));
           }
-          messageChannel.editMessageById(targetMessageId, normalizedContent).complete();
-          editedContent = normalizedContent;
+
+          EditMode resolvedEditMode = resolveEditMode(editMode, normalizedContent);
+          if (resolvedEditMode == null) {
+            return ToolJsonResponses.error("editMode 必須是 replace、append 或 prepend");
+          }
+
+          String finalContent =
+              buildFinalEditedContent(
+                  messageChannel, targetMessageId, normalizedContent, resolvedEditMode);
+          if (finalContent.length() > MAX_MESSAGE_CONTENT_LENGTH) {
+            return ToolJsonResponses.error(
+                String.format(
+                    "編輯後內容長度不可超過 %d 字元（目前 %d 字元）",
+                    MAX_MESSAGE_CONTENT_LENGTH, finalContent.length()));
+          }
+
+          messageChannel.editMessageById(targetMessageId, finalContent).complete();
+          editedContent = finalContent;
+          appliedEditMode = resolvedEditMode.value;
         }
         default -> {
           return ToolJsonResponses.error("不支援的 action");
         }
       }
 
-      return buildSuccessJson(targetChannelId, targetMessageId, normalizedAction, editedContent);
+      return buildSuccessJson(
+          targetChannelId, targetMessageId, normalizedAction, editedContent, appliedEditMode);
     } catch (Exception e) {
       LOGGER.warn(
           "LangChain4jManageMessageTool: action={} 失敗, channelId={}, messageId={}",
@@ -197,7 +222,11 @@ public final class LangChain4jManageMessageTool {
   }
 
   private String buildSuccessJson(
-      long channelId, long messageId, String action, String newContentForEdit) {
+      long channelId,
+      long messageId,
+      String action,
+      String newContentForEdit,
+      String editModeForEdit) {
     StringBuilder json = new StringBuilder();
     json.append("{\n");
     json.append("  \"success\": true,\n");
@@ -208,6 +237,9 @@ public final class LangChain4jManageMessageTool {
 
     if ("edit".equals(action)) {
       json.append(",\n");
+      json.append("  \"editMode\": \"")
+          .append(ToolJsonResponses.escapeJson(nullToEmpty(editModeForEdit)))
+          .append("\",\n");
       json.append("  \"contentPreview\": \"")
           .append(ToolJsonResponses.escapeJson(trimPreview(newContentForEdit)))
           .append("\"");
@@ -226,5 +258,75 @@ public final class LangChain4jManageMessageTool {
       return normalized;
     }
     return normalized.substring(0, 120) + "...";
+  }
+
+  private EditMode resolveEditMode(String rawEditMode, String normalizedContent) {
+    if (rawEditMode != null && !rawEditMode.isBlank()) {
+      String candidate = rawEditMode.trim().toLowerCase(Locale.ROOT);
+      if ("replace".equals(candidate)) {
+        return EditMode.REPLACE;
+      }
+      if ("append".equals(candidate)) {
+        return EditMode.APPEND;
+      }
+      if ("prepend".equals(candidate)) {
+        return EditMode.PREPEND;
+      }
+      return null;
+    }
+
+    return isLikelyIncrementalEdit(normalizedContent) ? EditMode.APPEND : EditMode.REPLACE;
+  }
+
+  private boolean isLikelyIncrementalEdit(String normalizedContent) {
+    if (normalizedContent == null) {
+      return false;
+    }
+    return !normalizedContent.contains("\n") && normalizedContent.length() <= 20;
+  }
+
+  private String buildFinalEditedContent(
+      GuildMessageChannel messageChannel,
+      long messageId,
+      String normalizedContent,
+      EditMode editMode) {
+    if (editMode == EditMode.REPLACE) {
+      return normalizedContent;
+    }
+
+    Message originalMessage = messageChannel.retrieveMessageById(messageId).complete();
+    String originalContent = originalMessage.getContentRaw();
+    if (originalContent == null || originalContent.isBlank()) {
+      return normalizedContent;
+    }
+
+    return switch (editMode) {
+      case APPEND -> joinWithNewline(originalContent, normalizedContent);
+      case PREPEND -> joinWithNewline(normalizedContent, originalContent);
+      case REPLACE -> normalizedContent;
+    };
+  }
+
+  private String joinWithNewline(String first, String second) {
+    if (first.endsWith("\n")) {
+      return first + second;
+    }
+    return first + "\n" + second;
+  }
+
+  private String nullToEmpty(String value) {
+    return value == null ? "" : value;
+  }
+
+  private enum EditMode {
+    REPLACE("replace"),
+    APPEND("append"),
+    PREPEND("prepend");
+
+    private final String value;
+
+    EditMode(String value) {
+      this.value = value;
+    }
   }
 }

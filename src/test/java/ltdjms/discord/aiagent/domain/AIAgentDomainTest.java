@@ -676,7 +676,7 @@ class AIAgentDomainTest {
       // Then
       assertThat(AIAgentTools.MANAGE_MESSAGE.name()).isEqualTo("manage_message");
       assertThat(AIAgentTools.MANAGE_MESSAGE.description()).contains("訊息");
-      assertThat(AIAgentTools.MANAGE_MESSAGE.parameters()).hasSize(4);
+      assertThat(AIAgentTools.MANAGE_MESSAGE.parameters()).hasSize(5);
     }
   }
 
