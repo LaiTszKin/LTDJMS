@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.31.2] - 2026-02-21
+
+### Fixed
+- **aiagent/persistence**: 修正工具執行日誌查詢排序的非決定性問題，`findByChannelId` 與 `findByTimeRange` 改為 `executed_at DESC, id DESC`，避免同時間戳記時結果順序偶發不穩定
+
+### Tests
+- **aiagent/integration**: `ToolExecutionLogIntegrationTest` 新增頻道查詢與時間範圍查詢在「同 executedAt」情境下的排序穩定性整合測試，覆蓋邊界案例
+- 執行 `mvn -q -Pintegration-tests -Dtest=ToolExecutionLogIntegrationTest test` 與 `mvn -q -Pintegration-tests test`，皆通過
+
 ## [0.31.1] - 2026-02-20
 
 ### Added

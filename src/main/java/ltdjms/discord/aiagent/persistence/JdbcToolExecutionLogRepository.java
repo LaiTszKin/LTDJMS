@@ -75,7 +75,7 @@ public class JdbcToolExecutionLogRepository implements ToolExecutionLogRepositor
                parameters, execution_result, error_message, status, executed_at
         FROM ai_tool_execution_log
         WHERE channel_id = ?
-        ORDER BY executed_at DESC
+        ORDER BY executed_at DESC, id DESC
         LIMIT ?
         """;
 
@@ -106,7 +106,7 @@ public class JdbcToolExecutionLogRepository implements ToolExecutionLogRepositor
                parameters, execution_result, error_message, status, executed_at
         FROM ai_tool_execution_log
         WHERE guild_id = ? AND executed_at BETWEEN ? AND ?
-        ORDER BY executed_at DESC
+        ORDER BY executed_at DESC, id DESC
         """;
 
     try (Connection conn = dataSource.getConnection();

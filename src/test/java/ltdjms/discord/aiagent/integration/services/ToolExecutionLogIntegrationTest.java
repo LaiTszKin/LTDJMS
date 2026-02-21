@@ -207,6 +207,51 @@ class ToolExecutionLogIntegrationTest {
     }
 
     @Test
+    @DisplayName("當執行時間相同時應按插入順序倒序返回")
+    void shouldOrderByIdWhenExecutedAtIsSame() {
+      // Given - 兩筆資料使用相同 executedAt，驗證次排序鍵可確保結果穩定
+      LocalDateTime sameExecutedAt = LocalDateTime.of(2026, 1, 1, 0, 0, 0);
+      ToolExecutionLog firstLog =
+          new ToolExecutionLog(
+              0L,
+              TEST_GUILD_ID,
+              TEST_CHANNEL_ID,
+              TEST_USER_ID,
+              "tool1",
+              "{}",
+              "Result 1",
+              null,
+              ToolExecutionLog.ExecutionStatus.SUCCESS,
+              sameExecutedAt);
+      ToolExecutionLog secondLog =
+          new ToolExecutionLog(
+              0L,
+              TEST_GUILD_ID,
+              TEST_CHANNEL_ID,
+              TEST_USER_ID,
+              "tool2",
+              "{}",
+              "Result 2",
+              null,
+              ToolExecutionLog.ExecutionStatus.SUCCESS,
+              sameExecutedAt);
+
+      repository.save(firstLog);
+      repository.save(secondLog);
+
+      // When
+      Result<List<ToolExecutionLog>, Exception> result =
+          repository.findByChannelId(TEST_CHANNEL_ID, 10);
+
+      // Then
+      assertThat(result.isOk()).isTrue();
+      List<ToolExecutionLog> logs = result.getValue();
+      assertThat(logs).hasSize(2);
+      assertThat(logs.get(0).toolName()).isEqualTo("tool2");
+      assertThat(logs.get(1).toolName()).isEqualTo("tool1");
+    }
+
+    @Test
     @DisplayName("應限制返回的日誌數量")
     void shouldLimitResults() {
       // Given - 保存 5 則日誌
@@ -301,6 +346,52 @@ class ToolExecutionLogIntegrationTest {
       // Then
       assertThat(result.isOk()).isTrue();
       assertThat(result.getValue()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("同時間戳記時時間範圍查詢應按插入順序倒序返回")
+    void shouldOrderByIdInTimeRangeWhenExecutedAtIsSame() {
+      // Given - 使用相同 executedAt，避免只靠時間排序造成非決定性結果
+      LocalDateTime sameExecutedAt = LocalDateTime.of(2026, 1, 1, 1, 0, 0);
+      ToolExecutionLog firstLog =
+          new ToolExecutionLog(
+              0L,
+              TEST_GUILD_ID,
+              TEST_CHANNEL_ID,
+              TEST_USER_ID,
+              "timeTool1",
+              "{}",
+              "Result 1",
+              null,
+              ToolExecutionLog.ExecutionStatus.SUCCESS,
+              sameExecutedAt);
+      ToolExecutionLog secondLog =
+          new ToolExecutionLog(
+              0L,
+              TEST_GUILD_ID,
+              TEST_CHANNEL_ID,
+              TEST_USER_ID,
+              "timeTool2",
+              "{}",
+              "Result 2",
+              null,
+              ToolExecutionLog.ExecutionStatus.SUCCESS,
+              sameExecutedAt);
+
+      repository.save(firstLog);
+      repository.save(secondLog);
+
+      // When
+      Result<List<ToolExecutionLog>, Exception> result =
+          repository.findByTimeRange(
+              TEST_GUILD_ID, sameExecutedAt.minusMinutes(1), sameExecutedAt.plusMinutes(1));
+
+      // Then
+      assertThat(result.isOk()).isTrue();
+      List<ToolExecutionLog> logs = result.getValue();
+      assertThat(logs).hasSize(2);
+      assertThat(logs.get(0).toolName()).isEqualTo("timeTool2");
+      assertThat(logs.get(1).toolName()).isEqualTo("timeTool1");
     }
   }
 
