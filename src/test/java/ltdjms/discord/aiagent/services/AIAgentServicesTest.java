@@ -2,8 +2,10 @@ package ltdjms.discord.aiagent.services;
 
 import static org.assertj.core.api.Assertions.*;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 import org.junit.jupiter.api.DisplayName;
@@ -11,7 +13,10 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 import ltdjms.discord.aiagent.domain.ChannelPermission;
+import ltdjms.discord.aiagent.domain.ConversationMessage;
+import ltdjms.discord.aiagent.domain.MessageRole;
 import ltdjms.discord.aiagent.domain.PermissionSetting;
+import ltdjms.discord.aiagent.domain.ToolCallInfo;
 import net.dv8tion.jda.api.Permission;
 
 /** Unit tests for aiagent.services package utility classes. */
@@ -210,6 +215,43 @@ class AIAgentServicesTest {
 
       // Then
       assertThat(result.permissionSet()).containsExactly(Permission.VIEW_CHANNEL);
+    }
+  }
+
+  @Nested
+  @DisplayName("TokenEstimator")
+  class TokenEstimatorTests {
+
+    @Test
+    @DisplayName("should handle null tool result when estimating tokens")
+    void shouldHandleNullToolResult() {
+      // Given
+      ToolCallInfo toolCall = new ToolCallInfo(null, Map.of(), true, null);
+      ConversationMessage message =
+          new ConversationMessage(
+              MessageRole.TOOL, "content", Instant.now(), Optional.of(toolCall));
+      TokenEstimator estimator = new TokenEstimator(4000);
+
+      // When
+      int tokens = estimator.estimateTokens(message);
+
+      // Then
+      assertThat(tokens).isEqualTo(52);
+    }
+
+    @Test
+    @DisplayName("should handle null content when estimating tokens")
+    void shouldHandleNullContent() {
+      // Given
+      ConversationMessage message =
+          new ConversationMessage(MessageRole.USER, null, Instant.now(), Optional.empty());
+      TokenEstimator estimator = new TokenEstimator(4000);
+
+      // When
+      int tokens = estimator.estimateTokens(message);
+
+      // Then
+      assertThat(tokens).isEqualTo(10);
     }
   }
 
