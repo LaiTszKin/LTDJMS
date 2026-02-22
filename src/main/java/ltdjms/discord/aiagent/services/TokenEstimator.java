@@ -55,13 +55,16 @@ public final class TokenEstimator {
    */
   public int estimateTokens(ConversationMessage message) {
     // 內容
-    int contentTokens = (message.content().length() + CHARS_PER_TOKEN - 1) / CHARS_PER_TOKEN;
+    String content = message.content() == null ? "" : message.content();
+    int contentTokens = (content.length() + CHARS_PER_TOKEN - 1) / CHARS_PER_TOKEN;
 
     // 工具調用額外開銷
     if (message.role() == MessageRole.TOOL && message.toolCall().isPresent()) {
       var toolCall = message.toolCall().get();
-      int toolNameTokens = (toolCall.toolName().length() + CHARS_PER_TOKEN - 1) / CHARS_PER_TOKEN;
-      int resultTokens = (toolCall.result().length() + CHARS_PER_TOKEN - 1) / CHARS_PER_TOKEN;
+      String toolName = toolCall.toolName() == null ? "" : toolCall.toolName();
+      String result = toolCall.result() == null ? "" : toolCall.result();
+      int toolNameTokens = (toolName.length() + CHARS_PER_TOKEN - 1) / CHARS_PER_TOKEN;
+      int resultTokens = (result.length() + CHARS_PER_TOKEN - 1) / CHARS_PER_TOKEN;
       return contentTokens + toolNameTokens + resultTokens + 50; // +50 JSON 結構開銷
     }
 
