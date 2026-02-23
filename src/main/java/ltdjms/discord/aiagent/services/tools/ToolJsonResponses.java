@@ -103,7 +103,8 @@ public final class ToolJsonResponses {
       "%s": "%s"
     }
     """
-        .formatted(escapeJson(message), fieldName, escapeJson(String.valueOf(fieldValue)));
+        .formatted(
+            escapeJson(message), escapeJson(fieldName), escapeJson(String.valueOf(fieldValue)));
   }
 
   /**
@@ -132,9 +133,9 @@ public final class ToolJsonResponses {
     """
         .formatted(
             escapeJson(message),
-            field1Name,
+            escapeJson(field1Name),
             escapeJson(String.valueOf(field1Value)),
-            field2Name,
+            escapeJson(field2Name),
             escapeJson(String.valueOf(field2Value)));
   }
 
