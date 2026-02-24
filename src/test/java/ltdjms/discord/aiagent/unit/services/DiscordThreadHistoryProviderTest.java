@@ -15,6 +15,7 @@ import dev.langchain4j.data.message.ChatMessage;
 import dev.langchain4j.data.message.UserMessage;
 import ltdjms.discord.aiagent.services.DiscordThreadHistoryProvider;
 import ltdjms.discord.aiagent.services.TokenEstimator;
+import ltdjms.discord.shared.di.JDAProvider;
 import net.dv8tion.jda.api.entities.Message;
 import net.dv8tion.jda.api.entities.MessageType;
 import net.dv8tion.jda.api.entities.User;
@@ -81,5 +82,34 @@ class DiscordThreadHistoryProviderTest {
     assertThat(((UserMessage) chatMessages.get(0)).singleText()).isEqualTo("使用者訊息");
     assertThat(chatMessages.get(1)).isInstanceOf(AiMessage.class);
     assertThat(((AiMessage) chatMessages.get(1)).text()).isEqualTo("機器人回覆");
+  }
+
+  @Test
+  @DisplayName("maxMessages 為非正數時應直接回傳空列表")
+  void shouldReturnEmptyWhenMaxMessagesNonPositive() {
+    JDAProvider.clear();
+    DiscordThreadHistoryProvider provider =
+        new DiscordThreadHistoryProvider(0, new TokenEstimator(4000));
+
+    List<ChatMessage> history = provider.getThreadHistory(1L, 2L, 3L, 4L);
+
+    assertThat(history).isEmpty();
+  }
+
+  @Test
+  @DisplayName("maxTokens 為非正數時應裁剪為空列表")
+  void shouldReturnEmptyWhenMaxTokensNonPositive() throws Exception {
+    DiscordThreadHistoryProvider provider =
+        new DiscordThreadHistoryProvider(10, new TokenEstimator(2000));
+    List<ChatMessage> messages = List.of(UserMessage.from("hello"), AiMessage.from("world"));
+
+    Method trimMethod =
+        DiscordThreadHistoryProvider.class.getDeclaredMethod("trimByTokens", List.class);
+    trimMethod.setAccessible(true);
+
+    @SuppressWarnings("unchecked")
+    List<ChatMessage> trimmed = (List<ChatMessage>) trimMethod.invoke(provider, messages);
+
+    assertThat(trimmed).isEmpty();
   }
 }

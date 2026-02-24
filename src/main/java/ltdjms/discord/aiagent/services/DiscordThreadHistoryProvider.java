@@ -70,6 +70,11 @@ public final class DiscordThreadHistoryProvider {
    */
   public List<ChatMessage> getThreadHistory(
       long guildId, long threadId, long requesterUserId, long botUserId) {
+    if (maxMessages <= 0) {
+      LOG.warn("無法獲取 Thread 歷史：maxMessages <= 0 ({}), threadId={}", maxMessages, threadId);
+      return List.of();
+    }
+
     Guild guild = getJda().getGuildById(guildId);
     if (guild == null) {
       LOG.warn("找不到伺服器: guildId={}", guildId);
@@ -167,6 +172,9 @@ public final class DiscordThreadHistoryProvider {
    */
   private List<ChatMessage> trimByTokens(List<ChatMessage> messages) {
     int maxTokens = tokenEstimator.getMaxTokens();
+    if (maxTokens <= 0) {
+      return List.of();
+    }
     int currentTokens = 0;
     List<ChatMessage> result = new ArrayList<>();
 
