@@ -57,7 +57,7 @@ class JdbcProductRepositoryTest {
       when(stmt.executeQuery()).thenReturn(rs);
       when(rs.next()).thenReturn(true, true, false);
 
-      when(rs.getString("reward_type")).thenReturn(null, null);
+      when(rs.getString("reward_type")).thenReturn((String) null, (String) null);
       when(rs.getLong("reward_amount")).thenReturn(0L, 0L);
       when(rs.getLong("currency_price")).thenReturn(0L, 0L);
       when(rs.getLong("fiat_price_twd")).thenReturn(500L, 700L);
