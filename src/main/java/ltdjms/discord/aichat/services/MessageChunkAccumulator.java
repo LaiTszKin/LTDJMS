@@ -32,9 +32,16 @@ public final class MessageChunkAccumulator {
     List<String> readyToSend = new ArrayList<>();
 
     // 1. 優先檢查段落分割（\n\n）
-    int paragraphEnd = findFirstParagraphBoundary();
-    if (paragraphEnd > 0 && paragraphEnd <= MAX_MESSAGE_LENGTH) {
+    while (true) {
+      int paragraphEnd = findFirstParagraphBoundary();
+      if (paragraphEnd <= 0 || paragraphEnd > MAX_MESSAGE_LENGTH) {
+        break;
+      }
       String chunk = buffer.substring(0, paragraphEnd);
+      if (chunk.trim().isEmpty()) {
+        buffer.delete(0, paragraphEnd);
+        continue;
+      }
       readyToSend.add(chunk);
       buffer.delete(0, paragraphEnd);
       return readyToSend;

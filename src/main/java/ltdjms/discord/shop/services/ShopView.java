@@ -15,6 +15,7 @@ public class ShopView {
 
   private static final Color EMBED_COLOR = new Color(0x5865F2);
   private static final int PAGE_SIZE = 5;
+  private static final int MAX_PURCHASE_OPTIONS = 25;
   private static final String DIVIDER = "────────────────────────────────────";
 
   public static final String BUTTON_PREV_PAGE = "shop_prev_";
@@ -160,7 +161,9 @@ public class ShopView {
     StringSelectMenu.Builder menuBuilder =
         StringSelectMenu.create(SELECT_PURCHASE_PRODUCT).setPlaceholder("選擇要購買的商品");
 
-    for (Product product : productsForPurchase) {
+    int limit = Math.min(productsForPurchase.size(), MAX_PURCHASE_OPTIONS);
+    for (int i = 0; i < limit; i++) {
+      Product product = productsForPurchase.get(i);
       String label = product.name();
       String description = product.formatCurrencyPrice();
       menuBuilder.addOption(label, String.valueOf(product.id()), description);

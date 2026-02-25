@@ -167,6 +167,22 @@ class ShopViewTest {
   }
 
   @Test
+  @DisplayName("buildPurchaseMenu 應該限制最多 25 個選項")
+  void buildPurchaseMenuShouldLimitOptions() {
+    List<Product> products =
+        java.util.stream.IntStream.range(0, 30)
+            .mapToObj(
+                i -> Product.createWithCurrencyPrice(TEST_GUILD_ID, "商品 " + i, null, 100L + i))
+            .toList();
+
+    var menu = ShopView.buildPurchaseMenu(products);
+
+    assertThat(menu.getOptions()).hasSize(25);
+    assertThat(menu.getOptions().get(0).getLabel()).isEqualTo("商品 0");
+    assertThat(menu.getOptions().get(24).getLabel()).isEqualTo("商品 24");
+  }
+
+  @Test
   @DisplayName("buildFiatOrderMenu 應該建立法幣下單選單")
   void buildFiatOrderMenuShouldCreateSelectionMenu() {
     Product product =
