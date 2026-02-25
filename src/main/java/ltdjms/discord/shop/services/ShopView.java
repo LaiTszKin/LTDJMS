@@ -177,7 +177,9 @@ public class ShopView {
     StringSelectMenu.Builder menuBuilder =
         StringSelectMenu.create(SELECT_FIAT_PRODUCT).setPlaceholder("選擇要法幣下單的商品");
 
-    for (Product product : fiatOnlyProducts) {
+    int limit = Math.min(fiatOnlyProducts.size(), MAX_PURCHASE_OPTIONS);
+    for (int i = 0; i < limit; i++) {
+      Product product = fiatOnlyProducts.get(i);
       String label = product.name();
       String description = product.formatFiatPriceTwd();
       menuBuilder.addOption(label, String.valueOf(product.id()), description);

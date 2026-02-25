@@ -19,8 +19,8 @@
 - 綠界官方文件（主來源）：
   - 測試環境參數（MerchantID / HashKey / HashIV）
     - https://developers.ecpay.com.tw/?p=2861
-  - 幕後產生超商代碼 API（GetTokenbyTrade）
-    - https://developers.ecpay.com.tw/?p=2870
+  - 幕後產生超商代碼 API（GenPaymentCode）
+    - https://developers.ecpay.com.tw/?p=27995
   - 幕後 API 請求加解密（AES/CBC/PKCS7 + URL Encode）
     - https://developers.ecpay.com.tw/?p=32135
 - 需要新增/修改檔案（預計）：
@@ -66,7 +66,7 @@
      - 商品存在且屬於該 guild
      - 商品屬於限定法幣商品
      - 綠界必要設定完整
-   - 呼叫：綠界 `GetTokenbyTrade`（`ChoosePayment=CVS`）
+   - 呼叫：綠界 `GenPaymentCode`（`ChoosePayment=CVS`）
    - 輸出：取得 `MerchantTradeNo`（作為訂單編號）與 `PaymentNo`（超商代碼）
 
 4. 私訊通知使用者
@@ -104,4 +104,3 @@
 | --- | --- | --- | --- |
 | IT-01 | Flyway migration | 套用 V017 後 `product` 有 `fiat_price_twd` | 驗證 migration 正確 |
 | IT-02 | JDBC Product Repository | CRUD 後可正確讀寫 `fiat_price_twd` | 驗證映射正確 |
-

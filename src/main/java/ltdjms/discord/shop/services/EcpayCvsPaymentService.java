@@ -15,8 +15,8 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.Base64;
+import java.util.Locale;
 import java.util.Objects;
-import java.util.concurrent.ThreadLocalRandom;
 import javax.crypto.Cipher;
 import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
@@ -43,11 +43,15 @@ public class EcpayCvsPaymentService {
       "https://ecpayment.ecpay.com.tw/1.0.0/Cashier/GenPaymentCode";
   private static final DateTimeFormatter TRADE_DATE_FORMAT =
       DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm:ss");
+  private static final DateTimeFormatter MERCHANT_TRADE_NO_TIME_FORMAT =
+      DateTimeFormatter.ofPattern("yyMMddHHmmssSSS");
 
   private final EnvironmentConfig config;
   private final HttpClient httpClient;
   private final ObjectMapper objectMapper;
   private final Clock clock;
+  private long lastTradeNoMillis = -1L;
+  private int tradeNoSequence = 0;
 
   public EcpayCvsPaymentService(EnvironmentConfig config) {
     this(config, HttpClient.newHttpClient(), new ObjectMapper(), Clock.systemDefaultZone());
@@ -203,6 +207,7 @@ public class EcpayCvsPaymentService {
   private String encryptData(String plainJson, String hashKey, String hashIv)
       throws GeneralSecurityException {
     String urlEncoded = URLEncoder.encode(plainJson, StandardCharsets.UTF_8);
+    // ECPay requires fixed merchant HashKey/HashIV with AES/CBC for request encryption.
     Cipher cipher = Cipher.getInstance("AES/CBC/PKCS5Padding");
     SecretKeySpec keySpec = new SecretKeySpec(hashKey.getBytes(StandardCharsets.UTF_8), "AES");
     IvParameterSpec ivSpec = new IvParameterSpec(hashIv.getBytes(StandardCharsets.UTF_8));
@@ -213,6 +218,7 @@ public class EcpayCvsPaymentService {
 
   private String decryptData(String encryptedData, String hashKey, String hashIv)
       throws GeneralSecurityException {
+    // ECPay response decryption uses the same fixed merchant HashKey/HashIV rule.
     Cipher cipher = Cipher.getInstance("AES/CBC/PKCS5Padding");
     SecretKeySpec keySpec = new SecretKeySpec(hashKey.getBytes(StandardCharsets.UTF_8), "AES");
     IvParameterSpec ivSpec = new IvParameterSpec(hashIv.getBytes(StandardCharsets.UTF_8));
@@ -230,12 +236,28 @@ public class EcpayCvsPaymentService {
     return Math.min(input, 43200);
   }
 
-  private String generateMerchantTradeNo() {
+  private synchronized String generateMerchantTradeNo() {
+    long currentMillis = Instant.now(clock).toEpochMilli();
+    if (currentMillis < lastTradeNoMillis) {
+      currentMillis = lastTradeNoMillis;
+    }
+
+    if (currentMillis == lastTradeNoMillis) {
+      tradeNoSequence++;
+      if (tradeNoSequence > 999) {
+        currentMillis = lastTradeNoMillis + 1;
+        tradeNoSequence = 0;
+      }
+    } else {
+      tradeNoSequence = 0;
+    }
+
+    lastTradeNoMillis = currentMillis;
     String timePart =
-        DateTimeFormatter.ofPattern("yyMMddHHmmss")
-            .format(LocalDateTime.now(clock.withZone(ZoneId.systemDefault())));
-    int randomPart = ThreadLocalRandom.current().nextInt(100000, 999999);
-    return "FD" + timePart + randomPart;
+        MERCHANT_TRADE_NO_TIME_FORMAT.format(
+            LocalDateTime.ofInstant(Instant.ofEpochMilli(currentMillis), ZoneId.systemDefault()));
+    String sequencePart = String.format(Locale.ROOT, "%03d", tradeNoSequence);
+    return "FD" + timePart + sequencePart;
   }
 
   private boolean isBlank(String value) {

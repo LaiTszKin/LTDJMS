@@ -206,6 +206,34 @@ class ShopViewTest {
   }
 
   @Test
+  @DisplayName("buildFiatOrderMenu 應該限制最多 25 個選項")
+  void buildFiatOrderMenuShouldLimitOptions() {
+    java.time.Instant now = java.time.Instant.now();
+    List<Product> products =
+        java.util.stream.IntStream.range(0, 30)
+            .mapToObj(
+                i ->
+                    new Product(
+                        (long) i + 1,
+                        TEST_GUILD_ID,
+                        "法幣商品 " + i,
+                        null,
+                        null,
+                        null,
+                        null,
+                        500L + i,
+                        now,
+                        now))
+            .toList();
+
+    var menu = ShopView.buildFiatOrderMenu(products);
+
+    assertThat(menu.getOptions()).hasSize(25);
+    assertThat(menu.getOptions().get(0).getLabel()).isEqualTo("法幣商品 0");
+    assertThat(menu.getOptions().get(24).getLabel()).isEqualTo("法幣商品 24");
+  }
+
+  @Test
   @DisplayName("buildPurchaseConfirmEmbed 應該建立確認 Embed")
   void buildPurchaseConfirmEmbedShouldCreateConfirmationEmbed() {
     Product product = Product.createWithCurrencyPrice(TEST_GUILD_ID, "測試商品", null, 100L);
