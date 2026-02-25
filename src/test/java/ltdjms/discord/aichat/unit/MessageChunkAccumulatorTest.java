@@ -170,6 +170,21 @@ class MessageChunkAccumulatorTest {
   }
 
   @Test
+  void testAccumulate_leadingParagraphBoundary_shouldSkipEmptyChunk() {
+    MessageChunkAccumulator accumulator = new MessageChunkAccumulator();
+
+    List<String> chunks = accumulator.accumulate("\n\n");
+    assertThat(chunks).isEmpty();
+
+    chunks = accumulator.accumulate("第一段內容\n\n");
+    assertThat(chunks).hasSize(1);
+    assertThat(chunks.get(0)).isEqualTo("第一段內容\n\n");
+
+    String remaining = accumulator.drain();
+    assertThat(remaining).isEmpty();
+  }
+
+  @Test
   void testAccumulate_longParagraph_shouldForceSplit() {
     MessageChunkAccumulator accumulator = new MessageChunkAccumulator();
 
