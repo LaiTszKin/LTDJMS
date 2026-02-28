@@ -183,6 +183,17 @@ class AIAgentServicesTest {
       assertThat(PermissionParser.isValidDescription("")).isFalse();
       assertThat(PermissionParser.isValidDescription("   ")).isFalse();
       assertThat(PermissionParser.isValidDescription("unknown stuff")).isFalse();
+      assertThat(PermissionParser.isValidDescription("wallet controls")).isFalse();
+    }
+
+    @Test
+    @DisplayName("should not treat partial word matches as full access")
+    void shouldNotTreatPartialWordMatchesAsFullAccess() {
+      // When
+      ChannelPermission result = PermissionParser.parse("wallet controls", 123L);
+
+      // Then
+      assertThat(result.permissionSet()).containsExactly(Permission.VIEW_CHANNEL);
     }
 
     @Test
