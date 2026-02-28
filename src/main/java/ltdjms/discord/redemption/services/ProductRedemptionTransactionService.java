@@ -42,7 +42,16 @@ public class ProductRedemptionTransactionService {
     ProductRedemptionTransaction.RewardType rewardType = null;
 
     if (product.hasReward()) {
-      rewardAmount = product.rewardAmount() * redemptionCode.quantity();
+      try {
+        rewardAmount = Math.multiplyExact(product.rewardAmount(), redemptionCode.quantity());
+      } catch (ArithmeticException e) {
+        throw new IllegalArgumentException(
+            "Reward amount overflow: reward="
+                + product.rewardAmount()
+                + ", quantity="
+                + redemptionCode.quantity(),
+            e);
+      }
       rewardType =
           switch (product.rewardType()) {
             case CURRENCY -> ProductRedemptionTransaction.RewardType.CURRENCY;
