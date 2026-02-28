@@ -1,8 +1,12 @@
 package ltdjms.discord.aiagent.services;
 
 import java.util.EnumSet;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import ltdjms.discord.aiagent.domain.ChannelPermission;
 import ltdjms.discord.aiagent.domain.PermissionSetting;
@@ -36,6 +40,8 @@ public final class PermissionParser {
           Map.entry("admin", Permission.ADMINISTRATOR),
           Map.entry("moderator", Permission.MODERATE_MEMBERS),
           Map.entry("mod", Permission.MODERATE_MEMBERS));
+
+  private static final Pattern TOKEN_PATTERN = Pattern.compile("[a-z0-9_]+");
 
   private PermissionParser() {
     // 工具類，不允許實例化
@@ -83,16 +89,17 @@ public final class PermissionParser {
    */
   private static ChannelPermission parseFromDescription(String description, long roleId) {
     String lowerDesc = description.toLowerCase().trim();
+    Set<String> tokens = extractTokens(lowerDesc);
 
-    if (lowerDesc.contains("full") || lowerDesc.contains("all")) {
+    if (tokens.contains("full") || tokens.contains("all")) {
       return ChannelPermission.fullAccess(roleId);
     }
 
-    if (lowerDesc.contains("read") && lowerDesc.contains("only")) {
+    if (tokens.contains("readonly") || (tokens.contains("read") && tokens.contains("only"))) {
       return ChannelPermission.readOnly(roleId);
     }
 
-    if (lowerDesc.contains("moderator") || lowerDesc.contains("mod")) {
+    if (tokens.contains("moderator") || tokens.contains("mod")) {
       return new ChannelPermission(
           roleId,
           EnumSet.of(
@@ -102,7 +109,7 @@ public final class PermissionParser {
     // 從關鍵字解析
     EnumSet<Permission> permissions = EnumSet.noneOf(Permission.class);
     for (Map.Entry<String, Permission> entry : KEYWORD_MAP.entrySet()) {
-      if (lowerDesc.contains(entry.getKey())) {
+      if (tokens.contains(entry.getKey())) {
         permissions.add(entry.getValue());
       }
     }
@@ -201,17 +208,18 @@ public final class PermissionParser {
       return false;
     }
 
-    String lowerDesc = description.toLowerCase().trim();
-    return lowerDesc.contains("full")
-        || lowerDesc.contains("all")
-        || lowerDesc.contains("read")
-        || lowerDesc.contains("view")
-        || lowerDesc.contains("write")
-        || lowerDesc.contains("send")
-        || lowerDesc.contains("moderator")
-        || lowerDesc.contains("mod")
-        || lowerDesc.contains("admin")
-        || lowerDesc.contains("manage");
+    Set<String> tokens = extractTokens(description.toLowerCase().trim());
+    return tokens.contains("full")
+        || tokens.contains("all")
+        || tokens.contains("readonly")
+        || tokens.contains("read")
+        || tokens.contains("view")
+        || tokens.contains("write")
+        || tokens.contains("send")
+        || tokens.contains("moderator")
+        || tokens.contains("mod")
+        || tokens.contains("admin")
+        || tokens.contains("manage");
   }
 
   /**
@@ -256,5 +264,14 @@ public final class PermissionParser {
     return permissions.isEmpty()
         ? ChannelPermission.readOnly(setting.roleId())
         : new ChannelPermission(setting.roleId(), permissions);
+  }
+
+  private static Set<String> extractTokens(String lowerDesc) {
+    Set<String> tokens = new HashSet<>();
+    Matcher matcher = TOKEN_PATTERN.matcher(lowerDesc);
+    while (matcher.find()) {
+      tokens.add(matcher.group());
+    }
+    return tokens;
   }
 }
