@@ -333,8 +333,13 @@ public final class LangChain4jCreateChannelTool {
    */
   private void applyPermissions(
       TextChannel channel, List<PermissionSetting> permissionsParam, Guild guild) {
-    try {
-      for (PermissionSetting setting : permissionsParam) {
+    for (PermissionSetting setting : permissionsParam) {
+      if (setting == null) {
+        LOGGER.warn("LangChain4jCreateChannelTool: 權限設定包含 null，已跳過");
+        continue;
+      }
+
+      try {
         long roleId = setting.roleId();
         Role role = guild.getRoleById(roleId);
         if (role == null) {
@@ -344,11 +349,11 @@ public final class LangChain4jCreateChannelTool {
 
         ChannelPermission permission = PermissionParser.parse(setting);
         applyPermissionToChannel(channel, role, permission.permissionSet());
+      } catch (Exception e) {
+        LOGGER.warn("LangChain4jCreateChannelTool: 應用單筆權限時發生錯誤: {}", e.getMessage());
+        // 單筆權限失敗不影響其他權限設定與頻道創建
+        continue;
       }
-
-    } catch (Exception e) {
-      LOGGER.warn("LangChain4jCreateChannelTool: 應用權限時發生錯誤: {}", e.getMessage());
-      // 權限應用失敗不影響頻道創建，僅記錄警告
     }
   }
 

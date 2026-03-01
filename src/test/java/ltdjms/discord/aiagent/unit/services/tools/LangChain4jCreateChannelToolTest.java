@@ -2,8 +2,10 @@ package ltdjms.discord.aiagent.unit.services.tools;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -569,6 +571,35 @@ class LangChain4jCreateChannelToolTest {
 
       // Then
       assertThat(result).contains("\"success\": true");
+    }
+
+    @Test
+    @DisplayName("當權限列表含有 null 時，仍應處理其餘有效設定")
+    void shouldContinueApplyingPermissionsWhenListContainsNull() {
+      // Given
+      String channelName = "null-entry-perms-channel";
+      when(mockGuild.getRoleById(TEST_ROLE_ID)).thenReturn(null);
+
+      ChannelAction<TextChannel> channelAction = mockChannelAction();
+      when(mockGuild.createTextChannel(channelName)).thenReturn(channelAction);
+      setupSuccessfulRestAction(channelAction, mockTextChannel);
+
+      when(mockTextChannel.getIdLong()).thenReturn(TEST_CHANNEL_ID);
+      when(mockTextChannel.getName()).thenReturn(channelName);
+
+      PermissionSetting validPermission =
+          new PermissionSetting(TEST_ROLE_ID, Set.of(PermissionEnum.VIEW_CHANNEL), Set.of());
+      List<PermissionSetting> permissions = new ArrayList<>();
+      permissions.add(null);
+      permissions.add(validPermission);
+
+      // When
+      String result =
+          tool.createChannel(channelName, null, permissions, createMockInvocationParameters());
+
+      // Then
+      assertThat(result).contains("\"success\": true");
+      verify(mockGuild).getRoleById(TEST_ROLE_ID);
     }
 
     @Test
