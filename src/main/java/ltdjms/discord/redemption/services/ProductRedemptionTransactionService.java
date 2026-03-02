@@ -45,7 +45,12 @@ public class ProductRedemptionTransactionService {
       try {
         rewardAmount = Math.multiplyExact(product.rewardAmount(), redemptionCode.quantity());
       } catch (ArithmeticException e) {
-        throw new IllegalArgumentException("兌換交易獎勵金額超出可表示範圍", e);
+        throw new IllegalArgumentException(
+            "Reward amount overflow (兌換交易獎勵金額超出可表示範圍): reward="
+                + product.rewardAmount()
+                + ", quantity="
+                + redemptionCode.quantity(),
+            e);
       }
       rewardType =
           switch (product.rewardType()) {

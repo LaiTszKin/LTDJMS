@@ -699,6 +699,49 @@ class RedemptionServiceTest {
   class RedeemCodeFailureTests {
 
     @Test
+    @DisplayName("should reject overflowed reward before marking code redeemed")
+    void shouldRejectOverflowedRewardBeforeMarkingCodeRedeemed() {
+      // Given
+      Instant now = Instant.now();
+      Product product =
+          new Product(
+              Long.valueOf(TEST_PRODUCT_ID),
+              TEST_GUILD_ID,
+              "超大獎勵禮包",
+              null,
+              Product.RewardType.CURRENCY,
+              Long.MAX_VALUE,
+              null,
+              now,
+              now);
+      RedemptionCode code =
+          new RedemptionCode(
+              1L,
+              "ABCD1234EFGH5678",
+              TEST_PRODUCT_ID,
+              TEST_GUILD_ID,
+              null,
+              null,
+              null,
+              now,
+              null,
+              2);
+
+      when(codeRepository.findByCode("ABCD1234EFGH5678")).thenReturn(Optional.of(code));
+      when(productRepository.findById(TEST_PRODUCT_ID)).thenReturn(Optional.of(product));
+
+      // When
+      Result<RedemptionService.RedemptionResult, DomainError> result =
+          redemptionService.redeemCode("ABCD1234EFGH5678", TEST_GUILD_ID, TEST_USER_ID);
+
+      // Then
+      assertThat(result.isErr()).isTrue();
+      assertThat(result.getError().message()).contains("獎勵");
+      verify(codeRepository, never()).markAsRedeemedIfAvailable(anyLong(), anyLong(), any());
+      verify(balanceAdjustmentService, never()).tryAdjustBalance(anyLong(), anyLong(), anyLong());
+    }
+
+    @Test
     @DisplayName("should reject blank code")
     void shouldRejectBlankCode() {
       // When

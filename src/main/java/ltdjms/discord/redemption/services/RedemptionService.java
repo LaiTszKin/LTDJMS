@@ -209,16 +209,16 @@ public class RedemptionService {
 
     Product product = productOpt.get();
 
-    try {
-      Long totalRewardAmount = null;
-      if (product.hasReward()) {
-        Result<Long, DomainError> totalRewardResult = calculateTotalReward(product, code);
-        if (totalRewardResult.isErr()) {
-          return Result.err(totalRewardResult.getError());
-        }
-        totalRewardAmount = totalRewardResult.getValue();
+    Long totalRewardAmount = null;
+    if (product.hasReward()) {
+      Result<Long, DomainError> rewardAmountResult = calculateTotalRewardAmount(product, code);
+      if (rewardAmountResult.isErr()) {
+        return Result.err(rewardAmountResult.getError());
       }
+      totalRewardAmount = rewardAmountResult.getValue();
+    }
 
+    try {
       // Mark code as redeemed
       if (code.id() == null) {
         LOG.error("Redemption code ID is null during redeem: code={}", code.getMaskedCode());
@@ -349,10 +349,10 @@ public class RedemptionService {
     }
 
     if (totalRewardAmount == null) {
-      return Result.err(DomainError.invalidInput("獎勵金額計算失敗"));
+      return Result.err(DomainError.invalidInput("商品獎勵金額無效"));
     }
 
-    long totalAmount = totalRewardAmount.longValue();
+    long totalAmount = totalRewardAmount;
     String description =
         String.format("兌換碼: %s (%s) x%d", code.getMaskedCode(), product.name(), code.quantity());
 
@@ -390,11 +390,16 @@ public class RedemptionService {
     };
   }
 
-  private Result<Long, DomainError> calculateTotalReward(Product product, RedemptionCode code) {
+  private Result<Long, DomainError> calculateTotalRewardAmount(
+      Product product, RedemptionCode code) {
     try {
-      return Result.ok(Math.multiplyExact(product.rewardAmount(), code.quantity()));
+      long totalAmount = Math.multiplyExact(product.rewardAmount(), code.quantity());
+      if (totalAmount <= 0) {
+        return Result.err(DomainError.invalidInput("商品獎勵金額無效"));
+      }
+      return Result.ok(totalAmount);
     } catch (ArithmeticException e) {
-      return Result.err(DomainError.invalidInput("兌換獎勵金額超出可表示範圍"));
+      return Result.err(DomainError.invalidInput("商品獎勵計算超出範圍"));
     }
   }
 
