@@ -1,10 +1,13 @@
 package ltdjms.discord.shop.services;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.util.Objects;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 import org.slf4j.Logger;
@@ -19,10 +22,13 @@ import ltdjms.discord.shared.EnvironmentConfig;
 public class EcpayCallbackHttpServer {
 
   private static final Logger LOG = LoggerFactory.getLogger(EcpayCallbackHttpServer.class);
+  private static final int CALLBACK_WORKER_THREADS = 8;
+  private static final int MAX_CALLBACK_BODY_BYTES = 64 * 1024;
 
   private final EnvironmentConfig config;
   private final FiatPaymentCallbackService callbackService;
   private HttpServer server;
+  private ExecutorService executor;
 
   public EcpayCallbackHttpServer(
       EnvironmentConfig config, FiatPaymentCallbackService callbackService) {
@@ -46,7 +52,8 @@ public class EcpayCallbackHttpServer {
     try {
       server = HttpServer.create(new InetSocketAddress(bindHost, bindPort), 0);
       server.createContext(callbackPath, this::handleCallbackRequest);
-      server.setExecutor(Executors.newCachedThreadPool());
+      executor = Executors.newFixedThreadPool(CALLBACK_WORKER_THREADS);
+      server.setExecutor(executor);
       server.start();
       LOG.info(
           "ECPay callback server started: host={}, port={}, path={}",
@@ -60,6 +67,7 @@ public class EcpayCallbackHttpServer {
           bindPort,
           callbackPath,
           e);
+      shutdownExecutor();
       throw new IllegalStateException("無法啟動綠界回推伺服器", e);
     }
   }
@@ -70,6 +78,7 @@ public class EcpayCallbackHttpServer {
     }
     server.stop(0);
     server = null;
+    shutdownExecutor();
     LOG.info("ECPay callback server stopped");
   }
 
@@ -80,8 +89,15 @@ public class EcpayCallbackHttpServer {
     }
 
     String contentType = exchange.getRequestHeaders().getFirst("Content-Type");
-    String requestBody =
-        new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
+    String requestBody;
+    try (InputStream requestBodyStream = exchange.getRequestBody()) {
+      requestBody = readRequestBodyWithLimit(requestBodyStream, MAX_CALLBACK_BODY_BYTES);
+    } catch (PayloadTooLargeException e) {
+      LOG.warn("ECPay callback payload exceeded limit: limit={} bytes", MAX_CALLBACK_BODY_BYTES);
+      writeResponse(exchange, 413, "Payload Too Large");
+      return;
+    }
+
     FiatPaymentCallbackService.CallbackResult result =
         callbackService.handleCallback(requestBody, contentType);
     writeResponse(exchange, result.httpStatus(), result.responseBody());
@@ -121,4 +137,32 @@ public class EcpayCallbackHttpServer {
     }
     return normalized;
   }
+
+  private String readRequestBodyWithLimit(InputStream inputStream, int maxBytes)
+      throws IOException, PayloadTooLargeException {
+    byte[] buffer = new byte[4096];
+    int totalBytes = 0;
+
+    try (ByteArrayOutputStream output = new ByteArrayOutputStream()) {
+      int read;
+      while ((read = inputStream.read(buffer)) != -1) {
+        totalBytes += read;
+        if (totalBytes > maxBytes) {
+          throw new PayloadTooLargeException();
+        }
+        output.write(buffer, 0, read);
+      }
+      return output.toString(StandardCharsets.UTF_8);
+    }
+  }
+
+  private void shutdownExecutor() {
+    if (executor == null) {
+      return;
+    }
+    executor.shutdown();
+    executor = null;
+  }
+
+  private static final class PayloadTooLargeException extends Exception {}
 }

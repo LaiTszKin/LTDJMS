@@ -84,19 +84,18 @@ public class FiatPaymentCallbackService {
       return CallbackResult.fail(400);
     }
 
+    String callbackPayload = sanitizePayload(requestBody);
     try {
       JsonNode callbackNode = parseCallbackNode(requestBody, contentType);
       String orderNumber = extractOrderNumber(callbackNode);
       if (orderNumber == null || orderNumber.isBlank()) {
-        LOG.warn("ECPay callback missing order number: payload={}", requestBody);
+        LOG.warn("ECPay callback missing order number: payload={}", callbackPayload);
         return CallbackResult.fail(400);
       }
 
       String tradeStatus = extractTradeStatus(callbackNode);
-      int rtnCode = callbackNode.path("RtnCode").asInt(-1);
       String paymentMessage = extractPaymentMessage(callbackNode);
-      boolean paid = isPaidStatus(tradeStatus, rtnCode, paymentMessage);
-      String callbackPayload = sanitizePayload(requestBody);
+      boolean paid = isPaidStatus(tradeStatus);
 
       FiatOrder order = fiatOrderRepository.findByOrderNumber(orderNumber).orElse(null);
       if (order == null) {
@@ -111,7 +110,7 @@ public class FiatPaymentCallbackService {
             "ECPay callback recorded unpaid status: orderNumber={}, tradeStatus={}, rtnCode={}",
             orderNumber,
             tradeStatus,
-            rtnCode);
+            callbackNode.path("RtnCode").asInt(-1));
         return CallbackResult.ok();
       }
 
@@ -122,14 +121,22 @@ public class FiatPaymentCallbackService {
               .orElse(null);
 
       if (paidOrder == null) {
-        fiatOrderRepository.updateCallbackStatus(
-            orderNumber, tradeStatus, paymentMessage, callbackPayload);
+        FiatOrder latestOrder =
+            fiatOrderRepository
+                .updateCallbackStatus(orderNumber, tradeStatus, paymentMessage, callbackPayload)
+                .orElse(order);
+        if (latestOrder.isPaid()) {
+          handlePostPayment(latestOrder);
+        }
         LOG.info("ECPay callback duplicated paid notification: orderNumber={}", orderNumber);
         return CallbackResult.ok();
       }
 
       handlePostPayment(paidOrder);
       return CallbackResult.ok();
+    } catch (InvalidCallbackPayloadException e) {
+      LOG.warn("Reject invalid ECPay callback payload: reason={}", e.getMessage());
+      return CallbackResult.fail(400);
     } catch (Exception e) {
       LOG.error("Failed to process ECPay callback payload", e);
       return CallbackResult.fail(500);
@@ -147,14 +154,17 @@ public class FiatPaymentCallbackService {
       return;
     }
 
-    if (product.shouldAutoCreateEscortOrder()) {
-      boolean shouldNotifyAdmin =
-          fiatOrderRepository
-              .markAdminNotifiedIfNeeded(order.orderNumber(), Instant.now(clock))
-              .isPresent();
-      if (shouldNotifyAdmin) {
+    if (product.shouldAutoCreateEscortOrder() && !order.isAdminNotified()) {
+      try {
         adminNotificationService.notifyAdminsOrderCreated(
             order.guildId(), order.buyerUserId(), product, "法幣付款完成", order.orderNumber());
+        fiatOrderRepository.markAdminNotifiedIfNeeded(order.orderNumber(), Instant.now(clock));
+      } catch (Exception e) {
+        LOG.warn(
+            "Failed to notify admins for paid escort order: orderNumber={}, reason={}",
+            order.orderNumber(),
+            e.getMessage(),
+            e);
       }
     }
 
@@ -183,17 +193,20 @@ public class FiatPaymentCallbackService {
     fiatOrderRepository.markFulfilledIfNeeded(order.orderNumber(), Instant.now(clock));
   }
 
-  private JsonNode parseCallbackNode(String requestBody, String contentType) throws Exception {
+  private JsonNode parseCallbackNode(String requestBody, String contentType) {
     JsonNode parsedJson = null;
     Map<String, String> formData = null;
-
-    if (isJson(contentType, requestBody)) {
-      parsedJson = objectMapper.readTree(requestBody);
-    } else {
-      formData = parseFormBody(requestBody);
-      if (formData == null || formData.isEmpty()) {
+    try {
+      if (isJson(contentType, requestBody)) {
         parsedJson = objectMapper.readTree(requestBody);
+      } else {
+        formData = parseFormBody(requestBody);
+        if (formData == null || formData.isEmpty()) {
+          parsedJson = objectMapper.readTree(requestBody);
+        }
       }
+    } catch (Exception e) {
+      throw new InvalidCallbackPayloadException("callback payload parsing failed", e);
     }
 
     String encryptedData = null;
@@ -205,25 +218,25 @@ public class FiatPaymentCallbackService {
         && formData.containsKey("Data")) {
       encryptedData = formData.get("Data");
     }
-
-    if (encryptedData != null && !encryptedData.isBlank()) {
-      return parseDecryptedData(encryptedData);
+    if (encryptedData == null || encryptedData.isBlank()) {
+      throw new InvalidCallbackPayloadException("callback payload missing encrypted Data");
     }
 
-    if (parsedJson != null) {
-      return parsedJson;
-    }
-    return objectMapper.valueToTree(formData);
+    return parseDecryptedData(encryptedData);
   }
 
-  private JsonNode parseDecryptedData(String encryptedData) throws Exception {
+  private JsonNode parseDecryptedData(String encryptedData) {
     String hashKey = config.getEcpayHashKey();
     String hashIv = config.getEcpayHashIv();
     if (hashKey == null || hashKey.isBlank() || hashIv == null || hashIv.isBlank()) {
       throw new IllegalStateException("ECPAY_HASH_KEY / ECPAY_HASH_IV are required for callback");
     }
-    String decryptedJson = decryptData(encryptedData, hashKey, hashIv);
-    return objectMapper.readTree(decryptedJson);
+    try {
+      String decryptedJson = decryptData(encryptedData, hashKey, hashIv);
+      return objectMapper.readTree(decryptedJson);
+    } catch (Exception e) {
+      throw new InvalidCallbackPayloadException("callback payload decryption failed", e);
+    }
   }
 
   private String decryptData(String encryptedData, String hashKey, String hashIv)
@@ -288,20 +301,8 @@ public class FiatPaymentCallbackService {
     return textOrNull(callbackNode.path("TradeMsg").asText(null));
   }
 
-  private boolean isPaidStatus(String tradeStatus, int rtnCode, String message) {
-    if (tradeStatus != null) {
-      return "1".equals(tradeStatus);
-    }
-    if (rtnCode == 1) {
-      return true;
-    }
-    if (message == null) {
-      return false;
-    }
-    String normalized = message.toLowerCase(Locale.ROOT);
-    return normalized.contains("付款成功")
-        || normalized.contains("交易成功")
-        || normalized.contains("paid");
+  private boolean isPaidStatus(String tradeStatus) {
+    return "1".equals(tradeStatus);
   }
 
   private String sanitizePayload(String payload) {
@@ -329,6 +330,17 @@ public class FiatPaymentCallbackService {
 
     public static CallbackResult fail(int status) {
       return new CallbackResult(status, "0|FAIL");
+    }
+  }
+
+  private static final class InvalidCallbackPayloadException extends RuntimeException {
+
+    private InvalidCallbackPayloadException(String message) {
+      super(message);
+    }
+
+    private InvalidCallbackPayloadException(String message, Throwable cause) {
+      super(message, cause);
     }
   }
 }
