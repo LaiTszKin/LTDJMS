@@ -34,6 +34,10 @@ class ProductFulfillmentApiServiceTest {
   private HttpClient httpClient;
   private ProductFulfillmentApiService service;
 
+  private static HttpResponse.BodyHandler<String> anyStringBodyHandler() {
+    return org.mockito.ArgumentMatchers.<HttpResponse.BodyHandler<String>>any();
+  }
+
   @BeforeEach
   void setUp() {
     escortOptionPricingService = mock(EscortOptionPricingService.class);
@@ -76,7 +80,7 @@ class ProductFulfillmentApiServiceTest {
                 null));
 
     assertThat(result.isOk()).isTrue();
-    verify(httpClient, never()).send(any(), any(HttpResponse.BodyHandler.class));
+    verify(httpClient, never()).send(any(), anyStringBodyHandler());
   }
 
   @Test
@@ -104,7 +108,7 @@ class ProductFulfillmentApiServiceTest {
     HttpResponse<String> response = mock(HttpResponse.class);
     when(response.statusCode()).thenReturn(200);
     when(response.body()).thenReturn("{\"ok\":true}");
-    when(httpClient.send(any(), any(HttpResponse.BodyHandler.class))).thenReturn(response);
+    when(httpClient.send(any(), anyStringBodyHandler())).thenReturn(response);
 
     Result<ltdjms.discord.shared.Unit, DomainError> result =
         service.notifyFulfillment(
@@ -118,7 +122,7 @@ class ProductFulfillmentApiServiceTest {
 
     assertThat(result.isOk()).isTrue();
     verify(escortOptionPricingService).getEffectivePrice(GUILD_ID, "CONF_DAM_300W");
-    verify(httpClient).send(any(), any(HttpResponse.BodyHandler.class));
+    verify(httpClient).send(any(), anyStringBodyHandler());
   }
 
   @Test
@@ -144,7 +148,7 @@ class ProductFulfillmentApiServiceTest {
     HttpResponse<String> response = mock(HttpResponse.class);
     when(response.statusCode()).thenReturn(500);
     when(response.body()).thenReturn("error");
-    when(httpClient.send(any(), any(HttpResponse.BodyHandler.class))).thenReturn(response);
+    when(httpClient.send(any(), anyStringBodyHandler())).thenReturn(response);
 
     Result<ltdjms.discord.shared.Unit, DomainError> result =
         service.notifyFulfillment(
@@ -193,6 +197,6 @@ class ProductFulfillmentApiServiceTest {
 
     assertThat(result.isErr()).isTrue();
     assertThat(result.getError().message()).contains("護航價格不存在");
-    verify(httpClient, never()).send(any(), any(HttpResponse.BodyHandler.class));
+    verify(httpClient, never()).send(any(), anyStringBodyHandler());
   }
 }
