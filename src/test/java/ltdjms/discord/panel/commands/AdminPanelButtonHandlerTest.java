@@ -8,8 +8,12 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 import org.junit.jupiter.api.DisplayName;
@@ -29,6 +33,7 @@ import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 import net.dv8tion.jda.api.interactions.InteractionHook;
 import net.dv8tion.jda.api.interactions.components.ActionRow;
 import net.dv8tion.jda.api.interactions.components.buttons.Button;
+import net.dv8tion.jda.api.interactions.components.selections.StringSelectMenu;
 import net.dv8tion.jda.api.requests.restaction.interactions.ReplyCallbackAction;
 
 class AdminPanelButtonHandlerTest {
@@ -189,11 +194,72 @@ class AdminPanelButtonHandlerTest {
     verify(event, never()).replyModal(any());
   }
 
+  @Test
+  @DisplayName("護航定價面板超過 25 個選項時應分拆為兩個選單")
+  void escortPricingPanelShouldSplitMenusWhenOptionsExceedLimit() throws Exception {
+    List<EscortOptionPricingService.OptionPriceView> optionPrices =
+        EscortOrderOptionCatalog.allOptions().stream()
+            .map(
+                option ->
+                    new EscortOptionPricingService.OptionPriceView(
+                        option.code(), option, option.priceTwd(), option.priceTwd(), false))
+            .toList();
+    String selectedCode = optionPrices.get(optionPrices.size() - 1).optionCode();
+    Map<String, EscortOptionPricingService.OptionPriceView> optionMap =
+        optionPrices.stream()
+            .collect(
+                Collectors.toMap(
+                    EscortOptionPricingService.OptionPriceView::optionCode,
+                    view -> view,
+                    (left, right) -> left,
+                    LinkedHashMap::new));
+
+    Class<?> stateClass =
+        Class.forName(AdminPanelButtonHandler.class.getName() + "$EscortPricingPanelState");
+    Constructor<?> stateConstructor = stateClass.getDeclaredConstructor();
+    stateConstructor.setAccessible(true);
+    Object state = stateConstructor.newInstance();
+
+    Field optionCodeField = stateClass.getDeclaredField("optionCode");
+    optionCodeField.setAccessible(true);
+    optionCodeField.set(state, selectedCode);
+
+    Method method =
+        AdminPanelButtonHandler.class.getDeclaredMethod(
+            "buildEscortPricingPanelComponents", stateClass, Map.class);
+    method.setAccessible(true);
+
+    @SuppressWarnings("unchecked")
+    List<ActionRow> rows = (List<ActionRow>) method.invoke(handler, state, optionMap);
+
+    StringSelectMenu primaryMenu =
+        findSelectMenu(rows, AdminPanelButtonHandler.SELECT_ESCORT_PRICING_PANEL_OPTION);
+    StringSelectMenu extraMenu =
+        findSelectMenu(rows, AdminPanelButtonHandler.SELECT_ESCORT_PRICING_PANEL_OPTION_EXTRA);
+
+    assertThat(primaryMenu).isNotNull();
+    assertThat(extraMenu).isNotNull();
+    assertThat(primaryMenu.getOptions()).hasSize(25);
+    assertThat(extraMenu.getOptions()).hasSize(optionPrices.size() - 25);
+    assertThat(extraMenu.getOptions())
+        .anyMatch(option -> selectedCode.equals(option.getValue()) && option.isDefault());
+  }
+
   private List<String> flattenButtonIds(List<ActionRow> rows) {
     return rows.stream()
         .flatMap(row -> row.getComponents().stream())
         .map(component -> (Button) component)
         .map(Button::getId)
         .collect(Collectors.toList());
+  }
+
+  private StringSelectMenu findSelectMenu(List<ActionRow> rows, String menuId) {
+    return rows.stream()
+        .flatMap(row -> row.getComponents().stream())
+        .filter(component -> component instanceof StringSelectMenu)
+        .map(component -> (StringSelectMenu) component)
+        .filter(menu -> menuId.equals(menu.getId()))
+        .findFirst()
+        .orElse(null);
   }
 }

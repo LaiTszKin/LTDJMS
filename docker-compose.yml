@@ -72,9 +72,10 @@ services:
     entrypoint: ["/bin/bash", "-c", "java $$JAVA_OPTS -jar app.jar"]
     volumes:
       - ./prompts:/app/prompts:ro
-      - ./logs:/app/logs
+      - bot_logs:/app/logs
     restart: unless-stopped
 
 volumes:
   redis_data:
   postgres_data:
+  bot_logs:

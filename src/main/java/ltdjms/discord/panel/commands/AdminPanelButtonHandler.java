@@ -125,6 +125,8 @@ public class AdminPanelButtonHandler extends ListenerAdapter {
       "admin_select_escort_pricing_panel_action";
   public static final String SELECT_ESCORT_PRICING_PANEL_OPTION =
       "admin_select_escort_pricing_panel_option";
+  public static final String SELECT_ESCORT_PRICING_PANEL_OPTION_EXTRA =
+      "admin_select_escort_pricing_panel_option_extra";
 
   private static final String ESCORT_PRICING_ACTION_UPDATE = "update";
   private static final String ESCORT_PRICING_ACTION_RESET = "reset";
@@ -277,6 +279,8 @@ public class AdminPanelButtonHandler extends ListenerAdapter {
         case SELECT_ESCORT_PRICING_PANEL_ACTION ->
             handleEscortPricingPanelActionSelect(event, sessionKey, guildId);
         case SELECT_ESCORT_PRICING_PANEL_OPTION ->
+            handleEscortPricingPanelOptionSelect(event, sessionKey, guildId);
+        case SELECT_ESCORT_PRICING_PANEL_OPTION_EXTRA ->
             handleEscortPricingPanelOptionSelect(event, sessionKey, guildId);
         default -> LOG.warn("Unknown string select: {}", selectId);
       }
@@ -1929,26 +1933,50 @@ public class AdminPanelButtonHandler extends ListenerAdapter {
             .setDefaultValues(List.of(state.action))
             .build();
 
-    StringSelectMenu.Builder optionSelectBuilder =
-        StringSelectMenu.create(SELECT_ESCORT_PRICING_PANEL_OPTION).setPlaceholder("選擇護航選項");
-    optionMap
-        .values()
-        .forEach(
-            view ->
-                optionSelectBuilder.addOption(
-                    truncate(view.optionCode() + "｜" + view.option().target(), 100),
-                    view.optionCode(),
-                    truncate(
-                        String.format(
-                            "%s｜%s｜NT$%,d",
-                            view.option().type(), view.option().level(), view.effectivePriceTwd()),
-                        100)));
-    if (!optionMap.isEmpty()
-        && state.optionCode != null
-        && optionMap.containsKey(state.optionCode)) {
-      optionSelectBuilder.setDefaultValues(List.of(state.optionCode));
+    List<EscortOptionPricingService.OptionPriceView> allOptions =
+        new java.util.ArrayList<>(optionMap.values());
+    int primaryLimit = Math.min(25, allOptions.size());
+    List<EscortOptionPricingService.OptionPriceView> primaryOptions =
+        allOptions.subList(0, primaryLimit);
+    List<EscortOptionPricingService.OptionPriceView> extraOptions =
+        allOptions.size() > primaryLimit
+            ? allOptions.subList(primaryLimit, allOptions.size())
+            : List.of();
+
+    String selectedCode =
+        state.optionCode != null && optionMap.containsKey(state.optionCode)
+            ? state.optionCode
+            : null;
+    boolean selectedInPrimary = false;
+    boolean selectedInExtra = false;
+    if (selectedCode != null) {
+      selectedInPrimary =
+          primaryOptions.stream().anyMatch(option -> option.optionCode().equals(selectedCode));
+      if (!selectedInPrimary) {
+        selectedInExtra =
+            extraOptions.stream().anyMatch(option -> option.optionCode().equals(selectedCode));
+      }
     }
-    StringSelectMenu optionSelect = optionSelectBuilder.build();
+
+    StringSelectMenu.Builder optionPrimaryBuilder =
+        StringSelectMenu.create(SELECT_ESCORT_PRICING_PANEL_OPTION).setPlaceholder("選擇護航選項");
+    primaryOptions.forEach(view -> addEscortPricingOption(optionPrimaryBuilder, view));
+    if (selectedInPrimary) {
+      optionPrimaryBuilder.setDefaultValues(List.of(selectedCode));
+    }
+    StringSelectMenu optionPrimary = optionPrimaryBuilder.build();
+
+    StringSelectMenu optionExtra = null;
+    if (!extraOptions.isEmpty()) {
+      StringSelectMenu.Builder optionExtraBuilder =
+          StringSelectMenu.create(SELECT_ESCORT_PRICING_PANEL_OPTION_EXTRA)
+              .setPlaceholder("選擇護航選項（更多）");
+      extraOptions.forEach(view -> addEscortPricingOption(optionExtraBuilder, view));
+      if (selectedInExtra) {
+        optionExtraBuilder.setDefaultValues(List.of(selectedCode));
+      }
+      optionExtra = optionExtraBuilder.build();
+    }
 
     boolean canConfirm =
         state.optionCode != null
@@ -1962,13 +1990,30 @@ public class AdminPanelButtonHandler extends ListenerAdapter {
             ? Button.success(BUTTON_ESCORT_PRICING_PANEL_CONFIRM, "✅ 確認送出")
             : Button.success(BUTTON_ESCORT_PRICING_PANEL_CONFIRM, "✅ 確認送出").asDisabled();
 
-    return List.of(
-        ActionRow.of(actionSelect),
-        ActionRow.of(optionSelect),
+    List<ActionRow> rows = new java.util.ArrayList<>();
+    rows.add(ActionRow.of(actionSelect));
+    rows.add(ActionRow.of(optionPrimary));
+    if (optionExtra != null) {
+      rows.add(ActionRow.of(optionExtra));
+    }
+    rows.add(
         ActionRow.of(
             inputPriceBtn,
             confirmBtn,
             Button.secondary(BUTTON_ESCORT_PRICING_PANEL_CLOSE, "✖ 關閉")));
+    return rows;
+  }
+
+  private void addEscortPricingOption(
+      StringSelectMenu.Builder optionBuilder, EscortOptionPricingService.OptionPriceView view) {
+    optionBuilder.addOption(
+        truncate(view.optionCode() + "｜" + view.option().target(), 100),
+        view.optionCode(),
+        truncate(
+            String.format(
+                "%s｜%s｜NT$%,d",
+                view.option().type(), view.option().level(), view.effectivePriceTwd()),
+            100));
   }
 
   private Map<String, EscortOptionPricingService.OptionPriceView> toEscortOptionMap(
