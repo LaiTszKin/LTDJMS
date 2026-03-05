@@ -7,6 +7,7 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.net.http.HttpTimeoutException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.Connection;
@@ -58,6 +59,8 @@ import ltdjms.discord.shop.services.FiatOrderService;
 @EnabledIfEnvironmentVariable(named = "RUN_ECPAY_E2E", matches = "true")
 @DisplayName("綠界法幣付款 E2E 整合測試")
 class EcpayFiatPaymentE2EIntegrationTest {
+
+  private static final int MAX_ORDER_CREATION_RETRIES = 3;
 
   @Container
   @SuppressWarnings("resource")
@@ -116,8 +119,21 @@ class EcpayFiatPaymentE2EIntegrationTest {
     assertThat(productResult.isOk()).isTrue();
 
     long productId = productResult.getValue().id();
-    Result<FiatOrderService.FiatOrderResult, DomainError> orderResult =
-        fiatOrderService.createFiatOnlyOrder(TEST_GUILD_ID, TEST_USER_ID, productId);
+    Result<FiatOrderService.FiatOrderResult, DomainError> orderResult;
+    for (int attempt = 1; ; attempt++) {
+      orderResult = fiatOrderService.createFiatOnlyOrder(TEST_GUILD_ID, TEST_USER_ID, productId);
+      if (orderResult.isOk()) {
+        break;
+      }
+      if (!isEcpayTimeout(orderResult.getError()) || attempt >= MAX_ORDER_CREATION_RETRIES) {
+        break;
+      }
+      Thread.sleep(1000L * attempt);
+    }
+
+    if (orderResult.isErr() && isEcpayTimeout(orderResult.getError())) {
+      Assumptions.assumeTrue(false, "ECPay Stage API timeout，跳過本次 E2E 測試");
+    }
 
     assertThat(orderResult.isOk())
         .as(orderResult.isErr() ? orderResult.getError().message() : "下單成功")
@@ -213,5 +229,20 @@ class EcpayFiatPaymentE2EIntegrationTest {
       }
       throw e;
     }
+  }
+
+  private boolean isEcpayTimeout(DomainError error) {
+    if (error == null) {
+      return false;
+    }
+    Throwable current = error.cause();
+    while (current != null) {
+      if (current instanceof HttpTimeoutException) {
+        return true;
+      }
+      current = current.getCause();
+    }
+    String message = error.message();
+    return message != null && message.toLowerCase().contains("timeout");
   }
 }
