@@ -24,6 +24,7 @@ import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel;
 public final class AgentCompletionListener implements Consumer<DomainEvent> {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(AgentCompletionListener.class);
+  private static final String EMPTY_RESPONSE_FALLBACK = ":question: AI 沒有產生回應";
 
   @Inject
   public AgentCompletionListener() {
@@ -53,8 +54,16 @@ public final class AgentCompletionListener implements Consumer<DomainEvent> {
       }
 
       List<String> messages = MessageSplitter.split(event.finalResponse());
+      boolean sentAnyMessage = false;
       for (String message : messages) {
+        if (message == null || message.isBlank()) {
+          continue;
+        }
         channel.sendMessage(message).queue();
+        sentAnyMessage = true;
+      }
+      if (!sentAnyMessage) {
+        channel.sendMessage(EMPTY_RESPONSE_FALLBACK).queue();
       }
 
       LOGGER.info(
