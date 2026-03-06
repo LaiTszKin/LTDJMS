@@ -72,6 +72,13 @@ public class ProductFulfillmentApiService {
     }
 
     try {
+      Result<URI, DomainError> targetUriResult =
+          resolveAndValidateTargetUri(product.backendApiUrl());
+      if (targetUriResult.isErr()) {
+        return Result.err(targetUriResult.getError());
+      }
+      URI targetUri = targetUriResult.getValue();
+
       Long escortPriceTwd = null;
       if (product.shouldAutoCreateEscortOrder()) {
         Result<Long, DomainError> priceResult =
@@ -86,7 +93,7 @@ public class ProductFulfillmentApiService {
       ObjectNode payload = buildPayload(request, escortPriceTwd);
       HttpRequest httpRequest =
           HttpRequest.newBuilder()
-              .uri(URI.create(product.backendApiUrl().trim()))
+              .uri(targetUri)
               .timeout(REQUEST_TIMEOUT)
               .header("Content-Type", "application/json")
               .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(payload)))
@@ -185,6 +192,66 @@ public class ProductFulfillmentApiService {
     }
 
     return root;
+  }
+
+  private Result<URI, DomainError> resolveAndValidateTargetUri(String rawUrl) {
+    URI uri;
+    try {
+      uri = URI.create(rawUrl.trim());
+    } catch (Exception e) {
+      return Result.err(DomainError.invalidInput("後端履約 API URL 格式無效"));
+    }
+
+    String host = uri.getHost();
+    if (host == null || host.isBlank()) {
+      return Result.err(DomainError.invalidInput("後端履約 API URL 格式無效"));
+    }
+
+    String normalizedHost = host.trim().toLowerCase();
+    if (normalizedHost.equals("localhost") || normalizedHost.endsWith(".localhost")) {
+      return Result.err(DomainError.invalidInput("後端履約 API URL 不可使用 localhost 或內網位址"));
+    }
+
+    if (looksLikeIpLiteral(normalizedHost)) {
+      try {
+        java.net.InetAddress address = java.net.InetAddress.getByName(host);
+        if (isDisallowedAddress(address)) {
+          LOG.warn(
+              "Blocked backend fulfillment target resolving to non-public address: host={},"
+                  + " resolvedAddress={}",
+              host,
+              address.getHostAddress());
+          return Result.err(DomainError.invalidInput("後端履約 API URL 不可使用 localhost 或內網位址"));
+        }
+      } catch (Exception e) {
+        return Result.err(DomainError.invalidInput("後端履約 API URL 主機格式無效"));
+      }
+    }
+
+    return Result.ok(uri);
+  }
+
+  private boolean looksLikeIpLiteral(String host) {
+    if (host.contains(":")) {
+      return true;
+    }
+    if (!host.contains(".")) {
+      return false;
+    }
+    for (char ch : host.toCharArray()) {
+      if (!Character.isDigit(ch) && ch != '.') {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  private boolean isDisallowedAddress(java.net.InetAddress address) {
+    return address.isAnyLocalAddress()
+        || address.isLoopbackAddress()
+        || address.isLinkLocalAddress()
+        || address.isSiteLocalAddress()
+        || address.isMulticastAddress();
   }
 
   public enum PurchaseSource {

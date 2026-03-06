@@ -204,4 +204,38 @@ class ProductFulfillmentApiServiceTest {
     assertThat(result.getError().message()).contains("護航價格不存在");
     verify(httpClient, never()).send(any(), anyStringBodyHandler());
   }
+
+  @Test
+  @DisplayName("應在執行時拒絕 localhost 或內網目標，避免內部網路 SSRF")
+  void shouldRejectLocalhostTargetAtRuntime() throws Exception {
+    Product product =
+        new Product(
+            1L,
+            GUILD_ID,
+            "Unsafe Backend",
+            null,
+            Product.RewardType.CURRENCY,
+            100L,
+            200L,
+            null,
+            "http://localhost:8080/internal",
+            false,
+            null,
+            Instant.now(),
+            Instant.now());
+
+    Result<ltdjms.discord.shared.Unit, DomainError> result =
+        service.notifyFulfillment(
+            new ProductFulfillmentApiService.FulfillmentRequest(
+                GUILD_ID,
+                USER_ID,
+                product,
+                ProductFulfillmentApiService.PurchaseSource.CURRENCY_PURCHASE,
+                null,
+                null));
+
+    assertThat(result.isErr()).isTrue();
+    assertThat(result.getError().message()).contains("localhost 或內網位址");
+    verify(httpClient, never()).send(any(), anyStringBodyHandler());
+  }
 }
