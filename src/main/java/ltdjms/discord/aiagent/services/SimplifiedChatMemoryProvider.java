@@ -103,9 +103,17 @@ public final class SimplifiedChatMemoryProvider implements ChatMemoryProvider {
 
     LOG.debug("Thread 級別會話: guildId={}, threadId={}, userId={}", guildId, threadId, userId);
 
+    long botUserId;
+    try {
+      botUserId = getBotUserId();
+    } catch (IllegalStateException e) {
+      LOG.warn("JDA 尚未初始化，Thread 會話改用空記憶體: {}", conversationId);
+      return createNonThreadMemory(conversationId);
+    }
+
     // 獲取 Discord Thread 歷史
     List<ChatMessage> threadMessages =
-        threadHistoryProvider.getThreadHistory(guildId, threadId, userId, getBotUserId());
+        threadHistoryProvider.getThreadHistory(guildId, threadId, userId, botUserId);
 
     LOG.debug("從 Discord Thread 獲取 {} 則訊息", threadMessages.size());
 

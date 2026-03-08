@@ -82,4 +82,15 @@ class SimplifiedChatMemoryProviderTest {
     verify(threadHistoryProvider).getThreadHistory(100L, 200L, 300L, 900L);
     verify(toolCallHistory).getToolCallMessages(200L, 300L);
   }
+
+  @Test
+  @DisplayName("當 JDA 尚未初始化時 Thread 會話應回退為非 Thread 記憶體")
+  void shouldFallbackToNonThreadMemoryWhenJdaIsNotInitialized() {
+    var memory = provider.get("100:200:300");
+
+    assertThat(memory).isNotNull();
+    verify(threadHistoryProvider, never())
+        .getThreadHistory(anyLong(), anyLong(), anyLong(), anyLong());
+    verify(toolCallHistory, never()).getToolCallMessages(anyLong(), anyLong());
+  }
 }
