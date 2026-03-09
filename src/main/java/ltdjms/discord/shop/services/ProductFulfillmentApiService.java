@@ -225,6 +225,9 @@ public class ProductFulfillmentApiService {
     if (host == null || host.isBlank()) {
       return Result.err(DomainError.invalidInput("後端履約 API URL 格式無效"));
     }
+    if (!"https".equalsIgnoreCase(uri.getScheme())) {
+      return Result.err(DomainError.invalidInput("後端履約 API URL 必須使用 https://"));
+    }
 
     String normalizedHost = host.trim().toLowerCase();
     if (normalizedHost.equals("localhost") || normalizedHost.endsWith(".localhost")) {

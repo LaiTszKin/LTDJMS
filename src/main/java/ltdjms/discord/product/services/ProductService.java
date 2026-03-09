@@ -381,9 +381,8 @@ public class ProductService {
     try {
       URI uri = URI.create(normalized);
       String scheme = uri.getScheme();
-      if (scheme == null
-          || (!"http".equalsIgnoreCase(scheme) && !"https".equalsIgnoreCase(scheme))) {
-        return Result.err(DomainError.invalidInput("後端 API URL 必須使用 http:// 或 https://"));
+      if (scheme == null || !"https".equalsIgnoreCase(scheme)) {
+        return Result.err(DomainError.invalidInput("後端 API URL 必須使用 https://"));
       }
       if (uri.getHost() == null || uri.getHost().isBlank()) {
         return Result.err(DomainError.invalidInput("後端 API URL 格式無效"));

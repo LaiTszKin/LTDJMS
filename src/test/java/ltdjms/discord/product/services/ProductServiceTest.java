@@ -291,12 +291,35 @@ class ProductServiceTest {
               null,
               300L,
               null,
-              "http://127.0.0.1/internal",
+              "https://127.0.0.1/internal",
               false,
               null);
 
       assertThat(result.isErr()).isTrue();
       assertThat(result.getError().message()).contains("localhost 或內網位址");
+    }
+
+    @Test
+    @DisplayName("should reject non-https backend API URL")
+    void shouldRejectNonHttpsBackendApiUrl() {
+      when(productRepository.existsByGuildIdAndName(TEST_GUILD_ID, "Insecure Backend"))
+          .thenReturn(false);
+
+      Result<Product, DomainError> result =
+          productService.createProduct(
+              TEST_GUILD_ID,
+              "Insecure Backend",
+              "desc",
+              null,
+              null,
+              300L,
+              null,
+              "http://backend.example.com/fulfill",
+              false,
+              null);
+
+      assertThat(result.isErr()).isTrue();
+      assertThat(result.getError().message()).contains("必須使用 https://");
     }
 
     @Test
