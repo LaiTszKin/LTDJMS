@@ -228,7 +228,7 @@ class ProductFulfillmentApiServiceTest {
             100L,
             200L,
             null,
-            "http://localhost:8080/internal",
+            "https://localhost:8080/internal",
             false,
             null,
             Instant.now(),
@@ -293,6 +293,40 @@ class ProductFulfillmentApiServiceTest {
 
     assertThat(result.isErr()).isTrue();
     assertThat(result.getError().message()).contains("localhost 或內網位址");
+    verify(httpClient, never()).send(any(), anyStringBodyHandler());
+  }
+
+  @Test
+  @DisplayName("應拒絕非 https 的履約目標 URL")
+  void shouldRejectNonHttpsTarget() throws Exception {
+    Product product =
+        new Product(
+            1L,
+            GUILD_ID,
+            "Insecure Backend",
+            null,
+            Product.RewardType.CURRENCY,
+            100L,
+            200L,
+            null,
+            "http://backend.example.com/fulfill",
+            false,
+            null,
+            Instant.now(),
+            Instant.now());
+
+    Result<ltdjms.discord.shared.Unit, DomainError> result =
+        service.notifyFulfillment(
+            new ProductFulfillmentApiService.FulfillmentRequest(
+                GUILD_ID,
+                USER_ID,
+                product,
+                ProductFulfillmentApiService.PurchaseSource.CURRENCY_PURCHASE,
+                null,
+                null));
+
+    assertThat(result.isErr()).isTrue();
+    assertThat(result.getError().message()).contains("必須使用 https://");
     verify(httpClient, never()).send(any(), anyStringBodyHandler());
   }
 }
