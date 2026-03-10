@@ -333,221 +333,43 @@ flowchart LR
 
 ### 3.1 RedemptionService
 
-負責兌換相關的業務邏輯。
+負責兌換碼生成、驗證、原子兌換與事件發布，並將商品獎勵發放委派給 `ProductRewardService`。
 
-```java
-// src/main/java/ltdjms/discord/redemption/services/RedemptionService.java
-public class RedemptionService {
-    private final RedemptionCodeRepository codeRepository;
-    private final ProductRepository productRepository;
-    private final RedemptionCodeGenerator codeGenerator;
-    private final BalanceAdjustmentService balanceAdjustmentService;
-    private final GameTokenService gameTokenService;
-    private final CurrencyTransactionService currencyTransactionService;
-    private final GameTokenTransactionService gameTokenTransactionService;
-    private final DomainEventPublisher eventPublisher;
+核心相依元件：
 
-    public static final int MAX_BATCH_SIZE = 100;
+- `RedemptionCodeRepository`: 兌換碼的查詢、批次建立、原子兌換與回滾
+- `ProductRepository`: 載入商品資料
+- `RedemptionCodeGenerator`: 產生候選兌換碼字串
+- `ProductRewardService`: 統一處理貨幣 / 代幣獎勵發放與交易紀錄
+- `ProductRedemptionTransactionService`: 記錄商品兌換交易
+- `DomainEventPublisher`: 發布 `RedemptionCodesGeneratedEvent` 與 `ProductRedemptionCompletedEvent`
 
-    /**
-     * 生成兌換碼
-     */
-    public Result<List<RedemptionCode>, DomainError> generateCodes(
-        long productId, int count, Instant expiresAt) {
+主要流程如下：
 
-        // 驗證數量
-        if (count <= 0) {
-            return Result.err(DomainError.invalidInput("生成數量必須大於 0"));
-        }
-        if (count > MAX_BATCH_SIZE) {
-            return Result.err(DomainError.invalidInput(
-                String.format("單次最多生成 %d 個兌換碼", MAX_BATCH_SIZE)));
-        }
+**generateCodes(...)**
+- 驗證 `count` 範圍為 `1..100`
+- 驗證 `quantity` 範圍為 `1..1000`
+- 驗證到期時間不可早於目前時間
+- 載入商品後批次產生唯一兌換碼
+- 呼叫 `saveAll(...)` 持久化，並發布 `RedemptionCodesGeneratedEvent`
 
-        // 驗證產品存在
-        var productOpt = productRepository.findById(productId);
-        if (productOpt.isEmpty()) {
-            return Result.err(DomainError.invalidInput("找不到商品"));
-        }
+**redeemCode(...)**
+1. 正規化輸入（trim + uppercase）
+2. 驗證代碼存在、屬於當前 guild、未失效、未兌換、未過期
+3. 驗證關聯商品仍存在
+4. 若商品有自動獎勵，先以 `Math.multiplyExact(product.rewardAmount(), code.quantity())` 預先計算總獎勵
+5. 呼叫 `markAsRedeemedIfAvailable(...)` 原子標記兌換碼，避免併發重複兌換
+6. 委派 `ProductRewardService.grantReward(...)` 發放總獎勵，描述訊息會攜帶遮罩後兌換碼與 `xN` 數量
+7. 若獎勵發放失敗，呼叫 `clearRedeemedIfMatches(...)` 將兌換碼恢復為可用狀態
+8. 記錄 `ProductRedemptionTransaction` 並發布 `ProductRedemptionCompletedEvent`
+9. 回傳 `RedemptionResult`
 
-        var product = productOpt.get();
-
-        // 生成多個唯一代碼
-        List<RedemptionCode> codes = new ArrayList<>(count);
-        for (int i = 0; i < count; i++) {
-            String codeStr = generateUniqueCode();
-            var redemptionCode = RedemptionCode.create(
-                codeStr, productId, product.guildId(), expiresAt);
-            codes.add(redemptionCode);
-        }
-
-        // 批次儲存
-        var savedCodes = codeRepository.saveAll(codes);
-
-        // 發布事件以便面板即時刷新
-        eventPublisher.publish(new RedemptionCodesGeneratedEvent(
-            product.guildId(), productId, savedCodes.size()));
-
-        return Result.ok(savedCodes);
-    }
-
-    /**
-     * 兌換代碼（更新版）
-     */
-    public Result<RedemptionResult, DomainError> redeemCode(
-        String codeStr, long guildId, long userId) {
-
-        if (codeStr == null || codeStr.isBlank()) {
-            return Result.err(DomainError.invalidInput("兌換碼無效"));
-        }
-
-        codeStr = codeStr.trim().toUpperCase();
-
-        // 查詢代碼
-        var codeOpt = codeRepository.findByCode(codeStr);
-        if (codeOpt.isEmpty()) {
-            return Result.err(DomainError.invalidInput("兌換碼無效"));
-        }
-
-        var code = codeOpt.get();
-
-        // 檢查是否屬於此伺服器
-        if (!code.belongsToGuild(guildId)) {
-            return Result.err(DomainError.invalidInput("兌換碼無效"));
-        }
-
-        // 檢查是否已失效
-        if (code.isInvalidated()) {
-            return Result.err(DomainError.invalidInput("此兌換碼已失效"));
-        }
-
-        // 檢查是否已兌換
-        if (code.isRedeemed()) {
-            return Result.err(DomainError.invalidInput("此兌換碼已被使用"));
-        }
-
-        // 檢查是否已過期
-        if (code.isExpired()) {
-            return Result.err(DomainError.invalidInput("此兌換碼已過期"));
-        }
-
-        // 檢查產品是否存在（productId 為 NULL 表示產品已被刪除）
-        if (code.productId() == null) {
-            return Result.err(DomainError.invalidInput("此兌換碼已失效"));
-        }
-
-        var productOpt = productRepository.findById(code.productId());
-        if (productOpt.isEmpty()) {
-            return Result.err(DomainError.unexpectedFailure("商品資料異常", null));
-        }
-
-        var product = productOpt.get();
-
-        // 標記代碼為已兌換
-        var redeemedCode = code.withRedeemed(userId);
-        codeRepository.update(redeemedCode);
-
-        // 發放獎勵（如果有）
-        Long rewardedAmount = null;
-        if (product.hasReward()) {
-            var rewardResult = grantReward(guildId, userId, product, code.code());
-            if (rewardResult.isOk()) {
-                rewardedAmount = rewardResult.getValue();
-            }
-        }
-
-        var result = new RedemptionResult(redeemedCode, product, rewardedAmount);
-        return Result.ok(result);
-    }
-
-    /**
-     * 生成唯一代碼，檢查資料庫確保唯一性
-     */
-    private String generateUniqueCode() {
-        int maxAttempts = 10;
-        for (int i = 0; i < maxAttempts; i++) {
-            String code = codeGenerator.generate();
-            if (!codeRepository.existsByCode(code)) {
-                return code;
-            }
-        }
-        throw new IllegalStateException("Failed to generate unique code after " + maxAttempts + " attempts");
-    }
-
-    /**
-     * 發放獎勵
-     */
-    private Result<Long, DomainError> grantReward(
-        long guildId, long userId, Product product, String codeStr) {
-
-        if (!product.hasReward()) {
-            return Result.ok(null);
-        }
-
-        long amount = product.rewardAmount();
-        String description = String.format("兌換碼: %s (%s)",
-            codeStr.substring(0, 4) + "****", product.name());
-
-        return switch (product.rewardType()) {
-            case CURRENCY -> {
-                var adjustResult = balanceAdjustmentService.tryAdjustBalance(
-                    guildId, userId, amount);
-                if (adjustResult.isOk()) {
-                    currencyTransactionService.recordTransaction(
-                        guildId, userId, amount,
-                        adjustResult.getValue().newBalance(),
-                        CurrencyTransaction.Source.REDEMPTION_CODE,
-                        description);
-                    yield Result.ok(amount);
-                }
-                yield Result.err(adjustResult.getError());
-            }
-            case TOKEN -> {
-                var tokenResult = gameTokenService.tryAdjustTokens(
-                    guildId, userId, amount);
-                if (tokenResult.isOk()) {
-                    gameTokenTransactionService.recordTransaction(
-                        guildId, userId, amount,
-                        tokenResult.getValue().newTokens(),
-                        GameTokenTransaction.Source.REDEMPTION_CODE,
-                        description);
-                    yield Result.ok(amount);
-                }
-                yield Result.err(tokenResult.getError());
-            }
-        };
-    }
-
-    /**
-     * 兌換結果
-     */
-    public record RedemptionResult(
-        RedemptionCode code,
-        Product product,
-        Long rewardedAmount
-    ) {
-        public String formatSuccessMessage() {
-            StringBuilder sb = new StringBuilder();
-            sb.append("你已成功兌換「").append(product.name()).append("」");
-
-            if (product.description() != null && !product.description().isBlank()) {
-                sb.append("\n").append(product.description());
-            }
-
-            if (rewardedAmount != null && product.hasReward()) {
-                sb.append("\n\n已發放獎勵：").append(product.formatReward());
-            }
-
-            return sb.toString();
-        }
-    }
-}
-```
+`RedemptionResult.formatSuccessMessage()` 會根據實際總獎勵金額，格式化貨幣或代幣獎勵訊息。
 
 主要方法：
 - `generateCodes`: 為產品生成多個兌換碼（最多 100 個）
-- `redeemCode`: 驗證並兌換代碼，包含完整的狀態檢查，建立交易記錄
-- `findByCode`: 查詢代碼
+- `redeemCode`: 驗證並原子兌換代碼，必要時回滾兌換狀態
+- `findByCode`: 查詢單一代碼
 - `getCodePage`: 取得分頁代碼列表
 - `getCodeStats`: 取得代碼統計資訊
 
@@ -617,7 +439,7 @@ public class ProductRedemptionTransactionService {
 - **事件發布**：建立交易記錄後發布 `ProductRedemptionCompletedEvent`
 - **統計數量**：取得使用者的總兌換次數
 
-**兌換碼驗證流程**：
+**兌換碼驗證與兌換流程**：
 
 1. 代碼格式驗證（非空、去除空白、轉大寫）
 2. 查詢代碼是否存在
@@ -625,102 +447,65 @@ public class ProductRedemptionTransactionService {
 4. 檢查是否已失效（`isInvalidated()`）
 5. 檢查是否已兌換（`isRedeemed()`）
 6. 檢查是否已過期（`isExpired()`）
-7. 檢查關聯產品是否存在（`productId` 是否為 NULL）
-8. 標記為已兌換並發放獎勵
+7. 檢查關聯產品是否存在（`productId` 不可為 `NULL`）
+8. 若商品有獎勵，先計算 `rewardAmount × quantity`，並攔截溢位
+9. 以 `markAsRedeemedIfAvailable(...)` 原子標記兌換碼
+10. 發放獎勵；失敗時以 `clearRedeemedIfMatches(...)` 回滾
+11. 建立兌換交易與發布完成事件
 
 ## 4. 持久層
 
 ### 4.1 RedemptionCodeRepository
 
-兌換碼資料存取介面。
+兌換碼資料存取介面。介面回傳值以 plain object / primitive 為主，服務層負責將 persistence 例外轉成 `DomainError`。
 
 ```java
 // src/main/java/ltdjms/discord/redemption/domain/RedemptionCodeRepository.java
 public interface RedemptionCodeRepository {
-    // 基本 CRUD
-    Result<RedemptionCode, DomainError> save(RedemptionCode code);
-    Result<List<RedemptionCode>, DomainError> saveAll(List<RedemptionCode> codes);
-    Result<Optional<RedemptionCode>, DomainError> findById(Long id);
-    Result<RedemptionCode, DomainError> update(RedemptionCode code);
-    Result<Boolean, DomainError> deleteById(Long id);
+    RedemptionCode save(RedemptionCode code);
+    List<RedemptionCode> saveAll(List<RedemptionCode> codes);
+    RedemptionCode update(RedemptionCode code);
 
-    // 查詢方法
-    Result<Optional<RedemptionCode>, DomainError> findByCode(String code);
-    Result<List<RedemptionCode>, DomainError> findByProductId(Long productId, int limit, int offset);
-    Result<Long, DomainError> countByProductId(Long productId);
+    boolean markAsRedeemedIfAvailable(long codeId, long userId, Instant redeemedAt);
+    boolean clearRedeemedIfMatches(long codeId, long userId, Instant redeemedAt);
 
-    // 狀態檢查
-    Result<Boolean, DomainError> existsByCode(String code);
+    Optional<RedemptionCode> findByCode(String code);
+    Optional<RedemptionCode> findById(long id);
+    boolean existsByCode(String code);
 
-    // 失效方法（V005 新增）
-    /**
-     * 將指定產品的所有兌換碼標記為失效
-     * @param productId 產品 ID
-     * @return 被失效的兌換碼數量
-     */
-    int invalidateByProductId(long productId);
+    List<RedemptionCode> findByProductId(long productId, int limit, int offset);
+    long countByProductId(long productId);
+    long countRedeemedByProductId(long productId);
+    long countUnusedByProductId(long productId);
+    int deleteUnusedByProductId(long productId);
 
-    // 統計方法
     CodeStats getStatsByProductId(long productId);
-
-    /**
-     * 代碼統計資訊
-     */
-    record CodeStats(
-        long totalCount,
-        long unusedCount,
-        long redeemedCount,
-        long expiredCount,
-        long invalidatedCount
-    ) {}
+    int invalidateByProductId(long productId);
+    List<RedemptionCode> findInvalidatedByProductId(long productId);
 }
 ```
+
+其中兩個與本次版本最相關的介面為：
+- `markAsRedeemedIfAvailable(...)`: 只在兌換碼仍可用時才原子標記為已兌換
+- `clearRedeemedIfMatches(...)`: 在下游獎勵發放失敗時，依照同一組 `codeId + userId + redeemedAt` 回滾
 
 ### 4.2 JdbcRedemptionCodeRepository
 
-JDBC 實作。
+JDBC 實作除了基本 CRUD 與查詢外，也負責這兩個條件式更新：
 
-```java
-// src/main/java/ltdjms/discord/redemption/persistence/JdbcRedemptionCodeRepository.java
-public class JdbcRedemptionCodeRepository implements RedemptionCodeRepository {
-    private final DSLContext dsl;
+- `markAsRedeemedIfAvailable(...)`
+  - SQL `WHERE` 同時檢查 `redeemed_by IS NULL`、`invalidated_at IS NULL`、`product_id IS NOT NULL`
+  - 並限制 `expires_at` 為未過期或 `NULL`
+  - 成功更新 1 筆才代表搶佔成功
+- `clearRedeemedIfMatches(...)`
+  - 只會清除與本次兌換相同的 `redeemed_by` / `redeemed_at`
+  - 避免回滾其他請求已合法完成的狀態
 
-    @Override
-    public int invalidateByProductId(long productId) {
-        return dsl.update(REDEMPTION_CODE)
-            .set(REDEMPTION_CODE.INVALIDATED_AT, Instant.now())
-            .set(REDEMPTION_CODE.PRODUCT_ID, (Long) null)  // 設為 NULL（雖然外鍵也會做）
-            .where(REDEMPTION_CODE.PRODUCT_ID.eq(productId))
-            .and(REDEMPTION_CODE.INVALIDATED_AT.isNull())  // 只更新尚未失效的
-            .execute();
-    }
-
-    @Override
-    public CodeStats getStatsByProductId(long productId) {
-        var record = dsl.select(
-            count().as("total_count"),
-            coalesce(count().filterWhere(REDEMPTION_CODE.REDEEMED_BY.isNull()
-                .and(REDEMPTION_CODE.INVALIDATED_AT.isNull())), 0L).as("unused_count"),
-            coalesce(count().filterWhere(REDEMPTION_CODE.REDEEMED_BY.isNotNull()), 0L).as("redeemed_count"),
-            coalesce(count().filterWhere(REDEMPTION_CODE.EXPIRES_AT.lt(Instant.now())), 0L).as("expired_count"),
-            coalesce(count().filterWhere(REDEMPTION_CODE.INVALIDATED_AT.isNotNull()), 0L).as("invalidated_count")
-        )
-        .from(REDEMPTION_CODE)
-        .where(REDEMPTION_CODE.PRODUCT_ID.eq(productId))
-        .fetchOne();
-
-        return new CodeStats(
-            record.get("total_count", Long.class),
-            record.get("unused_count", Long.class),
-            record.get("redeemed_count", Long.class),
-            record.get("expired_count", Long.class),
-            record.get("invalidated_count", Long.class)
-        );
-    }
-
-    // ... 其他實作
-}
-```
+`CodeStats` 目前提供：
+- `totalCount`
+- `redeemedCount`
+- `unusedCount`
+- `expiredCount`
 
 ## 5. 整合方式
 

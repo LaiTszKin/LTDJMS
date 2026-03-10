@@ -2,6 +2,31 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.33.0] - 2026-03-10
+
+### Added
+- **product/reward**: 新增 `ProductRewardService`，統一處理商品購買與兌換碼的自動獎勵發放與交易紀錄
+- **redemption/persistence**: `RedemptionCodeRepository` / `JdbcRedemptionCodeRepository` 新增原子兌換與回滾介面，避免併發兌換競態
+
+### Changed
+- **panel/dispatch/shared**: 拆分大型 Discord 互動 handler，集中面板 view / modal / message 組裝與事件 wiring，降低協調器責任
+- **shop/currency-purchase**: 貨幣購買流程改為委派共用獎勵服務；商品獎勵失敗時會自動退款並記錄 `PRODUCT_PURCHASE_REFUND`
+- **redemption**: 兌換流程改為先預計算總獎勵、再原子標記兌換碼，並在獎勵失敗時回復兌換狀態
+
+### Fixed
+- **aiagent**: 補上空白最終回應 fallback、未初始化 JDA 的 thread chat memory fallback，以及空 segment 對話 ID 驗證
+- **discord/markdown**: 修正 markdown paginator code fence 分頁長度，避免超出 Discord 訊息限制
+- **shop/fiat**: 綠界付款回推以 `TradeStatus` 為主判斷付款結果，驗證商店編號與金額，並避免重複付款回推造成重複履約或重複通知
+- **shop/fulfillment-security**: 阻擋 localhost、私有 IP 與解析到非公開位址的後端履約目標
+- **events**: 修正 domain event listener 依賴循環，並補上 Dagger wiring 測試
+
+### Docs
+- **docs/modules/shop**: 同步貨幣購買流程的共用獎勵、退款與最佳努力履約通知行為
+- **docs/modules/redemption**: 同步原子兌換、獎勵總額計算與失敗回滾機制
+
+### Tests
+- 執行 `make test`，測試通過（2489 tests, 0 failures, 0 errors, 14 skipped）
+
 ## [0.32.1] - 2026-03-05
 
 ### Fixed

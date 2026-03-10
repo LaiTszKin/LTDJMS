@@ -158,91 +158,33 @@ public class ShopService {
 
 ### 3.2 CurrencyPurchaseService
 
-負責處理使用貨幣購買商品的業務邏輯。
+負責處理使用貨幣購買商品的業務邏輯，並協調自動獎勵與後端履約通知。
 
-```java
-// src/main/java/ltdjms/discord/shop/services/CurrencyPurchaseService.java
-public class CurrencyPurchaseService {
+目前實作依賴以下元件：
 
-    private final ProductService productService;
-    private final BalanceService balanceService;
-    private final BalanceAdjustmentService balanceAdjustmentService;
-    private final CurrencyTransactionService transactionService;
-
-    /**
-     * 購買商品。
-     *
-     * @param guildId   Discord 伺服器 ID
-     * @param userId    Discord 使用者 ID
-     * @param productId 產品 ID
-     * @return Result<PurchaseResult, DomainError>
-     */
-    public Result<PurchaseResult, DomainError> purchaseProduct(
-        long guildId, long userId, long productId
-    ) {
-        // 1. 驗證商品存在且可用貨幣購買
-        var productOpt = productService.getProduct(productId);
-        if (productOpt.isEmpty() || !productOpt.get().hasCurrencyPrice()) {
-            return Result.err(DomainError.invalidInput("此商品不可用貨幣購買"));
-        }
-
-        Product product = productOpt.get();
-        long price = product.currencyPrice();
-
-        // 2. 檢查使用者餘額
-        var balanceResult = balanceService.tryGetBalance(guildId, userId);
-        if (balanceResult.isErr() || balanceResult.getValue().balance() < price) {
-            return Result.err(DomainError.invalidInput("餘額不足"));
-        }
-
-        // 3. 扣除貨幣
-        var adjustResult = balanceAdjustmentService.tryAdjustBalance(guildId, userId, -price);
-        if (adjustResult.isErr()) {
-            return Result.err(DomainError.persistenceFailure("扣除貨幣失敗", null));
-        }
-
-        // 4. 記錄交易
-        long newBalance = adjustResult.getValue().newBalance();
-        transactionService.recordTransaction(
-            guildId, userId, -price, newBalance,
-            CurrencyTransaction.Source.PRODUCT_PURCHASE,
-            "購買商品: " + product.name()
-        );
-
-        // 5. 發放獎勵（若有）
-        StringBuilder rewardMessage = new StringBuilder();
-        if (product.hasReward()) {
-            // 處理貨幣/代幣獎勵...
-        }
-
-        return Result.ok(new PurchaseResult(product, ...));
-    }
-
-    /**
-     * 購買結果。
-     */
-    public record PurchaseResult(
-        Product product,
-        long previousBalance,
-        long newBalance,
-        long price,
-        String rewardMessage
-    ) {
-        public String formatSuccessMessage() {
-            // 格式化成功訊息...
-        }
-    }
-}
-```
+- `ProductService`: 查詢商品並驗證商品是否屬於當前 guild
+- `BalanceService`: 讀取使用者目前餘額
+- `BalanceAdjustmentService`: 扣款與退款
+- `CurrencyTransactionService`: 記錄購買與退款交易
+- `ProductRewardService`: 統一發放商品自動獎勵（貨幣或代幣）
+- `ProductFulfillmentApiService`: 在商品設定要求時通知後端履約
 
 購買流程：
-1. 驗證商品存在且已設定貨幣價格
-2. 查詢使用者貨幣餘額
-3. 檢查餘額是否足夠
-4. 扣除貨幣金額
-5. 記錄交易明細（Source: PRODUCT_PURCHASE）
-6. 若商品有獎勵，發放至使用者帳戶
-7. 返回購買結果
+1. 驗證商品存在、屬於當前 guild，且已設定貨幣價格
+2. 查詢使用者貨幣餘額，若不足則回傳包含需求與現有餘額的錯誤
+3. 扣除貨幣並記錄 `CurrencyTransaction.Source.PRODUCT_PURCHASE`
+4. 若商品有自動獎勵，委派 `ProductRewardService.grantReward(...)` 發放
+5. 若獎勵發放失敗，立即自動退款並記錄 `CurrencyTransaction.Source.PRODUCT_PURCHASE_REFUND`
+6. 若商品設定需後端履約，呼叫 `ProductFulfillmentApiService.notifyFulfillment(...)`
+7. 後端履約通知失敗時不回滾購買，只在成功訊息附加警示
+8. 回傳 `PurchaseResult`，其中包含購買前餘額、最終餘額、價格與附加訊息
+
+`PurchaseResult.formatSuccessMessage()` 會輸出：
+- 商品名稱
+- 商品價格
+- 購買前 / 後餘額
+- 自動獎勵資訊（若有）
+- 後端履約警示（若有）
 
 ## 4. 指令與介面
 
@@ -693,23 +635,32 @@ sequenceDiagram
     participant Balance as BalanceService
     participant Adjust as BalanceAdjustmentService
     participant Tx as CurrencyTransactionService
+    participant Reward as ProductRewardService
+    participant Fulfillment as ProductFulfillmentApiService
 
     User->>Shop: 點擊「💰 購買商品」
     Shop->>SelectMenu: 顯示商品選單
-    User->>SelectMenu: 選擇商品
-    SelectMenu->>Balance: 查詢使用者餘額
-    Balance-->>SelectMenu: 返回餘額
-    SelectMenu->>Shop: 顯示購買確認介面
-    User->>SelectMenu: 點擊「確認購買」
+    User->>SelectMenu: 選擇商品並確認
     SelectMenu->>Purchase: purchaseProduct()
-    Purchase->>Purchase: 驗證商品存在且有價格
+    Purchase->>Purchase: 驗證商品存在、guild 與價格
     Purchase->>Balance: tryGetBalance()
     Balance-->>Purchase: 返回餘額
-    Purchase->>Purchase: 檢查餘額是否足夠
     Purchase->>Adjust: tryAdjustBalance(-price)
-    Adjust-->>Purchase: 返回新餘額
+    Adjust-->>Purchase: 返回扣款後餘額
     Purchase->>Tx: recordTransaction(PRODUCT_PURCHASE)
-    Purchase->>Purchase: 發放商品獎勵（若有）
+    opt 商品有自動獎勵
+        Purchase->>Reward: grantReward(...)
+        Reward-->>Purchase: 獎勵結果 / 錯誤
+        alt 獎勵失敗
+            Purchase->>Adjust: tryAdjustBalance(+price)
+            Purchase->>Tx: recordTransaction(PRODUCT_PURCHASE_REFUND)
+            Purchase-->>SelectMenu: 返回錯誤
+        end
+    end
+    opt 商品需要後端履約
+        Purchase->>Fulfillment: notifyFulfillment(...)
+        Fulfillment-->>Purchase: 成功 / 失敗
+    end
     Purchase-->>SelectMenu: 返回購買結果
     SelectMenu-->>User: 顯示成功/失敗訊息
 ```
