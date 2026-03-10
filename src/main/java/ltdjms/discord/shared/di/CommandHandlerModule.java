@@ -45,6 +45,7 @@ import ltdjms.discord.panel.services.ProductRedemptionUpdateListener;
 import ltdjms.discord.panel.services.UserPanelService;
 import ltdjms.discord.panel.services.UserPanelUpdateListener;
 import ltdjms.discord.product.domain.ProductRepository;
+import ltdjms.discord.product.services.ProductRewardService;
 import ltdjms.discord.product.services.ProductService;
 import ltdjms.discord.redemption.services.ProductRedemptionTransactionService;
 import ltdjms.discord.redemption.services.RedemptionService;
@@ -322,12 +323,14 @@ public class CommandHandlerModule {
       BalanceService balanceService,
       BalanceAdjustmentService balanceAdjustmentService,
       CurrencyTransactionService currencyTransactionService,
+      ProductRewardService productRewardService,
       ProductFulfillmentApiService productFulfillmentApiService) {
     return new ltdjms.discord.shop.services.CurrencyPurchaseService(
         productService,
         balanceService,
         balanceAdjustmentService,
         currencyTransactionService,
+        productRewardService,
         productFulfillmentApiService);
   }
 

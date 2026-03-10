@@ -9,13 +9,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import ltdjms.discord.currency.domain.CurrencyTransaction;
-import ltdjms.discord.currency.services.BalanceAdjustmentService;
-import ltdjms.discord.currency.services.CurrencyTransactionService;
 import ltdjms.discord.gametoken.domain.GameTokenTransaction;
-import ltdjms.discord.gametoken.services.GameTokenService;
-import ltdjms.discord.gametoken.services.GameTokenTransactionService;
 import ltdjms.discord.product.domain.Product;
 import ltdjms.discord.product.domain.ProductRepository;
+import ltdjms.discord.product.services.ProductRewardService;
 import ltdjms.discord.redemption.domain.ProductRedemptionTransaction;
 import ltdjms.discord.redemption.domain.RedemptionCode;
 import ltdjms.discord.redemption.domain.RedemptionCodeRepository;
@@ -36,10 +33,7 @@ public class RedemptionService {
   private final RedemptionCodeRepository codeRepository;
   private final ProductRepository productRepository;
   private final RedemptionCodeGenerator codeGenerator;
-  private final BalanceAdjustmentService balanceAdjustmentService;
-  private final GameTokenService gameTokenService;
-  private final CurrencyTransactionService currencyTransactionService;
-  private final GameTokenTransactionService gameTokenTransactionService;
+  private final ProductRewardService productRewardService;
   private final ProductRedemptionTransactionService productRedemptionTransactionService;
   private final DomainEventPublisher eventPublisher;
 
@@ -47,19 +41,13 @@ public class RedemptionService {
       RedemptionCodeRepository codeRepository,
       ProductRepository productRepository,
       RedemptionCodeGenerator codeGenerator,
-      BalanceAdjustmentService balanceAdjustmentService,
-      GameTokenService gameTokenService,
-      CurrencyTransactionService currencyTransactionService,
-      GameTokenTransactionService gameTokenTransactionService,
+      ProductRewardService productRewardService,
       ProductRedemptionTransactionService productRedemptionTransactionService,
       DomainEventPublisher eventPublisher) {
     this.codeRepository = codeRepository;
     this.productRepository = productRepository;
     this.codeGenerator = codeGenerator;
-    this.balanceAdjustmentService = balanceAdjustmentService;
-    this.gameTokenService = gameTokenService;
-    this.currencyTransactionService = currencyTransactionService;
-    this.gameTokenTransactionService = gameTokenTransactionService;
+    this.productRewardService = productRewardService;
     this.productRedemptionTransactionService = productRedemptionTransactionService;
     this.eventPublisher = eventPublisher;
   }
@@ -89,7 +77,6 @@ public class RedemptionService {
   public Result<List<RedemptionCode>, DomainError> generateCodes(
       long productId, int count, Instant expiresAt, int quantity) {
 
-    // Validate count
     if (count <= 0) {
       return Result.err(DomainError.invalidInput("生成數量必須大於 0"));
     }
@@ -97,7 +84,6 @@ public class RedemptionService {
       return Result.err(DomainError.invalidInput(String.format("單次最多生成 %d 個兌換碼", MAX_BATCH_SIZE)));
     }
 
-    // Validate quantity
     if (quantity <= 0) {
       return Result.err(DomainError.invalidInput("兌換數量必須大於 0"));
     }
@@ -105,40 +91,32 @@ public class RedemptionService {
       return Result.err(DomainError.invalidInput("單個兌換碼最多可兌換 1000 個商品"));
     }
 
-    // Validate expiration time
     if (expiresAt != null && expiresAt.isBefore(Instant.now())) {
       return Result.err(DomainError.invalidInput("過期時間必須在未來"));
     }
 
-    // Find product
     Optional<Product> productOpt = productRepository.findById(productId);
     if (productOpt.isEmpty()) {
       return Result.err(DomainError.invalidInput("找不到商品"));
     }
 
     Product product = productOpt.get();
+    List<RedemptionCode> codes = new ArrayList<>();
+    for (int i = 0; i < count; i++) {
+      String code = generateUniqueCode();
+      codes.add(RedemptionCode.create(code, product.id(), product.guildId(), expiresAt, quantity));
+    }
 
     try {
-      List<RedemptionCode> codes = new ArrayList<>(count);
-      for (int i = 0; i < count; i++) {
-        String codeStr = generateUniqueCode();
-        RedemptionCode code =
-            RedemptionCode.create(codeStr, productId, product.guildId(), expiresAt, quantity);
-        codes.add(code);
-      }
-
       List<RedemptionCode> savedCodes = codeRepository.saveAll(codes);
+      eventPublisher.publish(
+          new RedemptionCodesGeneratedEvent(product.guildId(), product.id(), savedCodes.size()));
       LOG.info(
           "Generated {} redemption codes for productId={} with quantity={}",
           savedCodes.size(),
           productId,
           quantity);
-
-      // 發布事件以便面板即時刷新
-      eventPublisher.publish(
-          new RedemptionCodesGeneratedEvent(product.guildId(), productId, savedCodes.size()));
       return Result.ok(savedCodes);
-
     } catch (Exception e) {
       LOG.error("Failed to generate codes for productId={}", productId, e);
       return Result.err(DomainError.persistenceFailure("生成兌換碼失敗", e));
@@ -148,10 +126,10 @@ public class RedemptionService {
   /**
    * Redeems a code for a user.
    *
-   * @param codeStr the redemption code string
+   * @param codeStr the code string
    * @param guildId the Discord guild ID
-   * @param userId the Discord user ID
-   * @return Result containing the redemption result or an error
+   * @param userId the Discord user ID redeeming the code
+   * @return Result containing RedemptionResult on success, or an error on failure
    */
   public Result<RedemptionResult, DomainError> redeemCode(
       String codeStr, long guildId, long userId) {
@@ -160,8 +138,6 @@ public class RedemptionService {
     }
 
     codeStr = codeStr.trim().toUpperCase();
-
-    // Find code
     Optional<RedemptionCode> codeOpt = codeRepository.findByCode(codeStr);
     if (codeOpt.isEmpty()) {
       LOG.debug("Redemption code not found: {}", codeStr);
@@ -169,33 +145,23 @@ public class RedemptionService {
     }
 
     RedemptionCode code = codeOpt.get();
-
-    // Check if code belongs to this guild (don't reveal cross-guild info)
     if (!code.belongsToGuild(guildId)) {
       LOG.debug("Redemption code {} does not belong to guild {}", codeStr, guildId);
       return Result.err(DomainError.invalidInput("兌換碼無效"));
     }
-
-    // Check if code has been invalidated
     if (code.isInvalidated()) {
       LOG.debug("Redemption code {} has been invalidated", codeStr);
       return Result.err(DomainError.invalidInput("此兌換碼已失效"));
     }
-
-    // Check if already redeemed
     if (code.isRedeemed()) {
       LOG.debug("Redemption code {} already redeemed", codeStr);
       return Result.err(DomainError.invalidInput("此兌換碼已被使用"));
     }
-
-    // Check if expired
     if (code.isExpired()) {
       LOG.debug("Redemption code {} has expired", codeStr);
       return Result.err(DomainError.invalidInput("此兌換碼已過期"));
     }
 
-    // Find product
-    // If productId is null (product was deleted), treat as invalid code
     if (code.productId() == null) {
       LOG.error("Product ID is null for redemption code: codeId={}", code.id());
       return Result.err(DomainError.invalidInput("此兌換碼已失效"));
@@ -219,7 +185,6 @@ public class RedemptionService {
     }
 
     try {
-      // Mark code as redeemed
       if (code.id() == null) {
         LOG.error("Redemption code ID is null during redeem: code={}", code.getMaskedCode());
         return Result.err(DomainError.unexpectedFailure("兌換碼資料異常", null));
@@ -237,28 +202,31 @@ public class RedemptionService {
         return Result.err(DomainError.invalidInput("此兌換碼已被使用或不可用"));
       }
 
-      // Grant reward if applicable
       Long rewardedAmount = null;
       if (product.hasReward()) {
-        Result<Long, DomainError> rewardResult =
-            grantReward(guildId, userId, product, code, totalRewardAmount);
+        Result<ProductRewardService.RewardGrantResult, DomainError> rewardResult =
+            productRewardService.grantReward(
+                new ProductRewardService.RewardGrantRequest(
+                    guildId,
+                    userId,
+                    product,
+                    totalRewardAmount,
+                    String.format(
+                        "兌換碼: %s (%s) x%d", code.getMaskedCode(), product.name(), code.quantity()),
+                    CurrencyTransaction.Source.REDEMPTION_CODE,
+                    GameTokenTransaction.Source.REDEMPTION_CODE));
         if (rewardResult.isErr()) {
-          // Rollback the redemption would be complex, log and continue
-          LOG.error(
-              "Failed to grant reward for code {}: {}",
-              code.code(),
-              rewardResult.getError().message());
-        } else {
-          rewardedAmount = rewardResult.getValue();
+          return Result.err(
+              rollbackRedeemedCodeAfterRewardFailure(
+                  redeemedCode, userId, rewardResult.getError(), product.name()));
         }
+        rewardedAmount = rewardResult.getValue().amount();
       }
 
-      // Record the product redemption transaction
       ProductRedemptionTransaction transaction =
           productRedemptionTransactionService.recordTransaction(
               guildId, userId, product, redeemedCode);
 
-      // Publish event for panel updates
       eventPublisher.publish(
           new ProductRedemptionCompletedEvent(guildId, userId, transaction, Instant.now()));
 
@@ -340,54 +308,21 @@ public class RedemptionService {
         "Failed to generate unique code after " + maxAttempts + " attempts");
   }
 
-  /** Grants the reward for a product. */
-  private Result<Long, DomainError> grantReward(
-      long guildId, long userId, Product product, RedemptionCode code, Long totalRewardAmount) {
+  private DomainError rollbackRedeemedCodeAfterRewardFailure(
+      RedemptionCode redeemedCode, long userId, DomainError rewardError, String productName) {
+    LOG.error(
+        "Failed to grant reward for redeemed code {} (product={}): {}",
+        redeemedCode.getMaskedCode(),
+        productName,
+        rewardError.message());
 
-    if (!product.hasReward()) {
-      return Result.ok(null);
+    boolean reverted =
+        codeRepository.clearRedeemedIfMatches(redeemedCode.id(), userId, redeemedCode.redeemedAt());
+    if (reverted) {
+      return DomainError.unexpectedFailure("商品獎勵發放失敗，兌換已取消", rewardError.cause());
     }
 
-    if (totalRewardAmount == null) {
-      return Result.err(DomainError.invalidInput("商品獎勵金額無效"));
-    }
-
-    long totalAmount = totalRewardAmount;
-    String description =
-        String.format("兌換碼: %s (%s) x%d", code.getMaskedCode(), product.name(), code.quantity());
-
-    return switch (product.rewardType()) {
-      case CURRENCY -> {
-        var adjustResult = balanceAdjustmentService.tryAdjustBalance(guildId, userId, totalAmount);
-        if (adjustResult.isOk()) {
-          // Record the transaction with redemption source
-          currencyTransactionService.recordTransaction(
-              guildId,
-              userId,
-              totalAmount,
-              adjustResult.getValue().newBalance(),
-              CurrencyTransaction.Source.REDEMPTION_CODE,
-              description);
-          yield Result.ok(totalAmount);
-        }
-        yield Result.err(adjustResult.getError());
-      }
-      case TOKEN -> {
-        var tokenResult = gameTokenService.tryAdjustTokens(guildId, userId, totalAmount);
-        if (tokenResult.isOk()) {
-          // Record the transaction with redemption source
-          gameTokenTransactionService.recordTransaction(
-              guildId,
-              userId,
-              totalAmount,
-              tokenResult.getValue().newTokens(),
-              GameTokenTransaction.Source.REDEMPTION_CODE,
-              description);
-          yield Result.ok(totalAmount);
-        }
-        yield Result.err(tokenResult.getError());
-      }
-    };
+    return DomainError.persistenceFailure("商品獎勵發放失敗，且兌換碼回復失敗", rewardError.cause());
   }
 
   private Result<Long, DomainError> calculateTotalRewardAmount(
@@ -415,10 +350,17 @@ public class RedemptionService {
       }
 
       if (rewardedAmount != null && product.hasReward()) {
-        sb.append("\n\n已發放獎勵：").append(product.formatReward());
+        sb.append("\n\n已發放獎勵：").append(formatReward(product, rewardedAmount));
       }
 
       return sb.toString();
+    }
+
+    private String formatReward(Product product, long amount) {
+      return switch (product.rewardType()) {
+        case CURRENCY -> String.format("%,d 貨幣", amount);
+        case TOKEN -> String.format("%,d 代幣", amount);
+      };
     }
   }
 

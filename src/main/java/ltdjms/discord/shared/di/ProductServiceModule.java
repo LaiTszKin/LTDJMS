@@ -9,6 +9,7 @@ import ltdjms.discord.currency.services.CurrencyTransactionService;
 import ltdjms.discord.gametoken.services.GameTokenService;
 import ltdjms.discord.gametoken.services.GameTokenTransactionService;
 import ltdjms.discord.product.domain.ProductRepository;
+import ltdjms.discord.product.services.ProductRewardService;
 import ltdjms.discord.product.services.ProductService;
 import ltdjms.discord.redemption.domain.ProductRedemptionTransactionRepository;
 import ltdjms.discord.redemption.domain.RedemptionCodeRepository;
@@ -45,24 +46,32 @@ public class ProductServiceModule {
 
   @Provides
   @Singleton
+  public ProductRewardService provideProductRewardService(
+      BalanceAdjustmentService balanceAdjustmentService,
+      GameTokenService gameTokenService,
+      CurrencyTransactionService currencyTransactionService,
+      GameTokenTransactionService gameTokenTransactionService) {
+    return new ProductRewardService(
+        balanceAdjustmentService,
+        gameTokenService,
+        currencyTransactionService,
+        gameTokenTransactionService);
+  }
+
+  @Provides
+  @Singleton
   public RedemptionService provideRedemptionService(
       RedemptionCodeRepository codeRepository,
       ProductRepository productRepository,
       RedemptionCodeGenerator codeGenerator,
-      BalanceAdjustmentService balanceAdjustmentService,
-      GameTokenService gameTokenService,
-      CurrencyTransactionService currencyTransactionService,
-      GameTokenTransactionService gameTokenTransactionService,
+      ProductRewardService productRewardService,
       ProductRedemptionTransactionService productRedemptionTransactionService,
       DomainEventPublisher eventPublisher) {
     return new RedemptionService(
         codeRepository,
         productRepository,
         codeGenerator,
-        balanceAdjustmentService,
-        gameTokenService,
-        currencyTransactionService,
-        gameTokenTransactionService,
+        productRewardService,
         productRedemptionTransactionService,
         eventPublisher);
   }

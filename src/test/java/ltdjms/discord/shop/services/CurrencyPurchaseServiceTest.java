@@ -20,6 +20,7 @@ import ltdjms.discord.currency.services.BalanceAdjustmentService;
 import ltdjms.discord.currency.services.BalanceService;
 import ltdjms.discord.currency.services.CurrencyTransactionService;
 import ltdjms.discord.product.domain.Product;
+import ltdjms.discord.product.services.ProductRewardService;
 import ltdjms.discord.product.services.ProductService;
 import ltdjms.discord.shared.DomainError;
 import ltdjms.discord.shared.Result;
@@ -43,6 +44,8 @@ class CurrencyPurchaseServiceTest {
 
   @Mock private CurrencyTransactionService transactionService;
 
+  @Mock private ProductRewardService productRewardService;
+
   @Mock private ProductFulfillmentApiService productFulfillmentApiService;
 
   private CurrencyPurchaseService purchaseService;
@@ -51,7 +54,12 @@ class CurrencyPurchaseServiceTest {
   void setUp() {
     purchaseService =
         new CurrencyPurchaseService(
-            productService, balanceService, balanceAdjustmentService, transactionService);
+            productService,
+            balanceService,
+            balanceAdjustmentService,
+            transactionService,
+            productRewardService,
+            null);
   }
 
   @Nested
@@ -144,7 +152,6 @@ class CurrencyPurchaseServiceTest {
       when(balanceAdjustmentService.tryAdjustBalance(
               TEST_GUILD_ID, TEST_USER_ID, -TEST_CURRENCY_PRICE))
           .thenReturn(Result.ok(adjustmentResult));
-
       // When
       Result<CurrencyPurchaseService.PurchaseResult, DomainError> result =
           purchaseService.purchaseProduct(TEST_GUILD_ID, TEST_USER_ID, TEST_PRODUCT_ID);
@@ -319,12 +326,10 @@ class CurrencyPurchaseServiceTest {
               TEST_GUILD_ID, TEST_USER_ID, -TEST_CURRENCY_PRICE))
           .thenReturn(Result.ok(deductResult));
 
-      var rewardResult =
-          new BalanceAdjustmentService.BalanceAdjustmentResult(
-              TEST_GUILD_ID, TEST_USER_ID, 500L, 600L, TEST_REWARD_AMOUNT, "Coins", "💰");
-      when(balanceAdjustmentService.tryAdjustBalance(
-              TEST_GUILD_ID, TEST_USER_ID, TEST_REWARD_AMOUNT))
-          .thenReturn(Result.ok(rewardResult));
+      when(productRewardService.grantReward(any()))
+          .thenReturn(
+              Result.ok(
+                  new ProductRewardService.RewardGrantResult(TEST_REWARD_AMOUNT, 600L, null)));
 
       // When
       Result<CurrencyPurchaseService.PurchaseResult, DomainError> result =
@@ -333,11 +338,13 @@ class CurrencyPurchaseServiceTest {
       // Then
       assertThat(result.isOk()).isTrue();
       assertThat(result.getValue().rewardMessage()).contains("獲得獎勵: 100 貨幣");
+      assertThat(result.getValue().newBalance()).isEqualTo(600L);
+      verify(productRewardService).grantReward(any());
     }
 
     @Test
-    @DisplayName("should handle TOKEN reward without balance adjustment")
-    void shouldHandleTokenRewardWithoutBalanceAdjustment() {
+    @DisplayName("should fulfill TOKEN reward via centralized reward service")
+    void shouldFulfillTokenRewardViaCentralizedRewardService() {
       // Given
       Product product =
           new Product(
@@ -362,6 +369,10 @@ class CurrencyPurchaseServiceTest {
       when(balanceAdjustmentService.tryAdjustBalance(
               TEST_GUILD_ID, TEST_USER_ID, -TEST_CURRENCY_PRICE))
           .thenReturn(Result.ok(adjustmentResult));
+      when(productRewardService.grantReward(any()))
+          .thenReturn(
+              Result.ok(
+                  new ProductRewardService.RewardGrantResult(TEST_REWARD_AMOUNT, null, 100L)));
 
       // When
       Result<CurrencyPurchaseService.PurchaseResult, DomainError> result =
@@ -370,13 +381,57 @@ class CurrencyPurchaseServiceTest {
       // Then
       assertThat(result.isOk()).isTrue();
       assertThat(result.getValue().rewardMessage()).contains("獲得獎勵: 100 代幣");
+      verify(productRewardService).grantReward(any());
       verify(balanceAdjustmentService, never())
           .tryAdjustBalance(eq(TEST_GUILD_ID), eq(TEST_USER_ID), eq(TEST_REWARD_AMOUNT));
     }
 
     @Test
-    @DisplayName("should continue purchase when reward granting fails")
-    void shouldContinuePurchaseWhenRewardGrantingFails() {
+    @DisplayName("should surface persistence failure when refund also fails")
+    void shouldSurfacePersistenceFailureWhenRefundAlsoFails() {
+      // Given
+      Product product =
+          new Product(
+              TEST_PRODUCT_ID,
+              TEST_GUILD_ID,
+              "Test Product",
+              "Description",
+              Product.RewardType.CURRENCY,
+              TEST_REWARD_AMOUNT,
+              TEST_CURRENCY_PRICE,
+              Instant.now(),
+              Instant.now());
+      when(productService.getProduct(TEST_PRODUCT_ID)).thenReturn(Optional.of(product));
+
+      BalanceView balance = new BalanceView(TEST_GUILD_ID, TEST_USER_ID, 1000L, "Coins", "💰");
+      when(balanceService.tryGetBalance(TEST_GUILD_ID, TEST_USER_ID))
+          .thenReturn(Result.ok(balance));
+
+      var deductResult =
+          new BalanceAdjustmentService.BalanceAdjustmentResult(
+              TEST_GUILD_ID, TEST_USER_ID, 1000L, 500L, -TEST_CURRENCY_PRICE, "Coins", "💰");
+      when(balanceAdjustmentService.tryAdjustBalance(
+              TEST_GUILD_ID, TEST_USER_ID, -TEST_CURRENCY_PRICE))
+          .thenReturn(Result.ok(deductResult));
+      when(productRewardService.grantReward(any()))
+          .thenReturn(Result.err(DomainError.unexpectedFailure("Reward failed", null)));
+      when(balanceAdjustmentService.tryAdjustBalance(
+              TEST_GUILD_ID, TEST_USER_ID, TEST_CURRENCY_PRICE))
+          .thenReturn(Result.err(DomainError.persistenceFailure("refund failed", null)));
+
+      // When
+      Result<CurrencyPurchaseService.PurchaseResult, DomainError> result =
+          purchaseService.purchaseProduct(TEST_GUILD_ID, TEST_USER_ID, TEST_PRODUCT_ID);
+
+      // Then
+      assertThat(result.isErr()).isTrue();
+      assertThat(result.getError().category()).isEqualTo(DomainError.Category.PERSISTENCE_FAILURE);
+      assertThat(result.getError().message()).contains("自動退款失敗");
+    }
+
+    @Test
+    @DisplayName("should refund purchase when reward granting fails")
+    void shouldRefundPurchaseWhenRewardGrantingFails() {
       // Given
       Product product =
           new Product(
@@ -402,17 +457,32 @@ class CurrencyPurchaseServiceTest {
               TEST_GUILD_ID, TEST_USER_ID, -TEST_CURRENCY_PRICE))
           .thenReturn(Result.ok(deductResult));
 
-      when(balanceAdjustmentService.tryAdjustBalance(
-              TEST_GUILD_ID, TEST_USER_ID, TEST_REWARD_AMOUNT))
+      when(productRewardService.grantReward(any()))
           .thenReturn(Result.err(DomainError.unexpectedFailure("Reward failed", null)));
+      var refundResult =
+          new BalanceAdjustmentService.BalanceAdjustmentResult(
+              TEST_GUILD_ID, TEST_USER_ID, 500L, 1000L, TEST_CURRENCY_PRICE, "Coins", "💰");
+      when(balanceAdjustmentService.tryAdjustBalance(
+              TEST_GUILD_ID, TEST_USER_ID, TEST_CURRENCY_PRICE))
+          .thenReturn(Result.ok(refundResult));
 
       // When
       Result<CurrencyPurchaseService.PurchaseResult, DomainError> result =
           purchaseService.purchaseProduct(TEST_GUILD_ID, TEST_USER_ID, TEST_PRODUCT_ID);
 
       // Then
-      assertThat(result.isOk()).isTrue();
-      assertThat(result.getValue().rewardMessage()).isEmpty();
+      assertThat(result.isErr()).isTrue();
+      assertThat(result.getError().message()).contains("已自動退款");
+      verify(balanceAdjustmentService)
+          .tryAdjustBalance(TEST_GUILD_ID, TEST_USER_ID, TEST_CURRENCY_PRICE);
+      verify(transactionService)
+          .recordTransaction(
+              TEST_GUILD_ID,
+              TEST_USER_ID,
+              TEST_CURRENCY_PRICE,
+              1000L,
+              ltdjms.discord.currency.domain.CurrencyTransaction.Source.PRODUCT_PURCHASE_REFUND,
+              "商品購買退款: Test Product");
     }
   }
 
@@ -429,6 +499,7 @@ class CurrencyPurchaseServiceTest {
               balanceService,
               balanceAdjustmentService,
               transactionService,
+              productRewardService,
               productFulfillmentApiService);
 
       Product product =
@@ -458,6 +529,10 @@ class CurrencyPurchaseServiceTest {
       when(balanceAdjustmentService.tryAdjustBalance(
               TEST_GUILD_ID, TEST_USER_ID, -TEST_CURRENCY_PRICE))
           .thenReturn(Result.ok(deductResult));
+      when(productRewardService.grantReward(any()))
+          .thenReturn(
+              Result.ok(
+                  new ProductRewardService.RewardGrantResult(TEST_REWARD_AMOUNT, null, 100L)));
 
       when(productFulfillmentApiService.notifyFulfillment(any())).thenReturn(Result.okVoid());
 
@@ -477,6 +552,7 @@ class CurrencyPurchaseServiceTest {
               balanceService,
               balanceAdjustmentService,
               transactionService,
+              productRewardService,
               productFulfillmentApiService);
 
       Product product =
@@ -506,6 +582,10 @@ class CurrencyPurchaseServiceTest {
       when(balanceAdjustmentService.tryAdjustBalance(
               TEST_GUILD_ID, TEST_USER_ID, -TEST_CURRENCY_PRICE))
           .thenReturn(Result.ok(deductResult));
+      when(productRewardService.grantReward(any()))
+          .thenReturn(
+              Result.ok(
+                  new ProductRewardService.RewardGrantResult(TEST_REWARD_AMOUNT, null, 100L)));
 
       when(productFulfillmentApiService.notifyFulfillment(any()))
           .thenReturn(Result.err(DomainError.unexpectedFailure("backend error", null)));

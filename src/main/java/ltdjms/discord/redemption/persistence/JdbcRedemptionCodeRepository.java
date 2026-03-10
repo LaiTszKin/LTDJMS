@@ -191,6 +191,42 @@ public class JdbcRedemptionCodeRepository implements RedemptionCodeRepository {
   }
 
   @Override
+  public boolean clearRedeemedIfMatches(long codeId, long userId, Instant redeemedAt) {
+    String sql =
+        "UPDATE redemption_code SET redeemed_by = NULL, redeemed_at = NULL "
+            + "WHERE id = ? AND redeemed_by = ? AND redeemed_at = ?";
+
+    if (redeemedAt == null) {
+      return false;
+    }
+
+    try (Connection conn = dataSource.getConnection();
+        PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+      stmt.setLong(1, codeId);
+      stmt.setLong(2, userId);
+      stmt.setTimestamp(3, Timestamp.from(redeemedAt));
+
+      int affected = stmt.executeUpdate();
+      if (affected == 1) {
+        LOG.warn(
+            "Cleared redeemed marker after downstream failure: id={}, userId={}", codeId, userId);
+        return true;
+      }
+
+      LOG.error(
+          "Failed to clear redeemed marker because state no longer matched: id={}, userId={}",
+          codeId,
+          userId);
+      return false;
+
+    } catch (SQLException e) {
+      LOG.error("Failed to clear redeemed marker id={}, userId={}", codeId, userId, e);
+      throw new RepositoryException("Failed to clear redeemed marker", e);
+    }
+  }
+
+  @Override
   public Optional<RedemptionCode> findByCode(String code) {
     String sql =
         "SELECT id, code, product_id, guild_id, expires_at, redeemed_by, redeemed_at, created_at,"

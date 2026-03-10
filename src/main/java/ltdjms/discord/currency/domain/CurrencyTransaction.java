@@ -35,8 +35,12 @@ public record CurrencyTransaction(
     DICE_GAME_2_WIN("骰子遊戲 2 獎勵"),
     /** Currency granted from redeeming a redemption code */
     REDEMPTION_CODE("兌換碼獎勵"),
+    /** Currency granted as a product reward */
+    PRODUCT_REWARD("商品獎勵"),
     /** Currency spent to purchase a product from shop */
-    PRODUCT_PURCHASE("商品購買");
+    PRODUCT_PURCHASE("商品購買"),
+    /** Currency refunded after a failed product purchase reward workflow */
+    PRODUCT_PURCHASE_REFUND("商品購買退款");
 
     private final String displayName;
 

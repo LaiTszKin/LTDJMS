@@ -40,7 +40,9 @@ public record GameTokenTransaction(
     /** Initial account creation */
     INITIAL("初始化"),
     /** Tokens granted from redeeming a redemption code */
-    REDEMPTION_CODE("兌換碼獎勵");
+    REDEMPTION_CODE("兌換碼獎勵"),
+    /** Tokens granted as a product reward */
+    PRODUCT_REWARD("商品獎勵");
 
     private final String displayName;
 

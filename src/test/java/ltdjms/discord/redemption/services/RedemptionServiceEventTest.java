@@ -13,6 +13,7 @@ import org.junit.jupiter.api.Test;
 
 import ltdjms.discord.product.domain.Product;
 import ltdjms.discord.product.domain.ProductRepository;
+import ltdjms.discord.product.services.ProductRewardService;
 import ltdjms.discord.redemption.domain.RedemptionCode;
 import ltdjms.discord.redemption.domain.RedemptionCodeRepository;
 import ltdjms.discord.shared.DomainError;
@@ -44,10 +45,7 @@ class RedemptionServiceEventTest {
             codeRepository,
             productRepository,
             codeGenerator,
-            mock(ltdjms.discord.currency.services.BalanceAdjustmentService.class),
-            mock(ltdjms.discord.gametoken.services.GameTokenService.class),
-            mock(ltdjms.discord.currency.services.CurrencyTransactionService.class),
-            mock(ltdjms.discord.gametoken.services.GameTokenTransactionService.class),
+            mock(ProductRewardService.class),
             mock(ProductRedemptionTransactionService.class),
             eventPublisher);
   }
