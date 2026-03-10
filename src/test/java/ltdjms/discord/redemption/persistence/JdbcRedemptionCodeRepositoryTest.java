@@ -131,6 +131,51 @@ class JdbcRedemptionCodeRepositoryTest {
   }
 
   @Nested
+  @DisplayName("clearRedeemedIfMatches")
+  class ClearRedeemedIfMatchesTests {
+
+    @Test
+    @DisplayName("當更新一筆資料時應返回 true")
+    void shouldReturnTrueWhenOneRowUpdated() throws SQLException {
+      PreparedStatement stmt = mock(PreparedStatement.class);
+      Instant redeemedAt = Instant.parse("2026-02-01T00:00:00Z");
+
+      when(connection.prepareStatement(anyString())).thenReturn(stmt);
+      when(stmt.executeUpdate()).thenReturn(1);
+
+      boolean result = repository.clearRedeemedIfMatches(TEST_CODE_ID, TEST_USER_ID, redeemedAt);
+
+      assertThat(result).isTrue();
+      verify(stmt).setLong(1, TEST_CODE_ID);
+      verify(stmt).setLong(2, TEST_USER_ID);
+      verify(stmt).setTimestamp(3, Timestamp.from(redeemedAt));
+    }
+
+    @Test
+    @DisplayName("當 redeemedAt 為 null 時應直接返回 false")
+    void shouldReturnFalseWhenRedeemedAtIsNull() {
+      boolean result = repository.clearRedeemedIfMatches(TEST_CODE_ID, TEST_USER_ID, null);
+
+      assertThat(result).isFalse();
+    }
+
+    @Test
+    @DisplayName("SQL 應同時比對 redeemed_by 與 redeemed_at")
+    void shouldMatchRedeemerAndTimestampInSql() throws SQLException {
+      PreparedStatement stmt = mock(PreparedStatement.class);
+      ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
+
+      when(connection.prepareStatement(sqlCaptor.capture())).thenReturn(stmt);
+      when(stmt.executeUpdate()).thenReturn(1);
+
+      repository.clearRedeemedIfMatches(
+          TEST_CODE_ID, TEST_USER_ID, Instant.parse("2026-02-01T00:00:00Z"));
+
+      assertThat(sqlCaptor.getValue()).contains("redeemed_by = ?").contains("redeemed_at = ?");
+    }
+  }
+
+  @Nested
   @DisplayName("invalidated code queries")
   class InvalidatedCodeQueryTests {
 

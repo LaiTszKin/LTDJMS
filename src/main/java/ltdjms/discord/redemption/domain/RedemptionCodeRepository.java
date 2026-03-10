@@ -45,6 +45,16 @@ public interface RedemptionCodeRepository {
   boolean markAsRedeemedIfAvailable(long codeId, long userId, Instant redeemedAt);
 
   /**
+   * Clears redemption markers when a downstream fulfillment step fails after the atomic mark.
+   *
+   * @param codeId the redemption code ID
+   * @param userId the user ID that redeemed the code
+   * @param redeemedAt the exact redemption timestamp used when marking the code
+   * @return true if the code was restored to available state
+   */
+  boolean clearRedeemedIfMatches(long codeId, long userId, Instant redeemedAt);
+
+  /**
    * Finds a redemption code by its code string.
    *
    * @param code the code string

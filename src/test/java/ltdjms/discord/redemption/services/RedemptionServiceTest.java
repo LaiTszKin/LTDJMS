@@ -17,12 +17,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import ltdjms.discord.currency.services.BalanceAdjustmentService;
-import ltdjms.discord.currency.services.CurrencyTransactionService;
-import ltdjms.discord.gametoken.services.GameTokenService;
-import ltdjms.discord.gametoken.services.GameTokenTransactionService;
 import ltdjms.discord.product.domain.Product;
 import ltdjms.discord.product.domain.ProductRepository;
+import ltdjms.discord.product.services.ProductRewardService;
 import ltdjms.discord.redemption.domain.ProductRedemptionTransaction;
 import ltdjms.discord.redemption.domain.RedemptionCode;
 import ltdjms.discord.redemption.domain.RedemptionCodeRepository;
@@ -41,10 +38,7 @@ class RedemptionServiceTest {
   @Mock private RedemptionCodeRepository codeRepository;
   @Mock private ProductRepository productRepository;
   @Mock private RedemptionCodeGenerator codeGenerator;
-  @Mock private BalanceAdjustmentService balanceAdjustmentService;
-  @Mock private GameTokenService gameTokenService;
-  @Mock private CurrencyTransactionService currencyTransactionService;
-  @Mock private GameTokenTransactionService gameTokenTransactionService;
+  @Mock private ProductRewardService productRewardService;
   @Mock private ProductRedemptionTransactionService productRedemptionTransactionService;
   @Mock private DomainEventPublisher eventPublisher;
 
@@ -57,10 +51,7 @@ class RedemptionServiceTest {
             codeRepository,
             productRepository,
             codeGenerator,
-            balanceAdjustmentService,
-            gameTokenService,
-            currencyTransactionService,
-            gameTokenTransactionService,
+            productRewardService,
             productRedemptionTransactionService,
             eventPublisher);
   }
@@ -501,11 +492,8 @@ class RedemptionServiceTest {
       when(codeRepository.findByCode("ABCD1234EFGH5678")).thenReturn(Optional.of(code));
       when(productRepository.findById(TEST_PRODUCT_ID)).thenReturn(Optional.of(product));
       when(codeRepository.markAsRedeemedIfAvailable(anyLong(), anyLong(), any())).thenReturn(true);
-      when(balanceAdjustmentService.tryAdjustBalance(TEST_GUILD_ID, TEST_USER_ID, 1000L))
-          .thenReturn(
-              Result.ok(
-                  new BalanceAdjustmentService.BalanceAdjustmentResult(
-                      TEST_GUILD_ID, TEST_USER_ID, 0L, 1000L, 1000L, "Coins", "🪙")));
+      when(productRewardService.grantReward(any()))
+          .thenReturn(Result.ok(new ProductRewardService.RewardGrantResult(1000L, 1000L, null)));
       when(productRedemptionTransactionService.recordTransaction(
               eq(TEST_GUILD_ID), eq(TEST_USER_ID), eq(product), any()))
           .thenReturn(transaction);
@@ -517,7 +505,7 @@ class RedemptionServiceTest {
       // Then
       assertThat(result.isOk()).isTrue();
       assertThat(result.getValue().rewardedAmount()).isEqualTo(1000L);
-      verify(balanceAdjustmentService).tryAdjustBalance(TEST_GUILD_ID, TEST_USER_ID, 1000L);
+      verify(productRewardService).grantReward(any());
       verify(productRedemptionTransactionService)
           .recordTransaction(eq(TEST_GUILD_ID), eq(TEST_USER_ID), eq(product), any());
       verify(eventPublisher).publish(any());
@@ -556,11 +544,8 @@ class RedemptionServiceTest {
       when(codeRepository.findByCode("ABC")).thenReturn(Optional.of(code));
       when(productRepository.findById(TEST_PRODUCT_ID)).thenReturn(Optional.of(product));
       when(codeRepository.markAsRedeemedIfAvailable(anyLong(), anyLong(), any())).thenReturn(true);
-      when(balanceAdjustmentService.tryAdjustBalance(TEST_GUILD_ID, TEST_USER_ID, 1000L))
-          .thenReturn(
-              Result.ok(
-                  new BalanceAdjustmentService.BalanceAdjustmentResult(
-                      TEST_GUILD_ID, TEST_USER_ID, 0L, 1000L, 1000L, "Coins", "🪙")));
+      when(productRewardService.grantReward(any()))
+          .thenReturn(Result.ok(new ProductRewardService.RewardGrantResult(1000L, 1000L, null)));
       when(productRedemptionTransactionService.recordTransaction(
               eq(TEST_GUILD_ID), eq(TEST_USER_ID), eq(product), any()))
           .thenReturn(transaction);
@@ -572,7 +557,7 @@ class RedemptionServiceTest {
       // Then
       assertThat(result.isOk()).isTrue();
       assertThat(result.getValue().rewardedAmount()).isEqualTo(1000L);
-      verify(balanceAdjustmentService).tryAdjustBalance(TEST_GUILD_ID, TEST_USER_ID, 1000L);
+      verify(productRewardService).grantReward(any());
     }
 
     @Test
@@ -617,11 +602,8 @@ class RedemptionServiceTest {
       when(codeRepository.findByCode("ABCD1234EFGH5678")).thenReturn(Optional.of(code));
       when(productRepository.findById(TEST_PRODUCT_ID)).thenReturn(Optional.of(product));
       when(codeRepository.markAsRedeemedIfAvailable(anyLong(), anyLong(), any())).thenReturn(true);
-      when(gameTokenService.tryAdjustTokens(TEST_GUILD_ID, TEST_USER_ID, 50L))
-          .thenReturn(
-              Result.ok(
-                  new GameTokenService.TokenAdjustmentResult(
-                      TEST_GUILD_ID, TEST_USER_ID, 0L, 50L, 50L)));
+      when(productRewardService.grantReward(any()))
+          .thenReturn(Result.ok(new ProductRewardService.RewardGrantResult(50L, null, 50L)));
       when(productRedemptionTransactionService.recordTransaction(
               eq(TEST_GUILD_ID), eq(TEST_USER_ID), eq(product), any()))
           .thenReturn(transaction);
@@ -633,7 +615,7 @@ class RedemptionServiceTest {
       // Then
       assertThat(result.isOk()).isTrue();
       assertThat(result.getValue().rewardedAmount()).isEqualTo(50L);
-      verify(gameTokenService).tryAdjustTokens(TEST_GUILD_ID, TEST_USER_ID, 50L);
+      verify(productRewardService).grantReward(any());
       verify(productRedemptionTransactionService)
           .recordTransaction(eq(TEST_GUILD_ID), eq(TEST_USER_ID), eq(product), any());
       verify(eventPublisher).publish(any());
@@ -699,6 +681,108 @@ class RedemptionServiceTest {
   class RedeemCodeFailureTests {
 
     @Test
+    @DisplayName("should rollback redeemed code when reward fulfillment fails")
+    void shouldRollbackRedeemedCodeWhenRewardFulfillmentFails() {
+      // Given
+      Instant now = Instant.now();
+      Product product =
+          new Product(
+              Long.valueOf(TEST_PRODUCT_ID),
+              TEST_GUILD_ID,
+              "禮包",
+              null,
+              Product.RewardType.CURRENCY,
+              1000L,
+              null,
+              now,
+              now);
+      RedemptionCode code =
+          new RedemptionCode(
+              1L,
+              "ABCD1234EFGH5678",
+              TEST_PRODUCT_ID,
+              TEST_GUILD_ID,
+              null,
+              null,
+              null,
+              now,
+              null,
+              1);
+
+      when(codeRepository.findByCode("ABCD1234EFGH5678")).thenReturn(Optional.of(code));
+      when(productRepository.findById(TEST_PRODUCT_ID)).thenReturn(Optional.of(product));
+      when(codeRepository.markAsRedeemedIfAvailable(eq(1L), eq(TEST_USER_ID), any()))
+          .thenReturn(true);
+      when(productRewardService.grantReward(any()))
+          .thenReturn(Result.err(DomainError.unexpectedFailure("Reward failed", null)));
+      when(codeRepository.clearRedeemedIfMatches(eq(1L), eq(TEST_USER_ID), any())).thenReturn(true);
+
+      // When
+      Result<RedemptionService.RedemptionResult, DomainError> result =
+          redemptionService.redeemCode("ABCD1234EFGH5678", TEST_GUILD_ID, TEST_USER_ID);
+
+      // Then
+      assertThat(result.isErr()).isTrue();
+      assertThat(result.getError().message()).contains("兌換已取消");
+      verify(codeRepository).clearRedeemedIfMatches(eq(1L), eq(TEST_USER_ID), any());
+      verify(productRedemptionTransactionService, never())
+          .recordTransaction(anyLong(), anyLong(), any(), any());
+      verify(eventPublisher, never()).publish(any());
+    }
+
+    @Test
+    @DisplayName("should surface persistence failure when reward rollback also fails")
+    void shouldSurfacePersistenceFailureWhenRewardRollbackAlsoFails() {
+      // Given
+      Instant now = Instant.now();
+      Product product =
+          new Product(
+              Long.valueOf(TEST_PRODUCT_ID),
+              TEST_GUILD_ID,
+              "禮包",
+              null,
+              Product.RewardType.CURRENCY,
+              1000L,
+              null,
+              now,
+              now);
+      RedemptionCode code =
+          new RedemptionCode(
+              1L,
+              "ABCD1234EFGH5678",
+              TEST_PRODUCT_ID,
+              TEST_GUILD_ID,
+              null,
+              null,
+              null,
+              now,
+              null,
+              1);
+
+      when(codeRepository.findByCode("ABCD1234EFGH5678")).thenReturn(Optional.of(code));
+      when(productRepository.findById(TEST_PRODUCT_ID)).thenReturn(Optional.of(product));
+      when(codeRepository.markAsRedeemedIfAvailable(eq(1L), eq(TEST_USER_ID), any()))
+          .thenReturn(true);
+      when(productRewardService.grantReward(any()))
+          .thenReturn(Result.err(DomainError.unexpectedFailure("Reward failed", null)));
+      when(codeRepository.clearRedeemedIfMatches(eq(1L), eq(TEST_USER_ID), any()))
+          .thenReturn(false);
+
+      // When
+      Result<RedemptionService.RedemptionResult, DomainError> result =
+          redemptionService.redeemCode("ABCD1234EFGH5678", TEST_GUILD_ID, TEST_USER_ID);
+
+      // Then
+      assertThat(result.isErr()).isTrue();
+      assertThat(result.getError().category()).isEqualTo(DomainError.Category.PERSISTENCE_FAILURE);
+      assertThat(result.getError().message()).contains("回復失敗");
+      verify(codeRepository).clearRedeemedIfMatches(eq(1L), eq(TEST_USER_ID), any());
+      verify(productRedemptionTransactionService, never())
+          .recordTransaction(anyLong(), anyLong(), any(), any());
+      verify(eventPublisher, never()).publish(any());
+    }
+
+    @Test
     @DisplayName("should reject overflowed reward before marking code redeemed")
     void shouldRejectOverflowedRewardBeforeMarkingCodeRedeemed() {
       // Given
@@ -738,7 +822,7 @@ class RedemptionServiceTest {
       assertThat(result.isErr()).isTrue();
       assertThat(result.getError().message()).contains("獎勵");
       verify(codeRepository, never()).markAsRedeemedIfAvailable(anyLong(), anyLong(), any());
-      verify(balanceAdjustmentService, never()).tryAdjustBalance(anyLong(), anyLong(), anyLong());
+      verify(productRewardService, never()).grantReward(any());
     }
 
     @Test
@@ -918,7 +1002,7 @@ class RedemptionServiceTest {
       assertThat(result.isErr()).isTrue();
       assertThat(result.getError().message()).contains("獎勵");
       verify(codeRepository, never()).markAsRedeemedIfAvailable(anyLong(), anyLong(), any());
-      verify(balanceAdjustmentService, never()).tryAdjustBalance(anyLong(), anyLong(), anyLong());
+      verify(productRewardService, never()).grantReward(any());
       verify(productRedemptionTransactionService, never())
           .recordTransaction(anyLong(), anyLong(), any(), any());
     }
