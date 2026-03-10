@@ -153,6 +153,12 @@ public class FiatPaymentCallbackService {
   }
 
   private void handlePostPayment(FiatOrder order) {
+    if (order.isFulfilled()) {
+      LOG.info(
+          "Skip fulfillment for already-fulfilled paid order: orderNumber={}", order.orderNumber());
+      return;
+    }
+
     Product product = productService.getProduct(order.productId()).orElse(null);
     if (product == null) {
       LOG.warn(

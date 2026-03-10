@@ -156,6 +156,52 @@ class FiatPaymentCallbackServiceTest {
   }
 
   @Test
+  @DisplayName("已履約訂單收到重複付款回推時不應再次呼叫履約 API")
+  void shouldNotCallFulfillmentApiWhenOrderAlreadyFulfilled() {
+    FiatOrder fulfilledOrder =
+        new FiatOrder(
+            1L,
+            GUILD_ID,
+            BUYER_ID,
+            PRODUCT_ID,
+            "護航商品",
+            ORDER_NUMBER,
+            "ABC123456789",
+            1200L,
+            FiatOrder.Status.PAID,
+            "1",
+            "付款成功",
+            Instant.now(fixedClock),
+            Instant.now(fixedClock),
+            Instant.now(fixedClock),
+            null,
+            Instant.now(fixedClock),
+            Instant.now(fixedClock));
+
+    when(fiatOrderRepository.findByOrderNumber(ORDER_NUMBER))
+        .thenReturn(Optional.of(fulfilledOrder));
+    when(fiatOrderRepository.markPaidIfPending(
+            eq(ORDER_NUMBER), eq("1"), eq("付款成功"), any(), any(Instant.class)))
+        .thenReturn(Optional.empty());
+    when(fiatOrderRepository.updateCallbackStatus(eq(ORDER_NUMBER), eq("1"), eq("付款成功"), any()))
+        .thenReturn(Optional.of(fulfilledOrder));
+
+    FiatPaymentCallbackService.CallbackResult result =
+        service.handleCallback(
+            encryptedPayload(
+                """
+                {"MerchantID":"2000132","MerchantTradeNo":"FD260304000001","TradeAmt":"1200","TradeStatus":"1","RtnCode":1,"RtnMsg":"付款成功"}
+                """),
+            "application/json");
+
+    assertThat(result.httpStatus()).isEqualTo(200);
+    verify(productFulfillmentApiService, never()).notifyFulfillment(any());
+    verify(fiatOrderRepository, never()).markFulfilledIfNeeded(any(), any(Instant.class));
+    verify(adminNotificationService, never())
+        .notifyAdminsOrderCreated(anyLong(), anyLong(), any(), any(), any());
+  }
+
+  @Test
   @DisplayName("未付款回推應僅更新狀態不觸發履約")
   void shouldOnlyUpdateStatusWhenUnpaid() {
     when(fiatOrderRepository.findByOrderNumber(ORDER_NUMBER))
