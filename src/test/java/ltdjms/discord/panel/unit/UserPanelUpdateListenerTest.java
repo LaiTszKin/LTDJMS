@@ -88,6 +88,8 @@ class UserPanelUpdateListenerTest {
       MessageEmbed embed = embedCaptor.getValue();
 
       assertThat(embed.getFields()).hasSize(2);
+      assertThat(embed.getFooter()).isNotNull();
+      assertThat(embed.getFooter().getText()).isEqualTo("點擊下方按鈕查看流水紀錄");
       // 第一個欄位為貨幣餘額欄位，應包含最新餘額與貨幣名稱 / 圖示
       MessageEmbed.Field currencyField = embed.getFields().get(0);
       assertThat(currencyField.getName()).contains("星幣").contains("餘額");

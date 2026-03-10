@@ -1,6 +1,7 @@
 package ltdjms.discord.panel.commands;
 
 import java.awt.Color;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -9,9 +10,12 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import ltdjms.discord.discord.domain.ButtonView;
+import ltdjms.discord.discord.domain.EmbedView;
 import ltdjms.discord.dispatch.services.EscortOptionPricingService;
 import ltdjms.discord.gametoken.domain.DiceGame1Config;
 import ltdjms.discord.gametoken.domain.DiceGame2Config;
+import ltdjms.discord.panel.components.PanelComponentRenderer;
 import ltdjms.discord.panel.services.AdminPanelService;
 import ltdjms.discord.panel.services.AdminPanelSessionManager;
 import ltdjms.discord.panel.services.CurrencyManagementFacade;
@@ -34,6 +38,7 @@ import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import net.dv8tion.jda.api.interactions.InteractionHook;
 import net.dv8tion.jda.api.interactions.components.ActionRow;
 import net.dv8tion.jda.api.interactions.components.buttons.Button;
+import net.dv8tion.jda.api.interactions.components.buttons.ButtonStyle;
 import net.dv8tion.jda.api.interactions.components.selections.EntitySelectMenu;
 import net.dv8tion.jda.api.interactions.components.selections.StringSelectMenu;
 import net.dv8tion.jda.api.interactions.components.text.TextInput;
@@ -342,34 +347,14 @@ public class AdminPanelButtonHandler extends ListenerAdapter {
     long guildId = event.getGuild().getIdLong();
     String sessionKey = getSessionKey(event.getUser().getIdLong(), guildId);
 
-    // Initialize or reset session state
     sessionStates.put(sessionKey, new SessionState(ManagementType.BALANCE));
 
     String currencyIcon = getCurrencyIcon(guildId);
     MessageEmbed embed = buildBalanceManagementEmbed(null, null, null, currencyIcon);
 
-    EntitySelectMenu userSelect =
-        EntitySelectMenu.create(SELECT_BALANCE_USER, EntitySelectMenu.SelectTarget.USER)
-            .setPlaceholder("選擇要調整的成員")
-            .setRequiredRange(1, 1)
-            .build();
-
-    StringSelectMenu modeSelect =
-        StringSelectMenu.create(SELECT_BALANCE_MODE)
-            .setPlaceholder("選擇調整模式")
-            .addOption("增加餘額", "add", "在現有餘額基礎上增加指定金額")
-            .addOption("扣除餘額", "deduct", "從現有餘額扣除指定金額")
-            .addOption("設定餘額", "adjust", "將餘額直接設定為指定金額")
-            .build();
-
     event
         .editMessageEmbeds(embed)
-        .setComponents(
-            ActionRow.of(userSelect),
-            ActionRow.of(modeSelect),
-            ActionRow.of(
-                Button.primary(BUTTON_OPEN_BALANCE_MODAL, currencyIcon + " 輸入金額").asDisabled(),
-                Button.secondary(BUTTON_BACK, "⬅️ 返回主選單")))
+        .setComponents(buildBalanceManagementComponents(currencyIcon, null, false))
         .queue();
   }
 
@@ -400,32 +385,10 @@ public class AdminPanelButtonHandler extends ListenerAdapter {
 
     boolean canOpenModal = state.selectedUserId != null && state.selectedMode != null;
 
-    EntitySelectMenu userSelect =
-        EntitySelectMenu.create(SELECT_BALANCE_USER, EntitySelectMenu.SelectTarget.USER)
-            .setPlaceholder("選擇要調整的成員")
-            .setRequiredRange(1, 1)
-            .build();
-
-    StringSelectMenu modeSelect =
-        StringSelectMenu.create(SELECT_BALANCE_MODE)
-            .setPlaceholder("選擇調整模式")
-            .addOption("增加餘額", "add", "在現有餘額基礎上增加指定金額")
-            .addOption("扣除餘額", "deduct", "從現有餘額扣除指定金額")
-            .addOption("設定餘額", "adjust", "將餘額直接設定為指定金額")
-            .setDefaultValues(state.selectedMode != null ? List.of(state.selectedMode) : List.of())
-            .build();
-
     event
         .editMessageEmbeds(embed)
         .setComponents(
-            ActionRow.of(userSelect),
-            ActionRow.of(modeSelect),
-            ActionRow.of(
-                canOpenModal
-                    ? Button.primary(BUTTON_OPEN_BALANCE_MODAL, currencyIcon + " 輸入金額")
-                    : Button.primary(BUTTON_OPEN_BALANCE_MODAL, currencyIcon + " 輸入金額")
-                        .asDisabled(),
-                Button.secondary(BUTTON_BACK, "⬅️ 返回主選單")))
+            buildBalanceManagementComponents(currencyIcon, state.selectedMode, canOpenModal))
         .queue();
   }
 
@@ -444,32 +407,9 @@ public class AdminPanelButtonHandler extends ListenerAdapter {
 
     boolean canOpenModal = state.selectedUserId != null && state.selectedMode != null;
 
-    EntitySelectMenu userSelect =
-        EntitySelectMenu.create(SELECT_BALANCE_USER, EntitySelectMenu.SelectTarget.USER)
-            .setPlaceholder("選擇要調整的成員")
-            .setRequiredRange(1, 1)
-            .build();
-
-    StringSelectMenu modeSelect =
-        StringSelectMenu.create(SELECT_BALANCE_MODE)
-            .setPlaceholder("選擇調整模式")
-            .addOption("增加餘額", "add", "在現有餘額基礎上增加指定金額")
-            .addOption("扣除餘額", "deduct", "從現有餘額扣除指定金額")
-            .addOption("設定餘額", "adjust", "將餘額直接設定為指定金額")
-            .setDefaultValues(List.of(mode))
-            .build();
-
     event
         .editMessageEmbeds(embed)
-        .setComponents(
-            ActionRow.of(userSelect),
-            ActionRow.of(modeSelect),
-            ActionRow.of(
-                canOpenModal
-                    ? Button.primary(BUTTON_OPEN_BALANCE_MODAL, currencyIcon + " 輸入金額")
-                    : Button.primary(BUTTON_OPEN_BALANCE_MODAL, currencyIcon + " 輸入金額")
-                        .asDisabled(),
-                Button.secondary(BUTTON_BACK, "⬅️ 返回主選單")))
+        .setComponents(buildBalanceManagementComponents(currencyIcon, mode, canOpenModal))
         .queue();
   }
 
@@ -507,30 +447,78 @@ public class AdminPanelButtonHandler extends ListenerAdapter {
     event.replyModal(modal).queue();
   }
 
+  private List<ActionRow> buildBalanceManagementComponents(
+      String currencyIcon, String selectedMode, boolean canOpenModal) {
+    return buildManagementComponents(
+        buildManagementUserSelect(SELECT_BALANCE_USER),
+        buildBalanceModeSelect(selectedMode),
+        BUTTON_OPEN_BALANCE_MODAL,
+        currencyIcon + " 輸入金額",
+        canOpenModal);
+  }
+
+  private EntitySelectMenu buildManagementUserSelect(String selectId) {
+    return EntitySelectMenu.create(selectId, EntitySelectMenu.SelectTarget.USER)
+        .setPlaceholder("選擇要調整的成員")
+        .setRequiredRange(1, 1)
+        .build();
+  }
+
+  private StringSelectMenu buildBalanceModeSelect(String selectedMode) {
+    StringSelectMenu.Builder builder =
+        StringSelectMenu.create(SELECT_BALANCE_MODE)
+            .setPlaceholder("選擇調整模式")
+            .addOption("增加餘額", "add", "在現有餘額基礎上增加指定金額")
+            .addOption("扣除餘額", "deduct", "從現有餘額扣除指定金額")
+            .addOption("設定餘額", "adjust", "將餘額直接設定為指定金額");
+    if (selectedMode != null) {
+      builder.setDefaultValues(List.of(selectedMode));
+    }
+    return builder.build();
+  }
+
+  private List<ActionRow> buildManagementComponents(
+      EntitySelectMenu userSelect,
+      StringSelectMenu modeSelect,
+      String actionButtonId,
+      String actionLabel,
+      boolean actionEnabled) {
+    List<ActionRow> rows = new ArrayList<>();
+    rows.add(ActionRow.of(userSelect));
+    rows.add(ActionRow.of(modeSelect));
+    rows.add(
+        PanelComponentRenderer.buildActionRow(
+            List.of(
+                new ButtonView(actionButtonId, actionLabel, ButtonStyle.PRIMARY, !actionEnabled),
+                new ButtonView(BUTTON_BACK, "⬅️ 返回主選單", ButtonStyle.SECONDARY, false))));
+    return rows;
+  }
+
   private MessageEmbed buildBalanceManagementEmbed(
       String userMention, Long currentBalance, String mode, String currencyIcon) {
-    EmbedBuilder builder =
-        new EmbedBuilder()
-            .setTitle(currencyIcon + " 使用者餘額管理")
-            .setColor(EMBED_COLOR)
-            .setDescription("選擇要調整餘額的成員和調整模式");
-
+    List<EmbedView.FieldView> fields = new ArrayList<>();
     if (userMention != null) {
-      builder.addField("選取成員", userMention, true);
-      if (currentBalance != null) {
-        builder.addField("目前餘額", String.format("%s %,d", currencyIcon, currentBalance), true);
-      } else {
-        builder.addField("目前餘額", "（無法取得）", true);
-      }
+      fields.add(new EmbedView.FieldView("選取成員", userMention, true));
+      fields.add(
+          new EmbedView.FieldView(
+              "目前餘額",
+              currentBalance != null
+                  ? String.format("%s %,d", currencyIcon, currentBalance)
+                  : "（無法取得）",
+              true));
     }
 
     if (mode != null) {
-      builder.addField("調整模式", getModeLabel(mode), false);
+      fields.add(new EmbedView.FieldView("調整模式", getModeLabel(mode), false));
     }
 
-    builder.setFooter("選擇成員和模式後點擊「輸入金額」按鈕");
-
-    return builder.build();
+    return PanelComponentRenderer.buildEmbed(
+        new EmbedView(
+            currencyIcon + " 使用者餘額管理",
+            "選擇要調整餘額的成員和調整模式",
+            EMBED_COLOR,
+            fields,
+            "選擇成員和模式後點擊「輸入金額」按鈕"));
   }
 
   // ===== Token Management =====
@@ -539,33 +527,13 @@ public class AdminPanelButtonHandler extends ListenerAdapter {
     long guildId = event.getGuild().getIdLong();
     String sessionKey = getSessionKey(event.getUser().getIdLong(), guildId);
 
-    // Initialize or reset session state
     sessionStates.put(sessionKey, new SessionState(ManagementType.TOKEN));
 
     MessageEmbed embed = buildTokenManagementEmbed(null, null, null);
 
-    EntitySelectMenu userSelect =
-        EntitySelectMenu.create(SELECT_TOKEN_USER, EntitySelectMenu.SelectTarget.USER)
-            .setPlaceholder("選擇要調整的成員")
-            .setRequiredRange(1, 1)
-            .build();
-
-    StringSelectMenu modeSelect =
-        StringSelectMenu.create(SELECT_TOKEN_MODE)
-            .setPlaceholder("選擇調整模式")
-            .addOption("增加代幣", "add", "在現有代幣基礎上增加指定數量")
-            .addOption("扣除代幣", "deduct", "從現有代幣扣除指定數量")
-            .addOption("設定代幣", "adjust", "將代幣直接設定為指定數量")
-            .build();
-
     event
         .editMessageEmbeds(embed)
-        .setComponents(
-            ActionRow.of(userSelect),
-            ActionRow.of(modeSelect),
-            ActionRow.of(
-                Button.primary(BUTTON_OPEN_TOKEN_MODAL, "🎮 輸入數量").asDisabled(),
-                Button.secondary(BUTTON_BACK, "⬅️ 返回主選單")))
+        .setComponents(buildTokenManagementComponents(null, false))
         .queue();
   }
 
@@ -592,31 +560,9 @@ public class AdminPanelButtonHandler extends ListenerAdapter {
 
     boolean canOpenModal = state.selectedUserId != null && state.selectedMode != null;
 
-    EntitySelectMenu userSelect =
-        EntitySelectMenu.create(SELECT_TOKEN_USER, EntitySelectMenu.SelectTarget.USER)
-            .setPlaceholder("選擇要調整的成員")
-            .setRequiredRange(1, 1)
-            .build();
-
-    StringSelectMenu modeSelect =
-        StringSelectMenu.create(SELECT_TOKEN_MODE)
-            .setPlaceholder("選擇調整模式")
-            .addOption("增加代幣", "add", "在現有代幣基礎上增加指定數量")
-            .addOption("扣除代幣", "deduct", "從現有代幣扣除指定數量")
-            .addOption("設定代幣", "adjust", "將代幣直接設定為指定數量")
-            .setDefaultValues(state.selectedMode != null ? List.of(state.selectedMode) : List.of())
-            .build();
-
     event
         .editMessageEmbeds(embed)
-        .setComponents(
-            ActionRow.of(userSelect),
-            ActionRow.of(modeSelect),
-            ActionRow.of(
-                canOpenModal
-                    ? Button.primary(BUTTON_OPEN_TOKEN_MODAL, "🎮 輸入數量")
-                    : Button.primary(BUTTON_OPEN_TOKEN_MODAL, "🎮 輸入數量").asDisabled(),
-                Button.secondary(BUTTON_BACK, "⬅️ 返回主選單")))
+        .setComponents(buildTokenManagementComponents(state.selectedMode, canOpenModal))
         .queue();
   }
 
@@ -633,31 +579,9 @@ public class AdminPanelButtonHandler extends ListenerAdapter {
 
     boolean canOpenModal = state.selectedUserId != null && state.selectedMode != null;
 
-    EntitySelectMenu userSelect =
-        EntitySelectMenu.create(SELECT_TOKEN_USER, EntitySelectMenu.SelectTarget.USER)
-            .setPlaceholder("選擇要調整的成員")
-            .setRequiredRange(1, 1)
-            .build();
-
-    StringSelectMenu modeSelect =
-        StringSelectMenu.create(SELECT_TOKEN_MODE)
-            .setPlaceholder("選擇調整模式")
-            .addOption("增加代幣", "add", "在現有代幣基礎上增加指定數量")
-            .addOption("扣除代幣", "deduct", "從現有代幣扣除指定數量")
-            .addOption("設定代幣", "adjust", "將代幣直接設定為指定數量")
-            .setDefaultValues(List.of(mode))
-            .build();
-
     event
         .editMessageEmbeds(embed)
-        .setComponents(
-            ActionRow.of(userSelect),
-            ActionRow.of(modeSelect),
-            ActionRow.of(
-                canOpenModal
-                    ? Button.primary(BUTTON_OPEN_TOKEN_MODAL, "🎮 輸入數量")
-                    : Button.primary(BUTTON_OPEN_TOKEN_MODAL, "🎮 輸入數量").asDisabled(),
-                Button.secondary(BUTTON_BACK, "⬅️ 返回主選單")))
+        .setComponents(buildTokenManagementComponents(mode, canOpenModal))
         .queue();
   }
 
@@ -695,30 +619,47 @@ public class AdminPanelButtonHandler extends ListenerAdapter {
     event.replyModal(modal).queue();
   }
 
+  private List<ActionRow> buildTokenManagementComponents(
+      String selectedMode, boolean canOpenModal) {
+    return buildManagementComponents(
+        buildManagementUserSelect(SELECT_TOKEN_USER),
+        buildTokenModeSelect(selectedMode),
+        BUTTON_OPEN_TOKEN_MODAL,
+        "🎮 輸入數量",
+        canOpenModal);
+  }
+
+  private StringSelectMenu buildTokenModeSelect(String selectedMode) {
+    StringSelectMenu.Builder builder =
+        StringSelectMenu.create(SELECT_TOKEN_MODE)
+            .setPlaceholder("選擇調整模式")
+            .addOption("增加代幣", "add", "在現有代幣基礎上增加指定數量")
+            .addOption("扣除代幣", "deduct", "從現有代幣扣除指定數量")
+            .addOption("設定代幣", "adjust", "將代幣直接設定為指定數量");
+    if (selectedMode != null) {
+      builder.setDefaultValues(List.of(selectedMode));
+    }
+    return builder.build();
+  }
+
   private MessageEmbed buildTokenManagementEmbed(
       String userMention, Long currentTokens, String mode) {
-    EmbedBuilder builder =
-        new EmbedBuilder()
-            .setTitle("🎮 遊戲代幣管理")
-            .setColor(EMBED_COLOR)
-            .setDescription("選擇要調整代幣的成員和調整模式");
-
+    List<EmbedView.FieldView> fields = new ArrayList<>();
     if (userMention != null) {
-      builder.addField("選取成員", userMention, true);
-      if (currentTokens != null) {
-        builder.addField("目前代幣", String.format("🎮 %,d", currentTokens), true);
-      } else {
-        builder.addField("目前代幣", "（無法取得）", true);
-      }
+      fields.add(new EmbedView.FieldView("選取成員", userMention, true));
+      fields.add(
+          new EmbedView.FieldView(
+              "目前代幣",
+              currentTokens != null ? String.format("🎮 %,d", currentTokens) : "（無法取得）",
+              true));
     }
 
     if (mode != null) {
-      builder.addField("調整模式", getTokenModeLabel(mode), false);
+      fields.add(new EmbedView.FieldView("調整模式", getTokenModeLabel(mode), false));
     }
 
-    builder.setFooter("選擇成員和模式後點擊「輸入數量」按鈕");
-
-    return builder.build();
+    return PanelComponentRenderer.buildEmbed(
+        new EmbedView("🎮 遊戲代幣管理", "選擇要調整代幣的成員和調整模式", EMBED_COLOR, fields, "選擇成員和模式後點擊「輸入數量」按鈕"));
   }
 
   // ===== Game Management =====

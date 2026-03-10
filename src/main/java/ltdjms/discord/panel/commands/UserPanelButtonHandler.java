@@ -3,29 +3,30 @@ package ltdjms.discord.panel.commands;
 import java.awt.Color;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Function;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import ltdjms.discord.currency.domain.CurrencyTransaction;
 import ltdjms.discord.currency.services.CurrencyTransactionService;
-import ltdjms.discord.gametoken.domain.GameTokenTransaction;
+import ltdjms.discord.discord.domain.ButtonView;
+import ltdjms.discord.discord.domain.EmbedView;
 import ltdjms.discord.gametoken.services.GameTokenTransactionService.TransactionPage;
+import ltdjms.discord.panel.components.PanelComponentRenderer;
 import ltdjms.discord.panel.services.UserPanelEmbedBuilder;
 import ltdjms.discord.panel.services.UserPanelService;
 import ltdjms.discord.panel.services.UserPanelView;
-import ltdjms.discord.redemption.domain.ProductRedemptionTransaction;
 import ltdjms.discord.redemption.services.ProductRedemptionTransactionService;
 import ltdjms.discord.redemption.services.RedemptionService;
 import ltdjms.discord.shared.DomainError;
 import ltdjms.discord.shared.Result;
-import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.entities.MessageEmbed;
 import net.dv8tion.jda.api.events.interaction.ModalInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import net.dv8tion.jda.api.interactions.components.ActionRow;
 import net.dv8tion.jda.api.interactions.components.buttons.Button;
+import net.dv8tion.jda.api.interactions.components.buttons.ButtonStyle;
 import net.dv8tion.jda.api.interactions.components.text.TextInput;
 import net.dv8tion.jda.api.interactions.components.text.TextInputStyle;
 import net.dv8tion.jda.api.interactions.modals.Modal;
@@ -250,76 +251,35 @@ public class UserPanelButtonHandler extends ListenerAdapter {
   }
 
   private MessageEmbed buildTokenHistoryEmbed(TransactionPage page) {
-    EmbedBuilder builder = new EmbedBuilder().setTitle("📜 遊戲代幣流水").setColor(EMBED_COLOR);
-
-    if (page.isEmpty()) {
-      builder.setDescription("目前沒有任何遊戲代幣流水紀錄");
-    } else {
-      StringBuilder sb = new StringBuilder();
-      for (GameTokenTransaction tx : page.transactions()) {
-        sb.append(tx.getShortTimestamp()).append(" ").append(tx.formatForDisplay()).append("\n");
-      }
-      builder.setDescription(sb.toString());
-    }
-
-    builder.setFooter(page.formatPageIndicator());
-
-    return builder.build();
+    return buildHistoryEmbed(
+        "📜 遊戲代幣流水",
+        "目前沒有任何遊戲代幣流水紀錄",
+        formatHistoryLines(
+            page.transactions(), tx -> tx.getShortTimestamp() + " " + tx.formatForDisplay()),
+        page.formatPageIndicator());
   }
 
   private MessageEmbed buildCurrencyHistoryEmbed(CurrencyTransactionService.TransactionPage page) {
-    EmbedBuilder builder = new EmbedBuilder().setTitle("💰 貨幣流水").setColor(EMBED_COLOR);
-
-    if (page.isEmpty()) {
-      builder.setDescription("目前沒有任何貨幣流水紀錄");
-    } else {
-      StringBuilder sb = new StringBuilder();
-      for (CurrencyTransaction tx : page.transactions()) {
-        sb.append(tx.getShortTimestamp()).append(" ").append(tx.formatForDisplay()).append("\n");
-      }
-      builder.setDescription(sb.toString());
-    }
-
-    builder.setFooter(page.formatPageIndicator());
-
-    return builder.build();
+    return buildHistoryEmbed(
+        "💰 貨幣流水",
+        "目前沒有任何貨幣流水紀錄",
+        formatHistoryLines(
+            page.transactions(), tx -> tx.getShortTimestamp() + " " + tx.formatForDisplay()),
+        page.formatPageIndicator());
   }
 
   private List<Button> buildTokenPaginationButtons(TransactionPage page) {
-    List<Button> buttons = new ArrayList<>();
-
-    // Add back to panel button
-    buttons.add(Button.secondary(BUTTON_BACK_TO_PANEL, "🔙 返回主頁"));
-
-    if (page.hasPreviousPage()) {
-      buttons.add(Button.secondary(BUTTON_PREFIX_TOKEN_PAGE + (page.currentPage() - 1), "⬅️ 上一頁"));
-    }
-
-    if (page.hasNextPage()) {
-      buttons.add(Button.secondary(BUTTON_PREFIX_TOKEN_PAGE + (page.currentPage() + 1), "下一頁 ➡️"));
-    }
-
-    return buttons;
+    return buildPaginationButtons(
+        BUTTON_PREFIX_TOKEN_PAGE, page.currentPage(), page.hasPreviousPage(), page.hasNextPage());
   }
 
   private List<Button> buildCurrencyPaginationButtons(
       CurrencyTransactionService.TransactionPage page) {
-    List<Button> buttons = new ArrayList<>();
-
-    // Add back to panel button
-    buttons.add(Button.secondary(BUTTON_BACK_TO_PANEL, "🔙 返回主頁"));
-
-    if (page.hasPreviousPage()) {
-      buttons.add(
-          Button.secondary(BUTTON_PREFIX_CURRENCY_PAGE + (page.currentPage() - 1), "⬅️ 上一頁"));
-    }
-
-    if (page.hasNextPage()) {
-      buttons.add(
-          Button.secondary(BUTTON_PREFIX_CURRENCY_PAGE + (page.currentPage() + 1), "下一頁 ➡️"));
-    }
-
-    return buttons;
+    return buildPaginationButtons(
+        BUTTON_PREFIX_CURRENCY_PAGE,
+        page.currentPage(),
+        page.hasPreviousPage(),
+        page.hasNextPage());
   }
 
   private void showProductRedemptionHistoryPage(
@@ -341,42 +301,50 @@ public class UserPanelButtonHandler extends ListenerAdapter {
 
   private MessageEmbed buildProductRedemptionHistoryEmbed(
       ProductRedemptionTransactionService.TransactionPage page) {
-    EmbedBuilder builder = new EmbedBuilder().setTitle("🛒 商品流水").setColor(EMBED_COLOR);
-
-    if (page.isEmpty()) {
-      builder.setDescription("目前沒有任何商品兌換紀錄");
-    } else {
-      StringBuilder sb = new StringBuilder();
-      for (ProductRedemptionTransaction tx : page.transactions()) {
-        sb.append(tx.getShortTimestamp()).append(" ").append(tx.formatForDisplay()).append("\n");
-      }
-      builder.setDescription(sb.toString());
-    }
-
-    builder.setFooter(page.formatPageIndicator());
-
-    return builder.build();
+    return buildHistoryEmbed(
+        "🛒 商品流水",
+        "目前沒有任何商品兌換紀錄",
+        formatHistoryLines(
+            page.transactions(), tx -> tx.getShortTimestamp() + " " + tx.formatForDisplay()),
+        page.formatPageIndicator());
   }
 
   private List<Button> buildProductRedemptionPaginationButtons(
       ProductRedemptionTransactionService.TransactionPage page) {
-    List<Button> buttons = new ArrayList<>();
+    return buildPaginationButtons(
+        BUTTON_PREFIX_PRODUCT_REDEMPTION_PAGE,
+        page.currentPage(),
+        page.hasPreviousPage(),
+        page.hasNextPage());
+  }
 
-    // Add back to panel button
-    buttons.add(Button.secondary(BUTTON_BACK_TO_PANEL, "🔙 返回主頁"));
+  private MessageEmbed buildHistoryEmbed(
+      String title, String emptyStateMessage, List<String> lines, String footer) {
+    String description = lines.isEmpty() ? emptyStateMessage : String.join("\n", lines) + "\n";
+    return PanelComponentRenderer.buildEmbed(
+        new EmbedView(title, description, EMBED_COLOR, List.of(), footer));
+  }
 
-    if (page.hasPreviousPage()) {
-      buttons.add(
-          Button.secondary(
-              BUTTON_PREFIX_PRODUCT_REDEMPTION_PAGE + (page.currentPage() - 1), "⬅️ 上一頁"));
+  private List<Button> buildPaginationButtons(
+      String buttonPrefix, int currentPage, boolean hasPreviousPage, boolean hasNextPage) {
+    List<ButtonView> buttonViews = new ArrayList<>();
+    buttonViews.add(new ButtonView(BUTTON_BACK_TO_PANEL, "🔙 返回主頁", ButtonStyle.SECONDARY, false));
+
+    if (hasPreviousPage) {
+      buttonViews.add(
+          new ButtonView(buttonPrefix + (currentPage - 1), "⬅️ 上一頁", ButtonStyle.SECONDARY, false));
     }
 
-    if (page.hasNextPage()) {
-      buttons.add(
-          Button.secondary(
-              BUTTON_PREFIX_PRODUCT_REDEMPTION_PAGE + (page.currentPage() + 1), "下一頁 ➡️"));
+    if (hasNextPage) {
+      buttonViews.add(
+          new ButtonView(buttonPrefix + (currentPage + 1), "下一頁 ➡️", ButtonStyle.SECONDARY, false));
     }
 
-    return buttons;
+    return PanelComponentRenderer.buildButtons(buttonViews);
+  }
+
+  private <T> List<String> formatHistoryLines(
+      List<T> transactions, Function<T, String> lineFormatter) {
+    return transactions.stream().map(lineFormatter).toList();
   }
 }

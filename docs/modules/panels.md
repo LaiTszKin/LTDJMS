@@ -2,6 +2,11 @@
 
 本文件介紹 `/user-panel` 與 `/admin-panel` 相關的指令與互動邏輯，包含 Embed 顯示、按鈕、選單與 Modal 的運作方式。
 
+## Documentation Delta
+
+- 更正 `/user-panel` 目前實際提供的按鈕：貨幣流水、遊戲代幣流水、商品流水、兌換碼。
+- 更正商品流水與代幣流水的實際 button ID、分頁 ID、handler 與 service 方法名稱。
+
 ## 1. 功能概觀
 
 面板模組的目標是提供比純文字指令更友善的操作介面：
@@ -9,7 +14,7 @@
 - **使用者面板**（`/user-panel`）：
   - 顯示個人在伺服器中的貨幣餘額與遊戲代幣餘額。
   - 提供「查看遊戲代幣流水」按鈕，支援分頁瀏覽。
-  - V008 新增：提供「查看商品兌換歷史」按鈕，顯示兌換碼使用紀錄。
+  - V008 新增：提供「查看商品流水」按鈕，顯示商品兌換紀錄。
 
 - **管理面板**（`/admin-panel`）：
   - 以 Embed + 按鈕形式提供集中式管理入口。
@@ -109,8 +114,10 @@
      - 欄位 2：遊戲代幣餘額
      - Footer：提示可按按鈕查看流水
    - 回覆時附上按鈕列（ActionRow）：
+     - 「<貨幣圖示> 查看貨幣流水」按鈕（ID：`user_panel_currency_history`）
      - 「📜 查看遊戲代幣流水」按鈕（ID：`user_panel_token_history`）
-     - V008 新增：「🎁 查看商品兌換歷史」按鈕（ID：`user_panel_redemption_history`）
+     - V008 新增：「🛒 查看商品流水」按鈕（ID：`user_panel_product_redemption_history`）
+     - 第二列提供「🎫 兌換碼」按鈕（ID：`user_panel_redeem`）
 
 該訊息以 `setEphemeral(true)` 發送，只有呼叫者看得到。
 
@@ -128,23 +135,45 @@
      - 否則將每筆交易格式化後逐行列出。
      - Footer 顯示「第 X/Y 頁（共 N 筆）」。
    - 根據是否有前一頁／下一頁建立對應按鈕：
-     - 上一頁：`user_panel_page_{page-1}`
-     - 下一頁：`user_panel_page_{page+1}`
+     - 上一頁：`user_panel_token_page_{page-1}`
+     - 下一頁：`user_panel_token_page_{page+1}`
    - 透過 `event.editMessageEmbeds(...).setActionRow(buttons)` 更新原訊息。
 
 3. 使用者切換頁面：
-   - 按鈕 ID 會是 `user_panel_page_{n}`。
+   - 按鈕 ID 會是 `user_panel_token_page_{n}`。
    - Handler 解析頁碼後再次呼叫 `showTokenHistoryPage`，形成分頁瀏覽。
 
-### 3.3 商品兌換歷史分頁（V008 新增）
+### 3.3 貨幣流水分頁
 
-1. 使用者點擊「🎁 查看商品兌換歷史」按鈕：
+1. 使用者點擊「<貨幣圖示> 查看貨幣流水」按鈕：
    - 觸發 `UserPanelButtonHandler.onButtonInteraction`。
-   - 依按鈕 ID 判斷為 `BUTTON_PREFIX_REDEMPTION_HISTORY`（`user_panel_redemption_history`）。
-   - 呼叫 `showRedemptionHistoryPage(event, guildId, userId, 1)` 顯示第一頁。
+   - 依按鈕 ID 判斷為 `BUTTON_PREFIX_CURRENCY_HISTORY`（`user_panel_currency_history`）。
+   - 呼叫 `showCurrencyHistoryPage(event, guildId, userId, 1)` 顯示第一頁。
 
-2. `showRedemptionHistoryPage`：
-   - 透過 `UserPanelService.getRedemptionHistoryPage(guildId, userId, page)` 取得 `RedemptionHistoryPage`。
+2. `showCurrencyHistoryPage`：
+   - 透過 `UserPanelService.getCurrencyTransactionPage(guildId, userId, page)` 取得 `TransactionPage`。
+   - 建立 Embed：
+     - 若無資料，顯示「目前沒有任何貨幣流水紀錄」。
+     - 否則將每筆交易格式化後逐行列出。
+     - Footer 顯示「第 X/Y 頁（共 N 筆）」。
+   - 根據是否有前一頁／下一頁建立對應按鈕：
+     - 上一頁：`user_panel_currency_page_{page-1}`
+     - 下一頁：`user_panel_currency_page_{page+1}`
+   - 透過 `event.editMessageEmbeds(...).setActionRow(buttons)` 更新原訊息。
+
+3. 使用者切換頁面：
+   - 按鈕 ID 會是 `user_panel_currency_page_{n}`。
+   - Handler 解析頁碼後再次呼叫 `showCurrencyHistoryPage`，形成分頁瀏覽。
+
+### 3.4 商品兌換歷史分頁（V008 新增）
+
+1. 使用者點擊「🛒 查看商品流水」按鈕：
+   - 觸發 `UserPanelButtonHandler.onButtonInteraction`。
+   - 依按鈕 ID 判斷為 `BUTTON_PREFIX_PRODUCT_REDEMPTION_HISTORY`（`user_panel_product_redemption_history`）。
+   - 呼叫 `showProductRedemptionHistoryPage(event, guildId, userId, 1)` 顯示第一頁。
+
+2. `showProductRedemptionHistoryPage`：
+   - 透過 `UserPanelService.getProductRedemptionTransactionPage(guildId, userId, page)` 取得 `TransactionPage`。
    - 建立 Embed：
      - 若無資料，顯示「目前沒有任何商品兌換紀錄」。
      - 否則將每筆兌換記錄格式化後逐行列出：
@@ -154,17 +183,17 @@
        - 兌換時間（相對時間格式，如「3 小時前」）
      - Footer 顯示「第 X/Y 頁（共 N 筆）」。
    - 根據是否有前一頁／下一頁建立對應按鈕：
-     - 上一頁：`user_panel_redemption_page_{page-1}`
-     - 下一頁：`user_panel_redemption_page_{page+1}`
+     - 上一頁：`user_panel_product_redemption_page_{page-1}`
+     - 下一頁：`user_panel_product_redemption_page_{page+1}`
    - 透過 `event.editMessageEmbeds(...).setActionRow(buttons)` 更新原訊息。
 
 3. 使用者切換頁面：
-   - 按鈕 ID 會是 `user_panel_redemption_page_{n}`。
-   - Handler 解析頁碼後再次呼叫 `showRedemptionHistoryPage`，形成分頁瀏覽。
+   - 按鈕 ID 會是 `user_panel_product_redemption_page_{n}`。
+   - Handler 解析頁碼後再次呼叫 `showProductRedemptionHistoryPage`，形成分頁瀏覽。
 
 **商品兌換歷史顯示範例**：
 ```
-🎁 你的商品兌換歷史
+🛒 商品流水
 
 **VIP 會員** | 貨幣 +1,000 | `ABCD****1234` | 3 小時前
 **遊戲大禮包** | 代幣 +500 | `EFGH****5678` | 1 天前
