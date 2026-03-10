@@ -1,6 +1,7 @@
 package ltdjms.discord.shared.di;
 
 import java.util.function.Consumer;
+import javax.inject.Provider;
 import javax.inject.Singleton;
 
 import dagger.Module;
@@ -210,22 +211,22 @@ public class CommandHandlerModule {
   @Provides
   @IntoSet
   public Consumer<DomainEvent> provideUserPanelDomainEventListener(
-      UserPanelUpdateListener listener) {
-    return listener;
+      Provider<UserPanelUpdateListener> listenerProvider) {
+    return event -> listenerProvider.get().accept(event);
   }
 
   @Provides
   @IntoSet
   public Consumer<DomainEvent> provideAdminPanelDomainEventListener(
-      AdminPanelUpdateListener listener) {
-    return listener;
+      Provider<AdminPanelUpdateListener> listenerProvider) {
+    return event -> listenerProvider.get().accept(event);
   }
 
   @Provides
   @IntoSet
   public Consumer<DomainEvent> provideProductRedemptionDomainEventListener(
-      ProductRedemptionUpdateListener listener) {
-    return listener;
+      Provider<ProductRedemptionUpdateListener> listenerProvider) {
+    return event -> listenerProvider.get().accept(event);
   }
 
   @Provides

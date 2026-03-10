@@ -1,6 +1,7 @@
 package ltdjms.discord.shared.di;
 
 import java.util.function.Consumer;
+import javax.inject.Provider;
 import javax.inject.Singleton;
 import javax.sql.DataSource;
 
@@ -131,8 +132,8 @@ public class AIAgentModule {
   @Provides
   @IntoSet
   public Consumer<DomainEvent> provideAgentConfigCacheInvalidationDomainEventListener(
-      AgentConfigCacheInvalidationListener listener) {
-    return listener;
+      Provider<AgentConfigCacheInvalidationListener> listenerProvider) {
+    return event -> listenerProvider.get().accept(event);
   }
 
   /**
@@ -403,15 +404,15 @@ public class AIAgentModule {
   @Provides
   @IntoSet
   public Consumer<DomainEvent> provideAgentCompletionDomainEventListener(
-      AgentCompletionListener listener) {
-    return listener;
+      Provider<AgentCompletionListener> listenerProvider) {
+    return event -> listenerProvider.get().accept(event);
   }
 
   @Provides
   @IntoSet
   public Consumer<DomainEvent> provideToolExecutionDomainEventListener(
-      ToolExecutionListener listener) {
-    return listener;
+      Provider<ToolExecutionListener> listenerProvider) {
+    return event -> listenerProvider.get().accept(event);
   }
 
   /**

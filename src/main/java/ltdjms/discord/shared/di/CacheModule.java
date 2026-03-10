@@ -1,6 +1,7 @@
 package ltdjms.discord.shared.di;
 
 import java.util.function.Consumer;
+import javax.inject.Provider;
 import javax.inject.Singleton;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -49,7 +50,7 @@ public class CacheModule {
   @Provides
   @IntoSet
   public Consumer<DomainEvent> provideCacheInvalidationDomainEventListener(
-      CacheInvalidationListener listener) {
-    return listener;
+      Provider<CacheInvalidationListener> listenerProvider) {
+    return event -> listenerProvider.get().accept(event);
   }
 }
