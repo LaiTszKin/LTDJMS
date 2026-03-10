@@ -2,6 +2,10 @@
 
 本文件介紹 `dispatch/` 模組的實作，涵蓋 `/dispatch-panel` 指令、互動面板流程、訂單狀態流轉與資料庫結構。
 
+## Documentation Delta
+
+- 補充 2026-03-10 的互動層重構：`DispatchPanelInteractionHandler` 已將歷史/DM/售後訊息組裝抽到 `DispatchPanelMessageFactory`，handler 專注於流程協調與狀態流轉。
+
 ## 1. 功能概觀
 
 派單護航系統提供一條「管理員建立派單 → 護航者私訊確認 → 客戶收到確認通知」的流程。
@@ -35,6 +39,11 @@
     - 成員是否仍在 guild
     - 護航者是否屬於護航群組、客戶是否屬於客戶群組
   - 處理護航者 DM 中的「確認接單」按鈕
+  - 專注於流程協調、狀態流轉與通知送出，不再直接負責各類 embed 文案組裝
+
+- `DispatchPanelMessageFactory`
+  - 組裝歷史訂單、護航者 DM、客戶確認、售後通知等訊息 embed
+  - 將顯示文案與狀態對應集中管理，降低 handler 的責任範圍
 
 - `DispatchPanelView`
   - 組裝面板 Embed 與元件（4 個選單 + 1 個建立按鈕）

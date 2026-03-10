@@ -421,38 +421,20 @@ public class AdminPanelButtonHandler extends ListenerAdapter {
       return;
     }
 
-    String modeLabel = getModeLabel(state.selectedMode);
-    String modalTitle = String.format("%s - %s", modeLabel, state.selectedUserMention);
-    if (modalTitle.length() > 45) {
-      modalTitle = modeLabel;
-    }
-
-    TextInput amountInput =
-        TextInput.create("amount", "金額", TextInputStyle.SHORT)
-            .setPlaceholder(state.selectedMode.equals("adjust") ? "輸入目標餘額" : "輸入調整金額")
-            .setRequired(true)
-            .setMinLength(1)
-            .setMaxLength(15)
-            .build();
-
-    Modal modal =
-        Modal.create(
-                MODAL_BALANCE_ADJUST + ":" + state.selectedUserId + ":" + state.selectedMode,
-                modalTitle)
-            .addComponents(ActionRow.of(amountInput))
-            .build();
-
-    event.replyModal(modal).queue();
+    event
+        .replyModal(
+            AdminPanelModalFactory.createBalanceAdjustModal(
+                state.selectedUserId,
+                state.selectedMode,
+                state.selectedUserMention,
+                getModeLabel(state.selectedMode)))
+        .queue();
   }
 
   private List<ActionRow> buildBalanceManagementComponents(
       String currencyIcon, String selectedMode, boolean canOpenModal) {
-    return buildManagementComponents(
-        buildManagementUserSelect(SELECT_BALANCE_USER),
-        buildBalanceModeSelect(selectedMode),
-        BUTTON_OPEN_BALANCE_MODAL,
-        currencyIcon + " 輸入金額",
-        canOpenModal);
+    return AdminPanelViewFactory.buildBalanceManagementComponents(
+        currencyIcon, selectedMode, canOpenModal);
   }
 
   private EntitySelectMenu buildManagementUserSelect(String selectId) {
@@ -494,29 +476,8 @@ public class AdminPanelButtonHandler extends ListenerAdapter {
 
   private MessageEmbed buildBalanceManagementEmbed(
       String userMention, Long currentBalance, String mode, String currencyIcon) {
-    List<EmbedView.FieldView> fields = new ArrayList<>();
-    if (userMention != null) {
-      fields.add(new EmbedView.FieldView("選取成員", userMention, true));
-      fields.add(
-          new EmbedView.FieldView(
-              "目前餘額",
-              currentBalance != null
-                  ? String.format("%s %,d", currencyIcon, currentBalance)
-                  : "（無法取得）",
-              true));
-    }
-
-    if (mode != null) {
-      fields.add(new EmbedView.FieldView("調整模式", getModeLabel(mode), false));
-    }
-
-    return PanelComponentRenderer.buildEmbed(
-        new EmbedView(
-            currencyIcon + " 使用者餘額管理",
-            "選擇要調整餘額的成員和調整模式",
-            EMBED_COLOR,
-            fields,
-            "選擇成員和模式後點擊「輸入金額」按鈕"));
+    return AdminPanelViewFactory.buildBalanceManagementEmbed(
+        userMention, currentBalance, mode != null ? getModeLabel(mode) : null, currencyIcon);
   }
 
   // ===== Token Management =====
@@ -593,38 +554,19 @@ public class AdminPanelButtonHandler extends ListenerAdapter {
       return;
     }
 
-    String modeLabel = getTokenModeLabel(state.selectedMode);
-    String modalTitle = String.format("%s - %s", modeLabel, state.selectedUserMention);
-    if (modalTitle.length() > 45) {
-      modalTitle = modeLabel;
-    }
-
-    TextInput amountInput =
-        TextInput.create("amount", "數量", TextInputStyle.SHORT)
-            .setPlaceholder(state.selectedMode.equals("adjust") ? "輸入目標代幣數量" : "輸入調整數量")
-            .setRequired(true)
-            .setMinLength(1)
-            .setMaxLength(15)
-            .build();
-
-    Modal modal =
-        Modal.create(
-                MODAL_TOKEN_ADJUST + ":" + state.selectedUserId + ":" + state.selectedMode,
-                modalTitle)
-            .addComponents(ActionRow.of(amountInput))
-            .build();
-
-    event.replyModal(modal).queue();
+    event
+        .replyModal(
+            AdminPanelModalFactory.createTokenAdjustModal(
+                state.selectedUserId,
+                state.selectedMode,
+                state.selectedUserMention,
+                getTokenModeLabel(state.selectedMode)))
+        .queue();
   }
 
   private List<ActionRow> buildTokenManagementComponents(
       String selectedMode, boolean canOpenModal) {
-    return buildManagementComponents(
-        buildManagementUserSelect(SELECT_TOKEN_USER),
-        buildTokenModeSelect(selectedMode),
-        BUTTON_OPEN_TOKEN_MODAL,
-        "🎮 輸入數量",
-        canOpenModal);
+    return AdminPanelViewFactory.buildTokenManagementComponents(selectedMode, canOpenModal);
   }
 
   private StringSelectMenu buildTokenModeSelect(String selectedMode) {
@@ -642,22 +584,8 @@ public class AdminPanelButtonHandler extends ListenerAdapter {
 
   private MessageEmbed buildTokenManagementEmbed(
       String userMention, Long currentTokens, String mode) {
-    List<EmbedView.FieldView> fields = new ArrayList<>();
-    if (userMention != null) {
-      fields.add(new EmbedView.FieldView("選取成員", userMention, true));
-      fields.add(
-          new EmbedView.FieldView(
-              "目前代幣",
-              currentTokens != null ? String.format("🎮 %,d", currentTokens) : "（無法取得）",
-              true));
-    }
-
-    if (mode != null) {
-      fields.add(new EmbedView.FieldView("調整模式", getTokenModeLabel(mode), false));
-    }
-
-    return PanelComponentRenderer.buildEmbed(
-        new EmbedView("🎮 遊戲代幣管理", "選擇要調整代幣的成員和調整模式", EMBED_COLOR, fields, "選擇成員和模式後點擊「輸入數量」按鈕"));
+    return AdminPanelViewFactory.buildTokenManagementEmbed(
+        userMention, currentTokens, mode != null ? getTokenModeLabel(mode) : null);
   }
 
   // ===== Game Management =====
@@ -761,217 +689,40 @@ public class AdminPanelButtonHandler extends ListenerAdapter {
 
   private void openGame1TokensModal(StringSelectInteractionEvent event, long guildId) {
     DiceGame1Config config = adminPanelService.getDiceGame1Config(guildId);
-
-    TextInput minInput =
-        TextInput.create("min", "最小代幣數", TextInputStyle.SHORT)
-            .setPlaceholder("最小可投入代幣數量")
-            .setValue(String.valueOf(config.minTokensPerPlay()))
-            .setRequired(true)
-            .setMinLength(1)
-            .setMaxLength(10)
-            .build();
-
-    TextInput maxInput =
-        TextInput.create("max", "最大代幣數", TextInputStyle.SHORT)
-            .setPlaceholder("最大可投入代幣數量")
-            .setValue(String.valueOf(config.maxTokensPerPlay()))
-            .setRequired(true)
-            .setMinLength(1)
-            .setMaxLength(10)
-            .build();
-
-    Modal modal =
-        Modal.create(MODAL_GAME_1_TOKENS, "摘星手 - 代幣範圍")
-            .addComponents(ActionRow.of(minInput), ActionRow.of(maxInput))
-            .build();
-
-    event.replyModal(modal).queue();
+    event.replyModal(AdminPanelModalFactory.createGame1TokensModal(config)).queue();
   }
 
   private void openGame1RewardModal(StringSelectInteractionEvent event, long guildId) {
     DiceGame1Config config = adminPanelService.getDiceGame1Config(guildId);
-
-    TextInput rewardInput =
-        TextInput.create("reward", "單骰獎勵倍率", TextInputStyle.SHORT)
-            .setPlaceholder("每點數的獎勵金額")
-            .setValue(String.valueOf(config.rewardPerDiceValue()))
-            .setRequired(true)
-            .setMinLength(1)
-            .setMaxLength(15)
-            .build();
-
-    Modal modal =
-        Modal.create(MODAL_GAME_1_REWARD, "摘星手 - 獎勵設定")
-            .addComponents(ActionRow.of(rewardInput))
-            .build();
-
-    event.replyModal(modal).queue();
+    event.replyModal(AdminPanelModalFactory.createGame1RewardModal(config)).queue();
   }
 
   private void openGame2TokensModal(StringSelectInteractionEvent event, long guildId) {
     DiceGame2Config config = adminPanelService.getDiceGame2Config(guildId);
-
-    TextInput minInput =
-        TextInput.create("min", "最小代幣數", TextInputStyle.SHORT)
-            .setPlaceholder("最小可投入代幣數量")
-            .setValue(String.valueOf(config.minTokensPerPlay()))
-            .setRequired(true)
-            .setMinLength(1)
-            .setMaxLength(10)
-            .build();
-
-    TextInput maxInput =
-        TextInput.create("max", "最大代幣數", TextInputStyle.SHORT)
-            .setPlaceholder("最大可投入代幣數量")
-            .setValue(String.valueOf(config.maxTokensPerPlay()))
-            .setRequired(true)
-            .setMinLength(1)
-            .setMaxLength(10)
-            .build();
-
-    Modal modal =
-        Modal.create(MODAL_GAME_2_TOKENS, "神龍擺尾 - 代幣範圍")
-            .addComponents(ActionRow.of(minInput), ActionRow.of(maxInput))
-            .build();
-
-    event.replyModal(modal).queue();
+    event.replyModal(AdminPanelModalFactory.createGame2TokensModal(config)).queue();
   }
 
   private void openGame2MultipliersModal(StringSelectInteractionEvent event, long guildId) {
     DiceGame2Config config = adminPanelService.getDiceGame2Config(guildId);
-
-    TextInput straightInput =
-        TextInput.create("straight", "順子倍率", TextInputStyle.SHORT)
-            .setPlaceholder("順子獎勵的基礎倍率")
-            .setValue(String.valueOf(config.straightMultiplier()))
-            .setRequired(true)
-            .setMinLength(1)
-            .setMaxLength(15)
-            .build();
-
-    TextInput baseInput =
-        TextInput.create("base", "基礎倍率", TextInputStyle.SHORT)
-            .setPlaceholder("非順子非豹子的基礎倍率")
-            .setValue(String.valueOf(config.baseMultiplier()))
-            .setRequired(true)
-            .setMinLength(1)
-            .setMaxLength(15)
-            .build();
-
-    Modal modal =
-        Modal.create(MODAL_GAME_2_MULTIPLIERS, "神龍擺尾 - 獎勵倍率")
-            .addComponents(ActionRow.of(straightInput), ActionRow.of(baseInput))
-            .build();
-
-    event.replyModal(modal).queue();
+    event.replyModal(AdminPanelModalFactory.createGame2MultipliersModal(config)).queue();
   }
 
   private void openGame2BonusesModal(StringSelectInteractionEvent event, long guildId) {
     DiceGame2Config config = adminPanelService.getDiceGame2Config(guildId);
-
-    TextInput lowInput =
-        TextInput.create("low", "小豹子獎勵", TextInputStyle.SHORT)
-            .setPlaceholder("小豹子（總和<10）的獎勵金額")
-            .setValue(String.valueOf(config.tripleLowBonus()))
-            .setRequired(true)
-            .setMinLength(1)
-            .setMaxLength(15)
-            .build();
-
-    TextInput highInput =
-        TextInput.create("high", "大豹子獎勵", TextInputStyle.SHORT)
-            .setPlaceholder("大豹子（總和≥10）的獎勵金額")
-            .setValue(String.valueOf(config.tripleHighBonus()))
-            .setRequired(true)
-            .setMinLength(1)
-            .setMaxLength(15)
-            .build();
-
-    Modal modal =
-        Modal.create(MODAL_GAME_2_BONUSES, "神龍擺尾 - 豹子獎勵")
-            .addComponents(ActionRow.of(lowInput), ActionRow.of(highInput))
-            .build();
-
-    event.replyModal(modal).queue();
+    event.replyModal(AdminPanelModalFactory.createGame2BonusesModal(config)).queue();
   }
 
   private MessageEmbed buildGameManagementEmbed(
       DiceGame1Config game1Config, DiceGame2Config game2Config, String currencyIcon) {
-    return buildAdminEmbed(
-        "🎲 遊戲設定管理",
-        "選擇要調整設定的遊戲",
-        List.of(
-            new EmbedView.FieldView(
-                "摘星手",
-                String.format(
-                    "代幣範圍：🎮 %,d ~ %,d\n單骰倍率：%s %,d",
-                    game1Config.minTokensPerPlay(),
-                    game1Config.maxTokensPerPlay(),
-                    currencyIcon,
-                    game1Config.rewardPerDiceValue()),
-                false),
-            new EmbedView.FieldView(
-                "神龍擺尾",
-                String.format(
-                    "代幣範圍：🎮 %,d ~ %,d\n順子倍率：%s %,d\n基礎倍率：%s %,d",
-                    game2Config.minTokensPerPlay(),
-                    game2Config.maxTokensPerPlay(),
-                    currencyIcon,
-                    game2Config.straightMultiplier(),
-                    currencyIcon,
-                    game2Config.baseMultiplier()),
-                false)),
-        "選擇遊戲以查看詳細設定");
+    return AdminPanelViewFactory.buildGameManagementEmbed(game1Config, game2Config, currencyIcon);
   }
 
   private MessageEmbed buildDiceGame1SettingsEmbed(DiceGame1Config config, String currencyIcon) {
-    return buildAdminEmbed(
-        "🎲 摘星手設定",
-        null,
-        List.of(
-            new EmbedView.FieldView(
-                "代幣範圍",
-                String.format(
-                    "最小：🎮 %,d\n最大：🎮 %,d", config.minTokensPerPlay(), config.maxTokensPerPlay()),
-                true),
-            new EmbedView.FieldView(
-                "獎勵設定",
-                String.format(
-                    "單骰獎勵倍率：%s %,d\n（1 點 = %,d、6 點 = %,d）",
-                    currencyIcon,
-                    config.rewardPerDiceValue(),
-                    config.rewardPerDiceValue(),
-                    config.rewardPerDiceValue() * 6),
-                true)),
-        "選擇要調整的設定類別");
+    return AdminPanelViewFactory.buildDiceGame1SettingsEmbed(config, currencyIcon);
   }
 
   private MessageEmbed buildDiceGame2SettingsEmbed(DiceGame2Config config, String currencyIcon) {
-    return buildAdminEmbed(
-        "🎲 神龍擺尾設定",
-        null,
-        List.of(
-            new EmbedView.FieldView(
-                "代幣範圍",
-                String.format(
-                    "最小：🎮 %,d\n最大：🎮 %,d", config.minTokensPerPlay(), config.maxTokensPerPlay()),
-                true),
-            new EmbedView.FieldView(
-                "獎勵倍率",
-                String.format(
-                    "順子倍率：%s %,d\n基礎倍率：%s %,d",
-                    currencyIcon,
-                    config.straightMultiplier(),
-                    currencyIcon,
-                    config.baseMultiplier()),
-                true),
-            new EmbedView.FieldView(
-                "豹子獎勵",
-                String.format(
-                    "小豹子（<10）：%s %,d\n大豹子（≥10）：%s %,d",
-                    currencyIcon, config.tripleLowBonus(), currencyIcon, config.tripleHighBonus()),
-                false)),
-        "選擇要調整的設定類別");
+    return AdminPanelViewFactory.buildDiceGame2SettingsEmbed(config, currencyIcon);
   }
 
   // ===== Main Panel =====
@@ -2142,46 +1893,11 @@ public class AdminPanelButtonHandler extends ListenerAdapter {
 
   private MessageEmbed buildDispatchAfterSalesConfigEmbed(
       Set<Long> staffUserIds, String statusMessage) {
-    List<EmbedView.FieldView> fields = new ArrayList<>();
-
-    if (staffUserIds.isEmpty()) {
-      fields.add(new EmbedView.FieldView("目前售後名單", "尚未設定任何售後人員", false));
-    } else {
-      StringBuilder users = new StringBuilder();
-      for (Long userId : staffUserIds) {
-        users.append("<@").append(userId).append(">\n");
-      }
-      fields.add(
-          new EmbedView.FieldView("目前售後名單 (" + staffUserIds.size() + ")", users.toString(), false));
-    }
-
-    if (statusMessage != null && !statusMessage.isBlank()) {
-      fields.add(new EmbedView.FieldView("狀態", statusMessage, false));
-    }
-
-    return buildAdminEmbed("🧰 派單售後人員設定", "設定可接手派單售後案件的成員", fields, "可設定多位售後；有售後申請時會優先通知在線售後");
+    return AdminPanelViewFactory.buildDispatchAfterSalesConfigEmbed(staffUserIds, statusMessage);
   }
 
   private List<ActionRow> buildDispatchAfterSalesConfigComponents() {
-    EntitySelectMenu addUserSelect =
-        EntitySelectMenu.create(
-                SELECT_DISPATCH_AFTER_SALES_ADD_USER, EntitySelectMenu.SelectTarget.USER)
-            .setPlaceholder("新增售後人員")
-            .setRequiredRange(1, 1)
-            .build();
-
-    EntitySelectMenu removeUserSelect =
-        EntitySelectMenu.create(
-                SELECT_DISPATCH_AFTER_SALES_REMOVE_USER, EntitySelectMenu.SelectTarget.USER)
-            .setPlaceholder("移除售後人員")
-            .setRequiredRange(1, 1)
-            .build();
-
-    return List.of(
-        PanelComponentRenderer.buildRow(addUserSelect),
-        PanelComponentRenderer.buildRow(removeUserSelect),
-        PanelComponentRenderer.buildActionRow(
-            List.of(new ButtonView(BUTTON_BACK, "⬅️ 返回主選單", ButtonStyle.SECONDARY, false))));
+    return AdminPanelViewFactory.buildDispatchAfterSalesConfigComponents();
   }
 
   // ===== AI 頻道設定管理 =====
@@ -2252,35 +1968,7 @@ public class AdminPanelButtonHandler extends ListenerAdapter {
       long guildId,
       Set<ltdjms.discord.aichat.domain.AllowedChannel> channels,
       Set<ltdjms.discord.aichat.domain.AllowedCategory> categories) {
-    List<EmbedView.FieldView> fields = new ArrayList<>();
-    String description;
-
-    if (channels.isEmpty() && categories.isEmpty()) {
-      description = "**未設定任何頻道限制**";
-      fields.add(new EmbedView.FieldView("狀態", "AI 可在所有頻道使用", false));
-      fields.add(new EmbedView.FieldView("說明", "使用下方的選單新增允許的頻道以啟用限制模式", false));
-    } else {
-      StringBuilder channelList = new StringBuilder();
-      for (var channel : channels) {
-        channelList.append(
-            String.format("<#%d> - %s\n", channel.channelId(), channel.channelName()));
-      }
-      description = "**已啟用頻道限制**";
-      fields.add(new EmbedView.FieldView("允許的頻道", channelList.toString(), false));
-      fields.add(new EmbedView.FieldView("頻道總計", channels.size() + " 個頻道", false));
-    }
-
-    if (!categories.isEmpty()) {
-      StringBuilder categoryList = new StringBuilder();
-      for (var category : categories) {
-        categoryList.append(
-            String.format("📁 %s (ID: %d)\n", category.categoryName(), category.categoryId()));
-      }
-      fields.add(new EmbedView.FieldView("允許的類別", categoryList.toString(), false));
-      fields.add(new EmbedView.FieldView("類別總計", categories.size() + " 個類別", true));
-    }
-
-    return buildAdminEmbed("🤖 AI 頻道設定", description, fields, null);
+    return AdminPanelViewFactory.buildAIChannelConfigEmbed(channels, categories);
   }
 
   /** 處理新增頻道選擇。 */
@@ -2679,46 +2367,20 @@ public class AdminPanelButtonHandler extends ListenerAdapter {
 
   private MessageEmbed buildAdminEmbed(
       String title, String description, List<EmbedView.FieldView> fields, String footer) {
-    return PanelComponentRenderer.buildEmbed(
-        new EmbedView(title, description, EMBED_COLOR, fields, footer));
+    return AdminPanelViewFactory.buildAdminEmbed(title, description, fields, footer);
   }
 
   private MessageEmbed buildAIAgentConfigOverviewEmbed(List<Long> enabledChannels) {
-    List<EmbedView.FieldView> fields = new ArrayList<>();
-    if (enabledChannels.isEmpty()) {
-      fields.add(new EmbedView.FieldView("已啟用頻道", "目前沒有啟用 AI Agent 的頻道", false));
-    } else {
-      StringBuilder sb = new StringBuilder();
-      for (Long channelId : enabledChannels) {
-        sb.append("<#").append(channelId).append(">\n");
-      }
-      fields.add(
-          new EmbedView.FieldView("已啟用頻道 (" + enabledChannels.size() + ")", sb.toString(), false));
-    }
-    return buildAdminEmbed("🤖 AI Agent 頻道配置", "管理哪些頻道啟用 AI Agent 模式", fields, null);
+    return AdminPanelViewFactory.buildAIAgentConfigOverviewEmbed(enabledChannels);
   }
 
   private MessageEmbed buildAIAgentChannelEmbed(
       long channelId, boolean isEnabled, String statusMessage) {
-    return buildAdminEmbed(
-        "🤖 AI Agent 頻道設定",
-        "頻道：<#" + channelId + ">\n狀態：" + (isEnabled ? "✅ 已啟用" : "❌ 未啟用"),
-        List.of(new EmbedView.FieldView("目前狀態", statusMessage, false)),
-        null);
+    return AdminPanelViewFactory.buildAIAgentChannelEmbed(channelId, isEnabled, statusMessage);
   }
 
   private long extractChannelIdFromDescription(String description) {
-    if (description == null) return 0;
-    // 描述格式: "頻道：<#123456789>\n..."
-    int start = description.indexOf("<#");
-    if (start == -1) return 0;
-    int end = description.indexOf(">", start);
-    if (end == -1) return 0;
-    try {
-      return Long.parseLong(description.substring(start + 2, end));
-    } catch (NumberFormatException e) {
-      return 0;
-    }
+    return AdminPanelViewFactory.extractChannelIdFromDescription(description);
   }
 
   private void showAIAgentConfigAfterAction(ButtonInteractionEvent event, long guildId) {

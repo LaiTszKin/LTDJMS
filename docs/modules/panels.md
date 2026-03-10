@@ -6,6 +6,7 @@
 
 - 更正 `/user-panel` 目前實際提供的按鈕：貨幣流水、遊戲代幣流水、商品流水、兌換碼。
 - 更正商品流水與代幣流水的實際 button ID、分頁 ID、handler 與 service 方法名稱。
+- 補充 2026-03-10 的互動層重構：大型 handler 已拆為事件協調器 + view/modal factory，以降低單一類別責任。
 
 ## 1. 功能概觀
 
@@ -88,16 +89,20 @@
 
 - `UserPanelButtonHandler`
   - 處理 `user_panel_*` 開頭的按鈕 ID。
-  - 主要用於：
-    - 顯示第一頁代幣流水。
-    - 在使用者切換頁面時載入前一頁／下一頁。
+  - 專注於互動路由與 service 呼叫。
+  - 流水畫面與分頁按鈕組裝已抽到 `UserPanelHistoryViewFactory`。
 
 - `AdminPanelButtonHandler`
   - 處理 `admin_panel_*` 開頭的按鈕 ID。
-  - 同時處理：
-    - 按鈕事件（開啟子面板或 Modal）
-    - 選單事件（選擇要調整設定的遊戲）
-    - Modal 送出事件（實際執行調整）
+  - 專注於按鈕/選單/Modal 事件協調。
+  - 餘額、代幣、遊戲、AI、售後等畫面組裝已抽到 `AdminPanelViewFactory`。
+  - 各類數值調整 Modal 已抽到 `AdminPanelModalFactory`。
+
+- `AdminProductPanelHandler`
+  - 處理商品與兌換碼管理的按鈕、選單與 Modal。
+  - 專注於商品管理流程協調與 session 狀態。
+  - 商品列表/詳情/接入設定/兌換碼頁面組裝已抽到 `AdminProductPanelViewFactory`。
+  - 建立商品、編輯商品、生成兌換碼等 Modal 已抽到 `AdminProductPanelModalFactory`。
 
 ## 3. `/user-panel` 流程
 
