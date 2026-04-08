@@ -854,8 +854,6 @@ All notable changes to this project will be documented in this file.
 ### Database
 - 新增 `ai_category_restriction` 資料表儲存類別配置
 
-## [Unreleased]
-
 ## [0.17.2] - 2025-12-29
 
 ### Added
