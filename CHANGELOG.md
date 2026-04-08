@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Fixed
+- **shop/ecpay**: 移除 callback `ReturnURL` 的 query token 依賴，測試環境改為禁止公開 callback 綁定，並在 `Data decrypt fail` 時回報更明確的環境 / 金鑰診斷訊息
+
+### Docs
+- **docs/ecpay**: 同步 `.env.example`、設定與開發文件，說明 stage/public callback 限制與 `Data decrypt fail` 排查方向
+
 ## [0.34.0] - 2026-04-09
 
 ### Added

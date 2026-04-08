@@ -103,7 +103,8 @@
 
 - `Discord bot token not configured`
 - `AI service API key not configured`
-- callback server 公網綁定但缺少 shared secret 的啟動錯誤
+- `ECPAY_STAGE_MODE=true` 但 callback server 綁定公網位址的啟動錯誤
+- 下單時出現 `The parameter [Data] decrypt fail`
 - Redis 連線失敗
 - slash command sync 失敗
 

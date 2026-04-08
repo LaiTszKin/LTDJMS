@@ -5,10 +5,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
-import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
-import java.util.LinkedHashMap;
-import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -56,10 +53,10 @@ public class EcpayCallbackHttpServer {
     if ("/".equals(callbackPath) || LANDING_PAGE_INDEX_PATH.equals(callbackPath)) {
       throw new IllegalStateException("ECPAY callback 路徑不可與首頁路徑衝突");
     }
-    if (isPubliclyExposedBindHost(bindHost)
-        && (config.getEcpayCallbackSharedSecret() == null
-            || config.getEcpayCallbackSharedSecret().isBlank())) {
-      throw new IllegalStateException("公開 ECPay callback 綁定必須設定 shared secret");
+    if (config.getEcpayStageMode() && isPubliclyExposedBindHost(bindHost)) {
+      throw new IllegalStateException(
+          "ECPAY_STAGE_MODE=true 時，callback server 不可綁定公開位址。"
+              + "請改用 127.0.0.1 / localhost / ::1，或切換正式環境設定。");
     }
 
     try {
@@ -99,10 +96,6 @@ public class EcpayCallbackHttpServer {
   private void handleCallbackRequest(HttpExchange exchange) throws IOException {
     if (!"POST".equalsIgnoreCase(exchange.getRequestMethod())) {
       writeResponse(exchange, 405, "Method Not Allowed");
-      return;
-    }
-    if (!isAuthorizedRequest(exchange)) {
-      writeResponse(exchange, 401, "Unauthorized");
       return;
     }
 
@@ -217,44 +210,12 @@ public class EcpayCallbackHttpServer {
     }
   }
 
-  private boolean isAuthorizedRequest(HttpExchange exchange) {
-    String expectedSecret = config.getEcpayCallbackSharedSecret();
-    if (expectedSecret == null || expectedSecret.isBlank()) {
-      return true;
-    }
-
-    Map<String, String> queryParameters =
-        parseQueryParameters(exchange.getRequestURI().getRawQuery());
-    String actualSecret = queryParameters.get("token");
-    return expectedSecret.equals(actualSecret);
-  }
-
   private boolean isPubliclyExposedBindHost(String bindHost) {
     String normalized = bindHost.trim().toLowerCase();
     return !normalized.equals("127.0.0.1")
         && !normalized.equals("localhost")
         && !normalized.equals("::1")
         && !normalized.equals("[::1]");
-  }
-
-  private Map<String, String> parseQueryParameters(String rawQuery) {
-    Map<String, String> parameters = new LinkedHashMap<>();
-    if (rawQuery == null || rawQuery.isBlank()) {
-      return parameters;
-    }
-
-    for (String pair : rawQuery.split("&")) {
-      if (pair.isBlank()) {
-        continue;
-      }
-      int separatorIndex = pair.indexOf('=');
-      String key = separatorIndex >= 0 ? pair.substring(0, separatorIndex) : pair;
-      String value = separatorIndex >= 0 ? pair.substring(separatorIndex + 1) : "";
-      parameters.put(
-          URLDecoder.decode(key, StandardCharsets.UTF_8),
-          URLDecoder.decode(value, StandardCharsets.UTF_8));
-    }
-    return parameters;
   }
 
   private void shutdownExecutor() {

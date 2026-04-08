@@ -85,7 +85,7 @@
 | `ECPAY_CALLBACK_BIND_HOST` | 需要對外提供 callback server 時 | 內嵌 HTTP server 綁定 host | `127.0.0.1` |
 | `ECPAY_CALLBACK_BIND_PORT` | 需要對外提供 callback server 時 | 內嵌 HTTP server 綁定 port | `8085` |
 | `ECPAY_CALLBACK_PATH` | 想調整 callback path 時 | 綠界回推接收路徑 | `/ecpay/callback` |
-| `ECPAY_CALLBACK_SHARED_SECRET` | callback server 綁定公網時 | callback query token | 公開綁定時必填 |
+| `ECPAY_CALLBACK_SHARED_SECRET` | 舊部署仍保留設定時 | 舊版 callback query token 相容欄位 | 現行流程不再使用 |
 
 ### 履約與日誌
 
@@ -132,6 +132,8 @@
 - callback server 啟動後同時提供：
   - `/`：宣傳首頁
   - `ECPAY_CALLBACK_PATH`：綠界付款回推
+- `ECPAY_STAGE_MODE=true` 時，callback server 只能綁定 `127.0.0.1` / `localhost` / `::1`
+- 取號若回傳 `The parameter [Data] decrypt fail`，優先檢查 `ECPAY_STAGE_MODE` 是否和 `MerchantID` / `HashKey` / `HashIV` 對應同一環境
 - 已付款 callback 會經過驗證、解密、冪等更新與後續履約
 
 ### Product Fulfillment Backend
@@ -146,7 +148,8 @@
 | --- | --- |
 | `Discord bot token not configured` | 沒有提供 `DISCORD_BOT_TOKEN` |
 | `AI service API key not configured` | 沒有提供 `AI_SERVICE_API_KEY` |
-| callback server 啟動失敗 | 公網綁定但沒有 `ECPAY_CALLBACK_SHARED_SECRET` |
+| callback server 啟動失敗 | `ECPAY_STAGE_MODE=true` 但 callback server 綁定了公網位址 |
+| 下單失敗且顯示 `The parameter [Data] decrypt fail` | `ECPAY_STAGE_MODE` 與 `MerchantID` / `HashKey` / `HashIV` 混用了不同環境，或金鑰含多餘空白 |
 | 付款完成但沒有履約 | ECPay callback 未到達、解密失敗，或外部履約 webhook 失敗 |
 | Redis 初始化失敗 | `REDIS_URI` 指向的服務不可連線 |
 | 舊文件提到 `AI_SERVICE_MAX_TOKENS` | 現行 `EnvironmentConfig` 已不支援此變數 |

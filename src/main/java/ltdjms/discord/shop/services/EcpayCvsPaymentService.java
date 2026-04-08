@@ -41,6 +41,9 @@ public class EcpayCvsPaymentService {
       "https://ecpayment-stage.ecpay.com.tw/1.0.0/Cashier/GenPaymentCode";
   private static final String PROD_ENDPOINT =
       "https://ecpayment.ecpay.com.tw/1.0.0/Cashier/GenPaymentCode";
+  private static final String OFFICIAL_STAGE_MERCHANT_ID = "3002607";
+  private static final String OFFICIAL_STAGE_HASH_KEY = "pwFHCqoQZGmho4w6";
+  private static final String OFFICIAL_STAGE_HASH_IV = "EkRm7iFT261dpevs";
   private static final DateTimeFormatter TRADE_DATE_FORMAT =
       DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm:ss");
   private static final DateTimeFormatter MERCHANT_TRADE_NO_TIME_FORMAT =
@@ -82,13 +85,19 @@ public class EcpayCvsPaymentService {
       return Result.err(DomainError.invalidInput("商品名稱不能為空"));
     }
 
-    String merchantId = config.getEcpayMerchantId();
-    String hashKey = config.getEcpayHashKey();
-    String hashIv = config.getEcpayHashIv();
-    String returnUrl = config.getEcpayReturnUrl();
+    String merchantId = normalizeConfigValue(config.getEcpayMerchantId());
+    String hashKey = normalizeConfigValue(config.getEcpayHashKey());
+    String hashIv = normalizeConfigValue(config.getEcpayHashIv());
+    String returnUrl = normalizeConfigValue(config.getEcpayReturnUrl());
     if (isBlank(merchantId) || isBlank(hashKey) || isBlank(hashIv) || isBlank(returnUrl)) {
       return Result.err(
           DomainError.invalidInput("綠界金流尚未完成設定（MerchantID/HashKey/HashIV/ReturnURL）"));
+    }
+    if (usesOfficialStageCredentials(merchantId, hashKey, hashIv) && !config.getEcpayStageMode()) {
+      return Result.err(
+          DomainError.invalidInput(
+              "目前設定的是綠界官方測試 MerchantID/HashKey/HashIV，但"
+                  + " ECPAY_STAGE_MODE=false。請切回測試環境或改用正式環境金鑰。"));
     }
 
     String merchantTradeNo = generateMerchantTradeNo();
@@ -131,8 +140,14 @@ public class EcpayCvsPaymentService {
       int transCode = responseNode.path("TransCode").asInt(-1);
       if (transCode != 1) {
         String transMsg = responseNode.path("TransMsg").asText("未知錯誤");
-        LOG.warn("ECPay transCode failed: transCode={} transMsg={}", transCode, transMsg);
-        return Result.err(DomainError.unexpectedFailure("綠界取號失敗：" + transMsg, null));
+        LOG.warn(
+            "ECPay transCode failed: transCode={} transMsg={} stageMode={} merchantId={}",
+            transCode,
+            transMsg,
+            config.getEcpayStageMode(),
+            merchantId);
+        return Result.err(
+            DomainError.unexpectedFailure(buildTransCodeFailureMessage(transMsg), null));
       }
 
       String encryptedResponseData = responseNode.path("Data").asText("");
@@ -205,16 +220,7 @@ public class EcpayCvsPaymentService {
   }
 
   String buildCallbackReturnUrl(String returnUrl) {
-    String sharedSecret = config.getEcpayCallbackSharedSecret();
-    if (sharedSecret == null || sharedSecret.isBlank()) {
-      return returnUrl;
-    }
-
-    String separator = returnUrl.contains("?") ? "&" : "?";
-    return returnUrl
-        + separator
-        + "token="
-        + URLEncoder.encode(sharedSecret, StandardCharsets.UTF_8);
+    return Objects.requireNonNull(returnUrl, "returnUrl must not be null").trim();
   }
 
   private String encryptData(String plainJson, String hashKey, String hashIv)
@@ -275,6 +281,26 @@ public class EcpayCvsPaymentService {
 
   private boolean isBlank(String value) {
     return value == null || value.isBlank();
+  }
+
+  private String normalizeConfigValue(String value) {
+    return value == null ? null : value.trim();
+  }
+
+  private boolean usesOfficialStageCredentials(String merchantId, String hashKey, String hashIv) {
+    return OFFICIAL_STAGE_MERCHANT_ID.equals(merchantId)
+        && OFFICIAL_STAGE_HASH_KEY.equals(hashKey)
+        && OFFICIAL_STAGE_HASH_IV.equals(hashIv);
+  }
+
+  private String buildTransCodeFailureMessage(String transMsg) {
+    if (transMsg != null && transMsg.toLowerCase(Locale.ROOT).contains("decrypt fail")) {
+      return "綠界取號失敗："
+          + transMsg
+          + "。請確認 ECPAY_STAGE_MODE 是否和 MerchantID/HashKey/HashIV 對應同一環境，"
+          + "並檢查金鑰是否有貼錯或多餘空白。";
+    }
+    return "綠界取號失敗：" + transMsg;
   }
 
   private String textOrNull(String value) {

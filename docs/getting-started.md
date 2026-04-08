@@ -76,6 +76,7 @@ make start
 - PostgreSQL schema 能接受啟動時的 Flyway migration
 - `AI_SERVICE_API_KEY` 已設定
 - 若啟用綠界付款，`ECPAY_RETURN_URL` 與 `ECPAY_CALLBACK_*` 已正確配置
+- 若 `ECPAY_STAGE_MODE=true`，`ECPAY_CALLBACK_BIND_HOST` 必須維持 loopback 位址
 - 若要做外部履約，商品的 `backendApiUrl` 與 `PRODUCT_FULFILLMENT_SIGNING_SECRET` 已準備好
 
 ## 啟動成功時你會看到什麼
@@ -99,5 +100,7 @@ make start
 | 啟動即失敗並出現 `Discord bot token not configured` | 沒有提供 `DISCORD_BOT_TOKEN` |
 | 啟動即失敗並出現 `AI service API key not configured` | 沒有提供 `AI_SERVICE_API_KEY` |
 | 綠界回推服務沒有啟動 | 沒有設定 `ECPAY_RETURN_URL` |
+| 啟動時綠界 callback server 直接失敗 | `ECPAY_STAGE_MODE=true` 但 `ECPAY_CALLBACK_BIND_HOST` 設成公網位址 |
+| 下單時出現 `The parameter [Data] decrypt fail` | 綠界測試 / 正式環境金鑰與 `ECPAY_STAGE_MODE` 不一致 |
 | Redis 相關初始化失敗 | `REDIS_URI` 指向的 Redis 不可連線 |
 | Slash commands 沒同步 | Bot 沒加入 guild、權限不足，或 JDA 啟動異常 |

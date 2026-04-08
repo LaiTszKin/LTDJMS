@@ -33,15 +33,15 @@ class EcpayCallbackHttpServerTest {
   }
 
   @Test
-  @DisplayName("缺少 shared secret 時不應允許公開綁定")
-  void shouldRejectPublicBindWithoutSharedSecret() {
+  @DisplayName("測試環境不應允許公開綁定 callback")
+  void shouldRejectPublicBindWhenStageModeEnabled() {
     EnvironmentConfig config = mock(EnvironmentConfig.class);
     FiatPaymentCallbackService callbackService = mock(FiatPaymentCallbackService.class);
     when(config.getEcpayReturnUrl()).thenReturn("https://merchant.example/ecpay/callback");
     when(config.getEcpayCallbackBindHost()).thenReturn("0.0.0.0");
     when(config.getEcpayCallbackBindPort()).thenReturn(8085);
     when(config.getEcpayCallbackPath()).thenReturn("/ecpay/callback");
-    when(config.getEcpayCallbackSharedSecret()).thenReturn("");
+    when(config.getEcpayStageMode()).thenReturn(true);
 
     server = new EcpayCallbackHttpServer(config, callbackService);
 
@@ -57,7 +57,7 @@ class EcpayCallbackHttpServerTest {
     when(config.getEcpayCallbackBindHost()).thenReturn("127.0.0.1");
     when(config.getEcpayCallbackBindPort()).thenReturn(8085);
     when(config.getEcpayCallbackPath()).thenReturn("/");
-    when(config.getEcpayCallbackSharedSecret()).thenReturn("");
+    when(config.getEcpayStageMode()).thenReturn(false);
 
     server = new EcpayCallbackHttpServer(config, callbackService);
 
@@ -65,8 +65,8 @@ class EcpayCallbackHttpServerTest {
   }
 
   @Test
-  @DisplayName("未授權 callback 應在讀取 payload 前回傳 401")
-  void shouldRejectUnauthorizedCallbackBeforeDelegating() throws Exception {
+  @DisplayName("callback 不應再依賴 query token 授權")
+  void shouldAcceptCallbackWithoutQueryToken() throws Exception {
     int port = reserveFreePort();
     EnvironmentConfig config = mock(EnvironmentConfig.class);
     FiatPaymentCallbackService callbackService = mock(FiatPaymentCallbackService.class);
@@ -75,32 +75,7 @@ class EcpayCallbackHttpServerTest {
     when(config.getEcpayCallbackBindPort()).thenReturn(port);
     when(config.getEcpayCallbackPath()).thenReturn("/ecpay/callback");
     when(config.getEcpayCallbackSharedSecret()).thenReturn("shared-secret");
-
-    server = new EcpayCallbackHttpServer(config, callbackService);
-    server.start();
-
-    HttpURLConnection connection =
-        (HttpURLConnection)
-            new URL("http://127.0.0.1:" + port + "/ecpay/callback").openConnection();
-    connection.setRequestMethod("POST");
-    connection.setDoOutput(true);
-    connection.getOutputStream().write("Data=fake".getBytes(StandardCharsets.UTF_8));
-
-    assertThat(connection.getResponseCode()).isEqualTo(401);
-    verify(callbackService, never()).handleCallback(any(), any());
-  }
-
-  @Test
-  @DisplayName("合法 shared secret callback 應委派給 callback service")
-  void shouldAcceptAuthorizedCallback() throws Exception {
-    int port = reserveFreePort();
-    EnvironmentConfig config = mock(EnvironmentConfig.class);
-    FiatPaymentCallbackService callbackService = mock(FiatPaymentCallbackService.class);
-    when(config.getEcpayReturnUrl()).thenReturn("https://merchant.example/ecpay/callback");
-    when(config.getEcpayCallbackBindHost()).thenReturn("127.0.0.1");
-    when(config.getEcpayCallbackBindPort()).thenReturn(port);
-    when(config.getEcpayCallbackPath()).thenReturn("/ecpay/callback");
-    when(config.getEcpayCallbackSharedSecret()).thenReturn("shared-secret");
+    when(config.getEcpayStageMode()).thenReturn(true);
     when(callbackService.handleCallback("Data=ok", "application/x-www-form-urlencoded"))
         .thenReturn(FiatPaymentCallbackService.CallbackResult.ok());
 
@@ -109,8 +84,7 @@ class EcpayCallbackHttpServerTest {
 
     HttpURLConnection connection =
         (HttpURLConnection)
-            new URL("http://127.0.0.1:" + port + "/ecpay/callback?token=shared-secret")
-                .openConnection();
+            new URL("http://127.0.0.1:" + port + "/ecpay/callback").openConnection();
     connection.setRequestMethod("POST");
     connection.setDoOutput(true);
     connection.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
@@ -134,6 +108,7 @@ class EcpayCallbackHttpServerTest {
     when(config.getEcpayCallbackBindPort()).thenReturn(port);
     when(config.getEcpayCallbackPath()).thenReturn("/ecpay/callback");
     when(config.getEcpayCallbackSharedSecret()).thenReturn("shared-secret");
+    when(config.getEcpayStageMode()).thenReturn(true);
 
     server = new EcpayCallbackHttpServer(config, callbackService);
     server.start();
