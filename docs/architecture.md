@@ -1,112 +1,102 @@
-# Architecture
+# 系統架構
 
-## 1. High-Level Structure
+## 先用一句話理解
 
-- Entry points:
-  - Slash commands：`/currency-config`, `/dice-game-1`, `/dice-game-2`, `/user-panel`, `/admin-panel`, `/shop`, `/dispatch-panel`
-  - Message mentions：在允許的 guild 頻道提及 Bot 觸發 AI Chat / AI Agent
-  - Component interactions：按鈕、select menu、modal 驅動面板與商店流程
-  - Embedded HTTP server：接收 ECPay callback
-- Major modules:
-  - `currency/`：guild 貨幣設定、餘額與交易
-  - `gametoken/`：遊戲代幣與骰子遊戲
-  - `panel/`：`/user-panel`、`/admin-panel` 與相關互動狀態
-  - `product/` + `redemption/` + `shop/`：商品、兌換碼、貨幣購買、法幣付款與履約
-  - `dispatch/`：護航派單、完單確認、售後流程
-  - `aichat/` + `aiagent/`：提及式 AI 對話、頻道限制、AI Agent 工具與記憶
-  - `shared/`：設定、資料庫、快取、Result、事件管道、DI
-- Data flow summary:
-  - Discord 事件 -> JDA listeners / handlers -> services -> repositories / external APIs -> domain events -> cache / panel / agent listeners
-  - ECPay callback -> `EcpayCallbackHttpServer` -> `FiatPaymentCallbackService` -> 訂單狀態更新 -> 履約 / 管理員通知
-- Integration boundaries:
-  - PostgreSQL：主要狀態存放與 Flyway migration
-  - Redis：快取與部分 AI Agent 狀態加速
-  - Discord API：JDA gateway、slash commands、DM、components
-  - AI provider：OpenAI-compatible chat completions
-  - ECPay：超商代碼付款與付款回推
-  - External fulfillment API：商品後端履約 webhook
-  - Filesystem：`.env`、`prompts/`、`logs/`
+LTDJMS 以 Discord 互動為入口，透過 Dagger 組裝 guild 級經濟、商品、派單與 AI 模組，將狀態寫入 PostgreSQL、用 Redis 做快取，並在需要時串接 ECPay 與外部履約服務。
 
-## 2. Directory Guide
+## 系統入口
 
-| Path | Responsibility |
-| --- | --- |
-| `src/main/java/ltdjms/discord/currency` | 貨幣設定、餘額調整、slash command 入口 |
-| `src/main/java/ltdjms/discord/gametoken` | 遊戲代幣帳戶、骰子遊戲與交易記錄 |
-| `src/main/java/ltdjms/discord/panel` | 使用者 / 管理面板互動、ephemeral session、嵌入式設定流程 |
-| `src/main/java/ltdjms/discord/product` | 商品模型、驗證、建立與更新 |
-| `src/main/java/ltdjms/discord/redemption` | 兌換碼產生、驗證與兌換交易 |
-| `src/main/java/ltdjms/discord/shop` | 商店瀏覽、貨幣購買、綠界付款、履約與通知 |
-| `src/main/java/ltdjms/discord/dispatch` | 派單建立、確認、完單、售後與歷史流程 |
-| `src/main/java/ltdjms/discord/aichat` | 提及式 AI Chat、訊息切片、提示詞載入、Markdown 驗證 |
-| `src/main/java/ltdjms/discord/aiagent` | Agent 頻道配置、工具呼叫、記憶與工具執行事件 |
-| `src/main/java/ltdjms/discord/shared` | `EnvironmentConfig`、`DatabaseConfig`、`Result`、快取、事件、Dagger 模組 |
-| `src/main/resources/db/migration` | Flyway schema migrations |
-| `src/test/java/ltdjms/discord/*` | 單元、整合、合約、效能與 property-based 測試 |
-| `docs/api`, `docs/modules`, `docs/operations`, `docs/development` | 補充性深度文件 |
+- Slash commands：`/currency-config`、`/dice-game-1`、`/dice-game-2`、`/user-panel`、`/admin-panel`、`/shop`、`/dispatch-panel`
+- 元件互動：按鈕、select menu、modal
+- 訊息事件：允許頻道中的 Bot mention
+- HTTP 入口：`EcpayCallbackHttpServer` 提供首頁與付款回推 endpoint
 
-## 3. Key Flows
-
-### Slash Commands And Panel Updates
-- Trigger: 使用者或管理員執行 slash command，或點擊面板按鈕 / 選單
-- Main steps:
-  1. `SlashCommandListener` 根據指令名稱分派給對應 handler
-  2. handler 呼叫 service 與 repository 完成業務操作
-  3. service 在需要時發佈 `DomainEvent`
-  4. 事件監聽器更新面板顯示、清除快取或同步 AI Agent 狀態
-- Dependencies: JDA, PostgreSQL, Redis, Dagger multibinding event pipeline
-- Failure boundaries: 權限不足、guild 外呼叫、資料庫寫入錯誤、事件監聽器局部失敗
-
-### Shop Purchase And Fiat Fulfillment
-- Trigger: 使用者在 `/shop` 中購買商品，或 ECPay 對 callback endpoint 發送付款結果
-- Main steps:
-  1. 貨幣購買：扣款 -> 記錄交易 -> 發放商品獎勵 -> 視需要呼叫後端履約
-  2. 法幣下單：向 ECPay 取號 -> 建立 `PENDING` 法幣訂單 -> 私訊買家超商代碼
-  3. 付款回推：驗證與解密 payload -> `markPaidIfPending` -> 觸發履約與管理員通知一次
-- Dependencies: PostgreSQL, ECPay, external fulfillment API, Discord DM
-- Failure boundaries: 支付設定缺漏、ECPay callback 驗證失敗、履約 webhook 失敗、DM 送達失敗
-
-### AI Chat And Agent Channel Governance
-- Trigger: 使用者在允許的頻道提及 Bot
-- Main steps:
-  1. `AIChatMentionListener` 檢查 guild / 頻道限制與 agent enable 狀態
-  2. 載入外部提示詞與 AI provider 設定
-  3. 執行串流或緩衝回應；Agent 模式可呼叫 Discord 工具與記錄事件
-  4. 選擇性顯示 reasoning，並在需要時做 Markdown 驗證與重整
-- Dependencies: AI provider, Redis cache, PostgreSQL-backed agent config, filesystem prompts
-- Failure boundaries: API key 缺失、頻道不在允許清單、模型供應商逾時 / 授權失敗、Discord 訊息長度限制
-
-### Unified Domain Event Pipeline
-- Trigger: 各模組 service 發佈 `DomainEvent`
-- Main steps:
-  1. Dagger `@IntoSet` 收集 `Consumer<DomainEvent>`
-  2. `EventModule` 建立單一 `DomainEventPublisher`
-  3. `publish(...)` 同步逐一分發，單一 listener 例外僅記錄日誌，不中斷其他 listener
-- Dependencies: `EventModule`, `CacheModule`, panel / agent listener providers
-- Failure boundaries: listener 漏綁定會造成 side effect 缺失；例外會被記錄但不往外拋
-
-## 4. Operational Notes
-
-- State/storage model:
-  - PostgreSQL：交易、商品、派單、AI / panel 設定、法幣訂單
-  - Redis：快取與部分高頻配置查詢
-  - Filesystem：`prompts/` 與 `logs/`
-- Concurrency or ordering concerns:
-  - ECPay callback 透過 `markPaidIfPending`、`claimFulfillmentProcessing`、`claimAdminNotificationProcessing` 控制冪等
-  - `DomainEventPublisher` 為同步分發；listener 執行時間會直接影響原請求完成時間
-  - Slash commands 採 guild-specific sync；Bot 加入新 guild 時會自動補同步
-- Observability entrypoints:
-  - `src/main/resources/logback.xml` 輸出 console + `logs/app.log` / `logs/warn.log` / `logs/error.log`
-  - `make logs` 追蹤容器日誌
-  - 測試入口：`make test`, `make test-integration`, `make verify`
-
-## Evidence
+主程式入口：
 
 - `src/main/java/ltdjms/discord/currency/bot/DiscordCurrencyBot.java`
 - `src/main/java/ltdjms/discord/currency/bot/SlashCommandListener.java`
-- `src/main/java/ltdjms/discord/shared/di/AppComponent.java`
-- `src/main/java/ltdjms/discord/shared/di/EventModule.java`
-- `src/main/java/ltdjms/discord/shared/events/DomainEventPublisher.java`
-- `src/main/java/ltdjms/discord/shop/services/EcpayCallbackHttpServer.java`
-- `src/main/java/ltdjms/discord/shop/services/FiatPaymentCallbackService.java`
-- `src/main/java/ltdjms/discord/aichat/commands/AIChatMentionListener.java`
+
+## 模組地圖
+
+| 路徑 | 主要責任 |
+| --- | --- |
+| `src/main/java/ltdjms/discord/currency` | guild 貨幣設定、餘額、交易與 slash command |
+| `src/main/java/ltdjms/discord/gametoken` | 遊戲代幣帳戶、骰子遊戲、代幣交易 |
+| `src/main/java/ltdjms/discord/panel` | `/user-panel`、`/admin-panel`、session 與互動畫面 |
+| `src/main/java/ltdjms/discord/product` | 商品定義、驗證、建立與更新 |
+| `src/main/java/ltdjms/discord/redemption` | 兌換碼生成、驗證與兌換紀錄 |
+| `src/main/java/ltdjms/discord/shop` | 商店顯示、貨幣購買、法幣訂單、ECPay callback、履約與通知 |
+| `src/main/java/ltdjms/discord/dispatch` | 護航派單、完單、售後人員與定價管理 |
+| `src/main/java/ltdjms/discord/aichat` | AI 頻道限制、提及式聊天、提示詞、串流處理 |
+| `src/main/java/ltdjms/discord/aiagent` | Agent 頻道配置、對話記憶、工具執行與審計 |
+| `src/main/java/ltdjms/discord/markdown` | AI 回應 Markdown 驗證、切段與自動修正 |
+| `src/main/java/ltdjms/discord/discord` | Discord 抽象層、adapter、embed builder、session abstraction |
+| `src/main/java/ltdjms/discord/shared` | `EnvironmentConfig`、資料庫、快取、事件、DI、共用型別 |
+
+## 核心分層
+
+多數業務模組都遵守相同拆分：
+
+- `domain/`：核心資料模型與 repository 介面
+- `persistence/`：JDBC / jOOQ 儲存實作
+- `services/`：業務流程與跨模組協作
+- `commands/`：Discord 事件協調、輸入驗證與回應組裝
+
+這裡的慣例是：
+
+- handler 盡量只做 Discord 協調
+- 服務層用 `Result<T, DomainError>` 回傳失敗
+- 副作用與快取失效優先透過事件管線解耦
+
+## 主要資料流
+
+### 1. Slash command / 面板互動
+
+1. JDA 收到 slash command 或 component interaction
+2. `SlashCommandListener` / button handler 分派到對應 handler
+3. handler 呼叫 service 與 repository
+4. service 視需要發佈 `DomainEvent`
+5. listener 更新面板、失效快取或同步 AI Agent 相關狀態
+
+### 2. 商品購買與付款後履約
+
+1. `/shop` 觸發貨幣購買或法幣下單
+2. 貨幣購買由 `CurrencyPurchaseService` 扣款、記錄交易、發放獎勵
+3. 法幣購買由 `FiatOrderService` 建立待付款訂單並向 ECPay 取號
+4. `EcpayCallbackHttpServer` 接收回推後交給 `FiatPaymentCallbackService`
+5. callback 會做驗證、冪等更新，最後觸發履約或管理員通知
+
+### 3. AI Chat / AI Agent
+
+1. `AIChatMentionListener` 檢查 guild、頻道、類別是否允許
+2. 一般頻道走 AI Chat；啟用 Agent 的頻道走 Agent 工具鏈
+3. AI 回應可經過 Markdown 驗證與切段
+4. Agent 相關設定、記憶與工具執行紀錄由 `aiagent/` 管理
+
+## 跨模組基礎設施
+
+### Dagger DI
+
+- `AppComponent` 是整體依賴組裝入口
+- 各 `*Module` 提供 repository、service、listener 與外部整合
+- 啟動時先建立 component，再初始化資料庫與 JDA
+
+### 事件系統
+
+- `DomainEventPublisher` 由 `EventModule` 提供
+- Dagger `@IntoSet` 收集 `Consumer<DomainEvent>`
+- 分發是同步進行；單一 listener 失敗會記錄日誌，但不會中斷其他 listener
+
+### 儲存與快取
+
+- PostgreSQL：交易、商品、派單、AI / panel 設定、法幣訂單
+- Redis：高頻設定與快取
+- Filesystem：`.env`、`prompts/`、`logs/`
+
+## 修改時最容易踩雷的地方
+
+- ECPay callback 與履約流程有明確的冪等 claim / mark 機制，不能隨意改順序
+- `DomainEventPublisher` 是同步分發，listener 變慢會直接拖慢主流程
+- 面板互動高度依賴既有 custom ID / modal ID / session 管理
+- AI 頻道白名單與 AI Agent 啟用狀態是兩套設定，不要混為一談
+- 付款、派單、售後這類狀態流轉修改時，要一起檢查 repository、migration 與測試

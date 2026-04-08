@@ -1,102 +1,103 @@
-# Getting Started
+# 快速開始與部署
 
-## 1. Purpose
+## 這份文件適合誰
 
-- Project purpose: 在 Discord guild 內提供經濟系統、商品商店、護航派單與 AI 輔助能力
-- Primary users: Discord 伺服器管理員、維運人員、Java 後端開發者
-- Supported environments: 本機開發、Docker Compose 單機部署、可對外提供 ECPay callback 的主機環境
+- 第一次接手 LTDJMS 的開發者
+- 要在本機或單機環境啟動 bot 的維運人員
+- 需要確認最小啟動條件與 smoke check 的人
 
-## 2. Prerequisites
+## 啟動前準備
 
-- Runtime/tooling:
-  - Java 17
-  - Maven 3.8+
-  - Docker 與 Docker Compose（建議）
-- Accounts/services needed:
-  - Discord Bot application 與 `DISCORD_BOT_TOKEN`
-  - PostgreSQL
-  - Redis
-  - AI provider API key（目前啟動時即需要）
-  - ECPay merchant credentials（僅啟用法幣付款時需要）
-- Local dependencies:
-  - `prompts/` 目錄（若要提供外部提示詞）
-  - 可寫入的日誌目錄（預設 `logs/`；Docker 為 `/app/logs`）
+### 必要工具
 
-## 3. Installation
+- Java 17
+- Maven 3.8+
+- Docker 與 Docker Compose（建議）
+
+### 最低可用條件
+
+- `DISCORD_BOT_TOKEN`
+- 可連線的 PostgreSQL
+- 可連線的 Redis
+- `AI_SERVICE_API_KEY`
+
+### 視功能需要再補的設定
+
+- `prompts/` 目錄：若要載入外部提示詞
+- `ECPAY_*`：若要啟用綠界超商代碼付款
+- `PRODUCT_FULFILLMENT_SIGNING_SECRET`：若要呼叫外部履約 webhook
+
+## 最短可用路徑：Docker Compose
 
 ```bash
 git clone <your-repo-url>
-cd LTDJMS
+cd ltdjms
 cp .env.example .env
 mkdir -p prompts
 make build
-```
-
-補充說明：
-- `make build` 會執行 `mvn clean package -DskipTests`
-- 若要先同步缺漏的 `.env` 項目，可使用 `make setup-env`
-- 若你偏好先驗證測試，再繼續開發，可執行 `make test` 或 `make verify`
-
-## 4. Local Run
-
-### Docker Compose（推薦）
-
-```bash
 make start-dev
 make logs
 ```
 
 這條路徑會啟動：
-- `postgres`（PostgreSQL 16）
-- `redis`（Redis 7）
-- `bot`（Java 17 runtime 容器）
 
-### 本機 JVM 直跑
+- `postgres`：PostgreSQL 16
+- `redis`：Redis 7
+- `bot`：Java 17 runtime 容器
+
+## 本機 JVM 直跑
 
 ```bash
+cp .env.example .env
+mkdir -p prompts
 make db-up
 make build
 java -jar target/ltdjms-*.jar
 ```
 
-注意事項：
-- `Makefile` 目前沒有實作 `run` target，請直接使用 `java -jar`
-- 若使用本機直跑且需要 Redis，請自行確保 `REDIS_URI` 指向可連線的 Redis
-- 若未設定 `ECPAY_RETURN_URL`，綠界 callback server 會直接跳過啟動
+注意：
 
-## 5. Deployment
+- `Makefile` 目前沒有 `make run` target。
+- 若不是用 Docker Compose 啟動整套環境，請自己確認 `REDIS_URI` 與資料庫連線可用。
+- 若沒有設定 `ECPAY_RETURN_URL`，callback server 會跳過啟動，這是正常行為。
 
-- Deployment targets: 以 `docker compose up -d` 為主的單機容器部署
-- Deployment command or pipeline:
+## 部署建議
+
+### 單機容器部署
 
 ```bash
 make build
 make start
 ```
 
-- Required pre-deploy checks:
-  - `.env` / 環境變數已提供必要 secrets
-  - PostgreSQL schema 可接受啟動時的 Flyway migration
-  - `AI_SERVICE_API_KEY` 已設定；`AI_SERVICE_BASE_URL` 若未自訂可使用內建預設值
-  - 若啟用綠界付款，`ECPAY_*` 參數與公開 callback 路徑已完成配置
-- Rollback notes:
-  - `Unknown`：repo 沒有提供專用 rollback script 或 CI release workflow
-  - 依程式碼現況，回滾時需自行確認舊版映像與最新資料庫 migration 的相容性
+### 部署前檢查
 
-## 6. Verification
+- `.env` / 環境變數已填入必要 secrets
+- PostgreSQL schema 能接受啟動時的 Flyway migration
+- `AI_SERVICE_API_KEY` 已設定
+- 若啟用綠界付款，`ECPAY_RETURN_URL` 與 `ECPAY_CALLBACK_*` 已正確配置
+- 若要做外部履約，商品的 `backendApiUrl` 與 `PRODUCT_FULFILLMENT_SIGNING_SECRET` 已準備好
 
-- Smoke checks:
-  - `make logs` 應看到 bot 啟動、JDA ready 與 slash command sync 記錄
-  - Discord 中 Bot 應顯示上線，且 guild 內可看見 `/user-panel`、`/shop` 等指令
-  - 管理員帳號可使用 `/admin-panel` 與 `/dispatch-panel`
-  - 若設定 `ECPAY_RETURN_URL`，日誌應出現 `ECPay callback server started`
-- Expected signals:
-  - 啟動成功：`LTDJ management system started successfully!`
-  - 缺少 Bot Token：啟動階段丟出 `Discord bot token not configured`
-  - 缺少 AI API key（啟用 AI 時）：啟動階段丟出 `AI service API key not configured`
-- Evidence:
-  - `Makefile`
-  - `docker-compose.yml`
-  - `Dockerfile`
-  - `src/main/java/ltdjms/discord/currency/bot/DiscordCurrencyBot.java`
-  - `src/main/java/ltdjms/discord/shop/services/EcpayCallbackHttpServer.java`
+## 啟動成功時你會看到什麼
+
+### 日誌訊號
+
+- `LTDJ management system started successfully!`
+- `make logs` 中出現 JDA ready 與 slash command sync 記錄
+- 若有設定 `ECPAY_RETURN_URL`，會看到 callback server 啟動訊息
+
+### Discord 端檢查
+
+- Bot 顯示在線
+- guild 中可看到 `/user-panel`、`/shop`、`/admin-panel`、`/dispatch-panel`
+- 管理員可正常打開 `/admin-panel` 與 `/dispatch-panel`
+
+## 常見卡點
+
+| 症狀 | 常見原因 |
+| --- | --- |
+| 啟動即失敗並出現 `Discord bot token not configured` | 沒有提供 `DISCORD_BOT_TOKEN` |
+| 啟動即失敗並出現 `AI service API key not configured` | 沒有提供 `AI_SERVICE_API_KEY` |
+| 綠界回推服務沒有啟動 | 沒有設定 `ECPAY_RETURN_URL` |
+| Redis 相關初始化失敗 | `REDIS_URI` 指向的 Redis 不可連線 |
+| Slash commands 沒同步 | Bot 沒加入 guild、權限不足，或 JDA 啟動異常 |

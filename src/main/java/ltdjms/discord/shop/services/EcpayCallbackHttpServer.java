@@ -27,6 +27,8 @@ public class EcpayCallbackHttpServer {
   private static final Logger LOG = LoggerFactory.getLogger(EcpayCallbackHttpServer.class);
   private static final int CALLBACK_WORKER_THREADS = 8;
   private static final int MAX_CALLBACK_BODY_BYTES = 64 * 1024;
+  private static final String LANDING_PAGE_RESOURCE_PATH = "/web/index.html";
+  private static final String LANDING_PAGE_INDEX_PATH = "/index.html";
 
   private final EnvironmentConfig config;
   private final FiatPaymentCallbackService callbackService;
@@ -51,6 +53,9 @@ public class EcpayCallbackHttpServer {
     String bindHost = sanitizeBindHost(config.getEcpayCallbackBindHost());
     int bindPort = normalizeBindPort(config.getEcpayCallbackBindPort());
     String callbackPath = normalizePath(config.getEcpayCallbackPath());
+    if ("/".equals(callbackPath) || LANDING_PAGE_INDEX_PATH.equals(callbackPath)) {
+      throw new IllegalStateException("ECPAY callback 路徑不可與首頁路徑衝突");
+    }
     if (isPubliclyExposedBindHost(bindHost)
         && (config.getEcpayCallbackSharedSecret() == null
             || config.getEcpayCallbackSharedSecret().isBlank())) {
@@ -60,11 +65,12 @@ public class EcpayCallbackHttpServer {
     try {
       server = HttpServer.create(new InetSocketAddress(bindHost, bindPort), 0);
       server.createContext(callbackPath, this::handleCallbackRequest);
+      server.createContext("/", this::handleLandingPageRequest);
       executor = Executors.newFixedThreadPool(CALLBACK_WORKER_THREADS);
       server.setExecutor(executor);
       server.start();
       LOG.info(
-          "ECPay callback server started: host={}, port={}, path={}",
+          "Embedded web server started: host={}, port={}, landingPath=/, callbackPath={}",
           bindHost,
           bindPort,
           callbackPath);
@@ -115,13 +121,56 @@ public class EcpayCallbackHttpServer {
     writeResponse(exchange, result.httpStatus(), result.responseBody());
   }
 
+  private void handleLandingPageRequest(HttpExchange exchange) throws IOException {
+    String method = exchange.getRequestMethod();
+    if (!"GET".equalsIgnoreCase(method) && !"HEAD".equalsIgnoreCase(method)) {
+      writeResponse(exchange, 405, "Method Not Allowed");
+      return;
+    }
+
+    String requestPath = exchange.getRequestURI().getPath();
+    if (!"/".equals(requestPath) && !LANDING_PAGE_INDEX_PATH.equals(requestPath)) {
+      writeResponse(exchange, 404, "Not Found");
+      return;
+    }
+
+    byte[] response = loadLandingPageBytes();
+    if (response == null) {
+      writeResponse(exchange, 404, "Not Found");
+      return;
+    }
+
+    writeResponse(exchange, 200, response, "text/html; charset=UTF-8");
+  }
+
   private void writeResponse(HttpExchange exchange, int statusCode, String body)
       throws IOException {
-    byte[] response = body.getBytes(StandardCharsets.UTF_8);
-    exchange.getResponseHeaders().set("Content-Type", "text/plain; charset=UTF-8");
-    exchange.sendResponseHeaders(statusCode, response.length);
+    writeResponse(
+        exchange, statusCode, body.getBytes(StandardCharsets.UTF_8), "text/plain; charset=UTF-8");
+  }
+
+  private void writeResponse(HttpExchange exchange, int statusCode, byte[] body, String contentType)
+      throws IOException {
+    exchange.getResponseHeaders().set("Content-Type", contentType);
+    if ("HEAD".equalsIgnoreCase(exchange.getRequestMethod())) {
+      exchange.sendResponseHeaders(statusCode, -1);
+      exchange.close();
+      return;
+    }
+    exchange.sendResponseHeaders(statusCode, body.length);
     try (OutputStream output = exchange.getResponseBody()) {
-      output.write(response);
+      output.write(body);
+    }
+  }
+
+  private byte[] loadLandingPageBytes() throws IOException {
+    try (InputStream inputStream =
+        EcpayCallbackHttpServer.class.getResourceAsStream(LANDING_PAGE_RESOURCE_PATH)) {
+      if (inputStream == null) {
+        LOG.warn("Landing page resource not found: {}", LANDING_PAGE_RESOURCE_PATH);
+        return null;
+      }
+      return inputStream.readAllBytes();
     }
   }
 

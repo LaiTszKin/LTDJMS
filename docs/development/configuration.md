@@ -2,6 +2,8 @@
 
 本文件說明 LTDJMS 如何載入設定，以及你可以使用哪些環境變數與檔案來控制 Bot 行為。
 
+> 補充說明：目前以 `docs/configuration.md` 與 `src/main/java/ltdjms/discord/shared/EnvironmentConfig.java` 為最新設定依據；本文件保留較細的開發背景說明。
+
 核心類別為：
 
 - `ltdjms.discord.shared.EnvironmentConfig`
@@ -117,11 +119,9 @@
   - 驗證範圍：`0.0` - `2.0`
   - 說明：控制 AI 回應的隨機性（0.0 = 確定性，2.0 = 高隨機性）
 
-- `AI_SERVICE_MAX_TOKENS`
-  - 預設：`500`
-  - 對應 config key：`aichat.max-tokens`
-  - 驗證範圍：`1` - `4096`
-  - 說明：AI 生成的最大 Token 數
+- 獨立最大 Token 環境變數
+  - 現況：`EnvironmentConfig` 已不提供獨立設定
+  - 建議：若需要控制輸出長度，請改由模型選擇、提示詞設計或供應商端設定處理
 
 - `AI_SERVICE_TIMEOUT_SECONDS`
   - 預設：`30`
@@ -235,7 +235,6 @@ AI_SERVICE_BASE_URL=https://api.openai.com/v1
 AI_SERVICE_API_KEY=your-ai-service-api-key-here
 AI_SERVICE_MODEL=gpt-3.5-turbo
 AI_SERVICE_TEMPERATURE=0.7
-AI_SERVICE_MAX_TOKENS=500
 AI_SERVICE_TIMEOUT_SECONDS=30
 
 # Markdown 驗證 (V018 新增)
@@ -286,7 +285,6 @@ aichat {
   api-key = ${?AI_SERVICE_API_KEY}
   model = ${?AI_SERVICE_MODEL}
   temperature = ${?AI_SERVICE_TEMPERATURE}
-  max-tokens = ${?AI_SERVICE_MAX_TOKENS}
   timeout-seconds = ${?AI_SERVICE_TIMEOUT_SECONDS}
 
   markdown-validation-enabled = ${?AI_MARKDOWN_VALIDATION_ENABLED}
@@ -308,7 +306,7 @@ aichat {
 ```bash
 make db-up                # 啟動資料庫
 make build                # 建置程式
-make run                  # 啟動 Bot
+java -jar target/ltdjms-*.jar  # 啟動 Bot
 ```
 
 或直接使用：

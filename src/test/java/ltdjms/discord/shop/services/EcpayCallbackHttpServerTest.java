@@ -49,6 +49,22 @@ class EcpayCallbackHttpServerTest {
   }
 
   @Test
+  @DisplayName("callback 路徑不應與首頁路徑衝突")
+  void shouldRejectCallbackPathConflictWithLandingPage() {
+    EnvironmentConfig config = mock(EnvironmentConfig.class);
+    FiatPaymentCallbackService callbackService = mock(FiatPaymentCallbackService.class);
+    when(config.getEcpayReturnUrl()).thenReturn("https://merchant.example/");
+    when(config.getEcpayCallbackBindHost()).thenReturn("127.0.0.1");
+    when(config.getEcpayCallbackBindPort()).thenReturn(8085);
+    when(config.getEcpayCallbackPath()).thenReturn("/");
+    when(config.getEcpayCallbackSharedSecret()).thenReturn("");
+
+    server = new EcpayCallbackHttpServer(config, callbackService);
+
+    assertThatThrownBy(() -> server.start()).isInstanceOf(IllegalStateException.class);
+  }
+
+  @Test
   @DisplayName("未授權 callback 應在讀取 payload 前回傳 401")
   void shouldRejectUnauthorizedCallbackBeforeDelegating() throws Exception {
     int port = reserveFreePort();
@@ -105,6 +121,35 @@ class EcpayCallbackHttpServerTest {
       assertThat(new String(inputStream.readAllBytes(), StandardCharsets.UTF_8)).isEqualTo("1|OK");
     }
     verify(callbackService).handleCallback("Data=ok", "application/x-www-form-urlencoded");
+  }
+
+  @Test
+  @DisplayName("根路徑應回傳整合進來的首頁 HTML")
+  void shouldServeLandingPageAtRootPath() throws Exception {
+    int port = reserveFreePort();
+    EnvironmentConfig config = mock(EnvironmentConfig.class);
+    FiatPaymentCallbackService callbackService = mock(FiatPaymentCallbackService.class);
+    when(config.getEcpayReturnUrl()).thenReturn("https://merchant.example/ecpay/callback");
+    when(config.getEcpayCallbackBindHost()).thenReturn("127.0.0.1");
+    when(config.getEcpayCallbackBindPort()).thenReturn(port);
+    when(config.getEcpayCallbackPath()).thenReturn("/ecpay/callback");
+    when(config.getEcpayCallbackSharedSecret()).thenReturn("shared-secret");
+
+    server = new EcpayCallbackHttpServer(config, callbackService);
+    server.start();
+
+    HttpURLConnection connection =
+        (HttpURLConnection) new URL("http://127.0.0.1:" + port + "/").openConnection();
+    connection.setRequestMethod("GET");
+
+    assertThat(connection.getResponseCode()).isEqualTo(200);
+    assertThat(connection.getContentType()).startsWith("text/html");
+    try (InputStream inputStream = connection.getInputStream()) {
+      String html = new String(inputStream.readAllBytes(), StandardCharsets.UTF_8);
+      assertThat(html).contains("LTDJ Recruitment");
+      assertThat(html).contains("<!DOCTYPE html>");
+    }
+    verify(callbackService, never()).handleCallback(any(), any());
   }
 
   private int reserveFreePort() throws Exception {

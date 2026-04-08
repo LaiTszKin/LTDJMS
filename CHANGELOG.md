@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.34.0] - 2026-04-09
+
+### Added
+- **shop/web**: 內嵌 `EcpayCallbackHttpServer` 現在會同時提供宣傳首頁 `/`，將原本的單頁宣傳站直接打包進 bot 專案資源
+- **ci/vercel**: 新增 trusted-author 限制的 GitHub Actions workflow，當 `src/main/resources/web/` 有變更且作者在允許名單中時，自動部署宣傳頁到 Vercel production
+
+### Changed
+- **shop/ecpay**: callback server 改為首頁與 `ECPAY_CALLBACK_PATH` 共用同一個內嵌 web server，並阻止 callback 路徑與首頁衝突
+- **devx**: `Makefile` 移除不存在的 `make run` 提示，統一改為使用 `java -jar target/ltdjms-*.jar`
+- **docs**: 同步整理 README、安裝、設定、架構、功能與疑難排解文件，對齊目前的 ECPay callback、首頁整合與 Vercel 自動部署流程
+
+### Tests
+- 執行 `mvn -q -Dtest=EcpayCallbackHttpServerTest,EnvironmentConfigTest test`，測試通過
+- 檢查 `.github/workflows/vercel-landing-page.yml` YAML 語法，驗證通過
+- 驗證 GitHub Actions 需要的 `VERCEL_TOKEN` secret 與 `VERCEL_ORG_ID` / `VERCEL_PROJECT_ID` / `VERCEL_TRUSTED_AUTHORS` variables 已存在
+
 ## [0.33.1] - 2026-03-17
 
 ### Changed

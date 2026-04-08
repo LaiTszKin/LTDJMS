@@ -2,6 +2,8 @@
 
 本文件詳細說明 LTDJMS Discord Bot 的 AI Chat 功能流程，包括訊息處理、AI 服務整合、錯誤處理與事件發布機制。
 
+> 補充說明：本文件保留較細的 AI 設計背景；現行設定鍵請以 `EnvironmentConfig` 與 `docs/configuration.md` 為準。
+
 ---
 
 ## 1. 高階流程圖
@@ -344,12 +346,9 @@ flowchart TD
 
     UseDefault --> ValidateTemp
     ValidateTemp -->|否| ConfigError3[啟動失敗<br/>溫度超出範圍]
-    ValidateTemp -->|是| ValidateTokens{AI_SERVICE_MAX_TOKENS<br/>範圍 1-4096?}
+    ValidateTemp -->|是| ValidateTimeout{AI_SERVICE_TIMEOUT_SECONDS<br/>範圍 1-120?}
 
-    ValidateTokens -->|否| ConfigError4[啟動失敗<br/>Token 數超出範圍]
-    ValidateTokens -->|是| ValidateTimeout{AI_SERVICE_TIMEOUT_SECONDS<br/>範圍 1-120?}
-
-    ValidateTimeout -->|否| ConfigError5[啟動失敗<br/>連線逾時超出範圍]
+    ValidateTimeout -->|否| ConfigError4[啟動失敗<br/>連線逾時超出範圍]
     ValidateTimeout -->|是| CreateConfig[建立 AIServiceConfig]
 
     CreateConfig --> Success[配置成功]
@@ -357,13 +356,11 @@ flowchart TD
     ConfigError2 --> Fail2[記錄錯誤日誌]
     ConfigError3 --> Fail3[記錄錯誤日誌]
     ConfigError4 --> Fail4[記錄錯誤日誌]
-    ConfigError5 --> Fail5[記錄錯誤日誌]
 
     Fail1 --> Abort[中止啟動]
     Fail2 --> Abort
     Fail3 --> Abort
     Fail4 --> Abort
-    Fail5 --> Abort
     Success --> Ready[服務就緒]
 
     style StartConfig fill:#e1f5e1
@@ -373,7 +370,6 @@ flowchart TD
     style ConfigError2 fill:#ffcccc
     style ConfigError3 fill:#ffcccc
     style ConfigError4 fill:#ffcccc
-    style ConfigError5 fill:#ffcccc
 ```
 
 **配置驗證規則**：
@@ -384,7 +380,6 @@ flowchart TD
 | `AI_SERVICE_API_KEY` | ✅ | 無 | 不可為空白 |
 | `AI_SERVICE_MODEL` | ❌ | `gpt-3.5-turbo` | 無 |
 | `AI_SERVICE_TEMPERATURE` | ❌ | `0.7` | 0.0 ≤ 值 ≤ 2.0 |
-| `AI_SERVICE_MAX_TOKENS` | ❌ | `500` | 1 ≤ 值 ≤ 4096 |
 | `AI_SERVICE_TIMEOUT_SECONDS` | ❌ | `30` | 1 ≤ 值 ≤ 120 |
 
 ---

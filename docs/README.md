@@ -1,69 +1,49 @@
-# LTDJMS Documentation
+# LTDJMS 文件導覽
 
-## Start Here
+這份索引用來幫你快速找到「現在該看哪一份文件」。若你是第一次接手這個 repo，先讀根目錄 `README.md`，再依工作情境進入對應主文件。
 
-- Project overview: `README.md`
-- Setup and deployment: `docs/getting-started.md`
-- Configuration and external services: `docs/configuration.md`
-- Architecture: `docs/architecture.md`
-- Features and workflows: `docs/features.md`
-- Developer guide: `docs/developer-guide.md`
+## 建議閱讀順序
 
-## Document Guide
+| 步驟 | 你想解決的事 | 文件 |
+| --- | --- | --- |
+| 1 | 先理解專案是什麼 | `README.md` |
+| 2 | 把環境跑起來 | `docs/getting-started.md` |
+| 3 | 補齊環境變數與第三方服務 | `docs/configuration.md` |
+| 4 | 理解模組邊界與資料流 | `docs/architecture.md` |
+| 5 | 快速瀏覽使用者 / 管理員功能 | `docs/features.md` |
+| 6 | 準備改程式、測試或除錯 | `docs/developer-guide.md` |
 
-### Getting Started
-- Audience: operators / developers
-- Covers: prerequisites, local setup, Docker Compose workflow, deployment checks, smoke verification
+## 依工作情境找文件
 
-### Configuration
-- Audience: operators / developers
-- Covers: env vars, config files, secrets, Discord / AI / ECPay / Redis / fulfillment integration
+### 我要把系統跑起來
 
-### Architecture
-- Audience: developers / maintainers
-- Covers: entrypoints, module boundaries, event pipeline, storage and callback flows
+- `docs/getting-started.md`：本機啟動、Docker Compose、部署前檢查
+- `docs/configuration.md`：`.env`、資料庫、Redis、AI、ECPay、履約 webhook
 
-### Features
-- Audience: admins / support / developers
-- Covers: slash commands, user workflows, payment and dispatch flows, AI behavior guardrails
+### 我要理解系統怎麼組成
 
-### Developer Guide
-- Audience: developers / maintainers
-- Covers: domain concepts, risk hotspots, testing expectations, debugging entrypoints, doc maintenance notes
+- `docs/architecture.md`：入口、模組責任、主要流程、事件管線
+- `docs/features.md`：從使用者與管理員視角看現有能力
 
-## Supplemental References
+### 我要修改或排查程式
 
-- Slash commands: `docs/api/slash-commands.md`
-- Detailed architecture: `docs/architecture/overview.md`, `docs/architecture/data-model.md`, `docs/architecture/sequence-diagrams.md`, `docs/architecture/cache-architecture.md`
-- Module deep dives: `docs/modules/*.md`
-- Development references: `docs/development/*.md`
-- Operations references: `docs/operations/*.md`
+- `docs/developer-guide.md`：高風險區、測試策略、除錯入口
+- `docs/api/slash-commands.md`：目前 slash command 與權限、參數整理
 
-## Reference List
+## 補充與深度參考
 
-- Source specs reviewed:
-  - `2026-03-04 ecpay-payment-callback-fulfillment`
-  - `2026-03-05 admin-panel-settings-embed-workflow`
-  - `2026-03-10 unified-domain-event-pipeline`
-- Existing docs updated:
-  - `README.md`
-  - `docs/README.md`
-  - `docs/getting-started.md`
-  - `docs/configuration.md`
-  - `docs/architecture.md`
-  - `docs/features.md`
-  - `docs/developer-guide.md`
-- Important code/config references:
-  - `Makefile`
-  - `docker-compose.yml`
-  - `Dockerfile`
-  - `.env.example`
+- `docs/api/`：對外互動面參考
+- `docs/architecture/`：更細的架構拆解與流程圖
+- `docs/modules/`：模組級說明與設計背景
+- `docs/development/`：開發細節與測試補充
+- `docs/operations/`：維運、監控、效能與故障排查補充
+
+## 閱讀原則
+
+- 先讀根目錄 `README.md` 與 `docs/*.md` 主文件，再進入補充文件。
+- 深度文件有些保留了較早期的設計背景；若和主文件或程式碼衝突，以程式碼與主文件為準。
+- 設定與行為的最終事實來源是：
   - `src/main/java/ltdjms/discord/shared/EnvironmentConfig.java`
   - `src/main/java/ltdjms/discord/currency/bot/DiscordCurrencyBot.java`
   - `src/main/java/ltdjms/discord/currency/bot/SlashCommandListener.java`
-  - `src/main/java/ltdjms/discord/shared/events/DomainEventPublisher.java`
-  - `src/main/java/ltdjms/discord/shop/services/EcpayCallbackHttpServer.java`
-  - `src/main/java/ltdjms/discord/shop/services/FiatPaymentCallbackService.java`
-- Remaining unknowns:
-  - 生產環境回滾流程沒有專用腳本或 CI 工作流程證據
-  - 部分外部服務僅能從現有文件得知入口，repo 未提供完整帳號申請 SOP
+  - 對應模組下的 `services/`、`persistence/`、`commands/`

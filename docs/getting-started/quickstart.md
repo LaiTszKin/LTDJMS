@@ -2,6 +2,8 @@
 
 本文件說明如何從 0 開始安裝、建置、設定並啟動 LTDJMS Discord Bot，並將它加入你的 Discord 伺服器。
 
+> 補充說明：目前建議優先閱讀根目錄 `README.md` 與 `docs/getting-started.md`；本文件保留較細的逐步示範。
+
 ## 1. 前置需求
 
 - **Java 17** 或以上
@@ -13,7 +15,7 @@
 
 ```bash
 git clone <repository-url>
-cd LTDJMS
+cd ltdjms
 ```
 
 ### 2.1 建置專案
@@ -212,7 +214,7 @@ mkdir -p prompts
 
    ```bash
    make build
-   make run
+   java -jar target/ltdjms-*.jar
    ```
 
 4. 開發完成後可以關閉資料庫容器：
@@ -296,7 +298,7 @@ mkdir -p prompts
 3. 重新執行：
 
    ```bash
-   make start-dev   # 或 make run / make start，視你的啟動方式而定
+   make start-dev   # 或 make start；若本機直跑則使用 java -jar target/ltdjms-*.jar
    ```
 
    並檢查終端機的錯誤訊息。

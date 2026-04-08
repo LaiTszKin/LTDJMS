@@ -2,6 +2,8 @@
 
 本文件提供 LTDJMS Discord Bot 常見問題的診斷與解決方法。若你遇到問題，請先檢查此指南。若問題仍未解決，請參考相關文件或建立議題。
 
+> 補充說明：目前正式啟動入口以根目錄 `README.md` 與 `docs/getting-started.md` 為準；本機直跑請使用 `java -jar target/ltdjms-*.jar`。
+
 ## 快速檢查清單
 
 在深入診斷前，請先確認以下基本項目：
@@ -18,7 +20,7 @@
 ### 1. Bot 無法啟動（立即結束）
 
 #### 症狀
-- 執行 `make start` 或 `make run` 後程式立即結束
+- 執行 `make start`、`make start-dev` 或 `java -jar target/ltdjms-*.jar` 後程式立即結束
 - 容器啟動後立即退出
 
 #### 可能原因與解決方案
@@ -269,7 +271,7 @@ cat .env | grep AI_SERVICE
 **解決方案：**
 1. 等待一段時間後重試
 2. 降低 AI 溫度（`AI_SERVICE_TEMPERATURE`）以減少複雜度
-3. 減少最大 Token 數（`AI_SERVICE_MAX_TOKENS`）
+3. 改用較小或較快的模型，並縮短提示詞內容
 4. 考慮升級 AI 服務方案
 
 **D. AI 服務連線逾時**
@@ -306,7 +308,7 @@ cat .env | grep AI_SERVICE
 **G. AI 回應速度慢**
 
 **解決方案：**
-1. 減少最大 Token 數（`AI_SERVICE_MAX_TOKENS`）
+1. 改用較小或較快的模型，並縮短提示詞內容
 2. 選擇更快的模型（如 `gpt-3.5-turbo` 而非 `gpt-4`）
 3. 檢查 AI 服務的地理位置延遲
 4. 注意：`AI_SERVICE_TIMEOUT_SECONDS` 只影響連線時間，不限制推理時間

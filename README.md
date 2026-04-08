@@ -1,63 +1,91 @@
 # LTDJMS
 
-LTDJMS 是一個以 Java 17、Maven 與 JDA 建置的 Discord 管理機器人，提供伺服器貨幣、遊戲代幣、商品商店、兌換碼、法幣付款、護航派單，以及 AI 聊天 / AI Agent 頻道治理能力。
+LTDJMS 是一個以 Java 17、Maven 與 JDA 建置的 Discord 管理機器人，將 guild 經濟、商品交易、法幣付款、護航派單與 AI 頻道治理整合在同一套系統中。
 
-## Highlights
+## 這個專案能做什麼
 
-- Guild 級虛擬貨幣、遊戲代幣與管理面板
-- 商品、兌換碼、貨幣購買與綠界超商代碼付款
-- 護航派單、完單確認與售後流程
-- 提及式 AI Chat、AI 頻道限制與 AI Agent 頻道配置
+- guild 級貨幣、遊戲代幣、交易紀錄與管理面板
+- 商品商店、兌換碼、貨幣購買、綠界超商代碼付款
+- 護航派單、完單確認、售後接案與結案
+- 提及式 AI Chat、AI 頻道白名單、AI Agent 頻道配置
 
-## Quick Start
+## 先看哪份文件
 
-### Install
+| 目的 | 文件 |
+| --- | --- |
+| 先快速理解專案 | `README.md` |
+| 啟動本機環境或部署 | `docs/getting-started.md` |
+| 查環境變數與外部整合 | `docs/configuration.md` |
+| 理解模組與資料流 | `docs/architecture.md` |
+| 快速看功能與角色分工 | `docs/features.md` |
+| 準備修改程式或除錯 | `docs/developer-guide.md` |
+| 完整文件導覽 | `docs/README.md` |
+
+## 快速啟動
+
+### 建議路徑：Docker Compose
 
 ```bash
 git clone <your-repo-url>
-cd LTDJMS
+cd ltdjms
 cp .env.example .env
 mkdir -p prompts
 make build
+make start-dev
+make logs
 ```
 
-### Configure
+啟動前至少要準備：
 
-- `DISCORD_BOT_TOKEN`：必要，Discord Bot 憑證
-- 資料庫：設定 `DB_URL`，或改用 `DATABASE_HOST` / `DATABASE_PORT` / `DATABASE_NAME` 搭配 `DB_USERNAME` / `DB_PASSWORD`
-- AI 功能：目前應用在啟動時就會驗證 `AI_SERVICE_API_KEY`，若缺少此值會直接啟動失敗
-- 法幣付款：啟用綠界流程時需設定 `ECPAY_*` 變數
+- `DISCORD_BOT_TOKEN`
+- 可連線的 PostgreSQL
+- 可連線的 Redis
+- `AI_SERVICE_API_KEY`
 
-### Run or Deploy
+### 本機 JVM 直跑
 
 ```bash
-make start-dev
-# 或本機直接執行
+cp .env.example .env
+mkdir -p prompts
+make db-up
+make build
 java -jar target/ltdjms-*.jar
 ```
 
-## Documentation
+## 主要入口
 
-- 文件索引：`docs/README.md`
-- 安裝與部署：`docs/getting-started.md`
-- 設定與外部服務：`docs/configuration.md`
-- 系統架構：`docs/architecture.md`
-- 功能導覽：`docs/features.md`
-- 開發者指南：`docs/developer-guide.md`
+- Slash commands：`/currency-config`、`/dice-game-1`、`/dice-game-2`、`/user-panel`、`/admin-panel`、`/shop`、`/dispatch-panel`
+- 提及式 AI：在允許頻道提及 Bot
+- 付款回推：內嵌 `EcpayCallbackHttpServer`
+- 主程式入口：`src/main/java/ltdjms/discord/currency/bot/DiscordCurrencyBot.java`
 
-## Main Features
+## 核心能力
 
-### 經濟系統與互動面板
-透過 `/user-panel`、`/admin-panel`、`/currency-config` 與骰子遊戲指令，管理 guild 專屬貨幣、遊戲代幣、餘額調整與遊戲設定。
+### 一般成員
 
-### 商品、兌換與履約
-支援 `/shop` 商品瀏覽、貨幣購買、兌換碼發放與兌換，並可在付款完成後觸發後端履約或管理員通知。
+- 查詢個人餘額、遊戲代幣與歷史紀錄
+- 使用商店、兌換碼與骰子遊戲
+- 購買法幣商品並等待付款後履約
+- 在允許頻道提及 Bot 取得 AI 回應
 
-### 派單與 AI 能力
-支援 `/dispatch-panel` 護航派單流程，以及在受限頻道中透過提及機器人啟用 AI Chat / AI Agent。
+### 管理員
 
-## Notes
+- 設定 guild 貨幣、遊戲代幣與遊戲規則
+- 管理商品、兌換碼、AI 頻道與 AI Agent 頻道
+- 建立護航派單、調整護航定價、管理售後名單
 
-- Docker Compose 是目前最完整的本機與單機部署路徑，會同時啟動 bot、PostgreSQL 與 Redis。
-- `Makefile` 目前沒有可執行的 `run` target；本機直跑請使用 `java -jar target/ltdjms-*.jar`。
-- 舊版細節文件仍保留在 `docs/api/`、`docs/modules/`、`docs/operations/` 等目錄作為補充參考。
+### 維運 / 開發者
+
+- 以 Docker Compose 啟動 bot、PostgreSQL、Redis
+- 透過 Flyway migration 維護資料庫 schema
+- 追蹤付款回推、履約 webhook、事件管線與 Discord 互動流程
+
+## 啟動前必知
+
+- `AI_SERVICE_API_KEY` 目前在啟動時就會驗證，缺少時應用會直接失敗。
+- `ECPAY_RETURN_URL` 未設定時，綠界 callback server 不會啟動。
+- 本機直跑沒有 `make run`；請使用 `java -jar target/ltdjms-*.jar`。
+- 宣傳首頁的 Vercel 自動部署 workflow 位於 `.github/workflows/vercel-landing-page.yml`，只有 `VERCEL_TRUSTED_AUTHORS` 名單中的 GitHub 使用者修改 `src/main/resources/web/` 並 push 到 `main` 時才會自動部署。
+- GitHub repository 需設定 `VERCEL_TOKEN` secret，以及 `VERCEL_ORG_ID`、`VERCEL_PROJECT_ID`、`VERCEL_TRUSTED_AUTHORS` variables，Vercel 專案則需預先建立並可由該 token 部署。
+- 若同一個 Vercel 專案仍連接 GitHub 自動部署，建議在 Vercel Project Settings -> Git 關閉自動部署或直接斷開 Git 連線，避免與 GitHub Actions 重複部署。
+- 目前以根目錄 `README.md` 與 `docs/*.md` 主文件作為閱讀入口；`docs/modules/`、`docs/architecture/` 等深度文件屬補充參考，遇到衝突時以程式碼為準。

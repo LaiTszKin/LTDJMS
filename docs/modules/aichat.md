@@ -4,6 +4,8 @@
 
 AI Chat 模組提供 Discord 機器人的 AI 聊天功能。當使用者在 Discord 頻道中提及機器人時，機器人會使用 AI 服務生成並發送回應訊息。
 
+> 補充說明：目前 AI 設定與啟動條件請優先參考 `docs/configuration.md`、`docs/architecture.md` 與 `EnvironmentConfig`。
+
 **AI 頻道限制功能**（V016 新增）：管理員可以限制 AI 功能僅在特定頻道使用；未設定任何允許頻道或類別時，AI 預設不會在任何頻道回應。
 
 ## 架構
@@ -199,7 +201,6 @@ AI_SERVICE_BASE_URL=https://api.openai.com/v1
 AI_SERVICE_API_KEY=your_api_key_here
 AI_SERVICE_MODEL=gpt-3.5-turbo
 AI_SERVICE_TEMPERATURE=0.7
-AI_SERVICE_MAX_TOKENS=500
 AI_SERVICE_TIMEOUT_SECONDS=30
 
 # 提示詞載入器配置（V015 新增）

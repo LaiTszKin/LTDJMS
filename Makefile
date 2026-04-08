@@ -1,4 +1,4 @@
-.PHONY: build test clean run docker-build docker-up docker-down docker-logs db-up db-down docker-dev format format-check setup-env db-create db-create-test
+.PHONY: build test clean docker-build docker-up docker-down docker-logs db-up db-down docker-dev format format-check setup-env db-create db-create-test
 
 # Maven commands
 build:
@@ -66,7 +66,7 @@ db-create-test:
 # Full development setup
 dev: db-up
 	@echo "PostgreSQL is running on localhost:5432"
-	@echo "Run 'make run' to start the bot after building"
+	@echo "Run 'java -jar target/ltdjms-*.jar' to start the bot after building"
 
 # Environment setup
 setup-env:
@@ -85,7 +85,6 @@ help:
 	@echo "  coverage         - Generate code coverage report"
 	@echo "  clean            - Clean build artifacts"
 	@echo "  setup-env        - Sync .env with .env.example (backup to .env.bak)"
-	@echo "  run              - Run the bot locally"
 	@echo "  update           - Build Docker image"
 	@echo "  start            - Start all services with Docker Compose (no rebuild)"
 	@echo "  start-dev        - Build (using layer cache) and start all services"

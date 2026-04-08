@@ -1,155 +1,152 @@
-# Configuration
+# 設定與外部整合
 
-## 1. Environment Variables And Config Files
+## 設定來源優先序
 
-`EnvironmentConfig` 的載入優先序為：系統環境變數 -> 專案根目錄 `.env` -> `application.conf` / `application.properties` -> 內建預設值。
+`EnvironmentConfig` 的讀取順序為：
 
-### 主要設定檔
+1. 系統環境變數
+2. 專案根目錄 `.env`
+3. `application.conf` / `application.properties`
+4. 程式內建預設值
 
-| Key / File | Required | Purpose | Example / Default | Evidence |
-| --- | --- | --- | --- | --- |
-| `.env.example` | No | 本機設定範本 | 專案根目錄範本檔 | `.env.example` |
-| `.env` | No | 本機覆蓋設定 | 由開發者建立 | `src/main/java/ltdjms/discord/shared/DotEnvLoader.java` |
-| `src/main/resources/application.properties` | No | 保留預設值與說明文字 | `db.url=jdbc:postgresql://localhost:5432/currency_bot` | `src/main/resources/application.properties` |
-| `src/main/resources/application.conf` | No | 舊式 Typesafe Config 鍵名與資料庫預設 | `database.host=localhost` | `src/main/resources/application.conf` |
-| `src/main/resources/logback.xml` | No | 日誌路徑、等級與輪替設定 | `LOG_DIR=logs` | `src/main/resources/logback.xml` |
-| `docker-compose.yml` | No | 容器部署時的環境變數映射 | `PROMPTS_DIR_PATH=/app/prompts` | `docker-compose.yml` |
-| `prompts/` | No | 外部提示詞 Markdown 檔案目錄 | `./prompts` | `src/main/java/ltdjms/discord/aichat/services/DefaultPromptLoader.java` |
+另外有兩個實務上很重要的優先規則：
 
-### 環境變數
+- `DB_URL` 一旦存在，會優先於 `DATABASE_HOST` / `DATABASE_PORT` / `DATABASE_NAME`
+- `DB_USERNAME` / `DB_PASSWORD` 會優先於舊別名 `DATABASE_USER` / `DATABASE_PASSWORD`
 
-| Key / File | Required | Purpose | Example / Default | Evidence |
-| --- | --- | --- | --- | --- |
-| `DISCORD_BOT_TOKEN` | Yes | Discord Bot 登入 Token | `your_discord_bot_token_here` | `.env.example`, `EnvironmentConfig.java` |
-| `DB_URL` | No | 直接指定 JDBC URL；若有值會覆蓋 `DATABASE_*` 組合 | `jdbc:postgresql://localhost:5432/currency_bot` | `.env.example`, `EnvironmentConfig.java` |
-| `DATABASE_HOST` | No | 組合式資料庫 host | `localhost` | `.env.example`, `EnvironmentConfig.java` |
-| `DATABASE_PORT` | No | 組合式資料庫 port | `5432` | `.env.example`, `EnvironmentConfig.java` |
-| `DATABASE_NAME` | No | 組合式資料庫名稱 | `currency_bot` | `.env.example`, `EnvironmentConfig.java`, `docker-compose.yml` |
-| `DB_USERNAME` | No | 資料庫帳號 | `postgres` | `.env.example`, `EnvironmentConfig.java`, `docker-compose.yml` |
-| `DB_PASSWORD` | No | 資料庫密碼 | `postgres` | `.env.example`, `EnvironmentConfig.java`, `docker-compose.yml` |
-| `DATABASE_USER` | No | 舊式資料庫帳號別名 | `postgres` | `application.conf`, `EnvironmentConfig.java` |
-| `DATABASE_PASSWORD` | No | 舊式資料庫密碼別名 | `postgres` | `application.conf`, `EnvironmentConfig.java` |
-| `DB_POOL_MAX_SIZE` | No | HikariCP 最大連線數 | `10` | `.env.example`, `application.properties`, `EnvironmentConfig.java` |
-| `DB_POOL_MIN_IDLE` | No | HikariCP 最小閒置數 | `2` | `.env.example`, `application.properties`, `EnvironmentConfig.java` |
-| `DB_POOL_CONNECTION_TIMEOUT` | No | 取得連線逾時毫秒數 | `30000` | `.env.example`, `application.properties`, `EnvironmentConfig.java` |
-| `DB_POOL_IDLE_TIMEOUT` | No | 閒置連線逾時毫秒數 | `600000` | `.env.example`, `application.properties`, `EnvironmentConfig.java` |
-| `DB_POOL_MAX_LIFETIME` | No | 連線最長存活毫秒數 | `1800000` | `.env.example`, `application.properties`, `EnvironmentConfig.java` |
-| `REDIS_URI` | No | Redis 連線 URI | `redis://localhost:6379` | `.env.example`, `EnvironmentConfig.java`, `docker-compose.yml` |
-| `ECPAY_MERCHANT_ID` | No | 綠界 Merchant ID | 空字串 | `.env.example`, `EnvironmentConfig.java` |
-| `ECPAY_HASH_KEY` | No | 綠界加密 HashKey | 空字串 | `.env.example`, `EnvironmentConfig.java` |
-| `ECPAY_HASH_IV` | No | 綠界加密 HashIV | 空字串 | `.env.example`, `EnvironmentConfig.java` |
-| `ECPAY_RETURN_URL` | No | 綠界付款回推 URL；未設時 callback server 不啟動 | 空字串 | `.env.example`, `EnvironmentConfig.java`, `EcpayCallbackHttpServer.java` |
-| `ECPAY_STAGE_MODE` | No | 是否使用綠界測試端點 | `true` | `.env.example`, `EnvironmentConfig.java` |
-| `ECPAY_CVS_EXPIRE_MINUTES` | No | 超商代碼有效分鐘數 | `10080` | `.env.example`, `EnvironmentConfig.java` |
-| `ECPAY_CALLBACK_BIND_HOST` | No | 內嵌 callback server 綁定 host | `127.0.0.1` | `.env.example`, `EnvironmentConfig.java`, `EcpayCallbackHttpServer.java` |
-| `ECPAY_CALLBACK_BIND_PORT` | No | 內嵌 callback server 綁定 port | `8085` | `.env.example`, `EnvironmentConfig.java`, `EcpayCallbackHttpServer.java` |
-| `ECPAY_CALLBACK_PATH` | No | 內嵌 callback server 路徑 | `/ecpay/callback` | `.env.example`, `EnvironmentConfig.java`, `EcpayCallbackHttpServer.java` |
-| `ECPAY_CALLBACK_SHARED_SECRET` | No | callback query token；公開綁定時必填 | 空字串 | `.env.example`, `EnvironmentConfig.java`, `EcpayCallbackHttpServer.java` |
-| `PRODUCT_FULFILLMENT_SIGNING_SECRET` | No | 對外商品履約 webhook HMAC 密鑰 | 空字串 | `.env.example`, `EnvironmentConfig.java`, `ProductFulfillmentApiService.java` |
-| `AI_SERVICE_BASE_URL` | No | OpenAI 相容 API base URL | `https://api.openai.com/v1` | `.env.example`, `EnvironmentConfig.java`, `docker-compose.yml` |
-| `AI_SERVICE_API_KEY` | Yes | AI 服務 API key；目前啟動時即會驗證 | `your_ai_service_api_key_here` | `.env.example`, `EnvironmentConfig.java`, `docker-compose.yml` |
-| `AI_SERVICE_MODEL` | No | AI 模型名稱 | `gpt-4o-mini` in `.env.example`; runtime built-in default `gpt-3.5-turbo` | `.env.example`, `EnvironmentConfig.java`, `docker-compose.yml` |
-| `AI_SERVICE_TEMPERATURE` | No | AI 溫度參數 | `0.7` | `.env.example`, `EnvironmentConfig.java`, `docker-compose.yml` |
-| `AI_SERVICE_TIMEOUT_SECONDS` | No | AI 連線逾時秒數 | `30` | `.env.example`, `EnvironmentConfig.java`, `docker-compose.yml` |
-| `AI_SHOW_REASONING` | No | 是否顯示 AI 推理片段 | `false` | `.env.example`, `application.properties`, `EnvironmentConfig.java`, `docker-compose.yml` |
-| `PROMPTS_DIR_PATH` | No | 外部提示詞資料夾路徑 | `./prompts` | `.env.example`, `application.properties`, `EnvironmentConfig.java`, `docker-compose.yml` |
-| `PROMPT_MAX_SIZE_BYTES` | No | 單一提示詞檔案大小上限 | `1048576` | `.env.example`, `EnvironmentConfig.java` |
-| `AI_MARKDOWN_VALIDATION_ENABLED` | No | 是否啟用 Markdown 驗證 | `true` | `.env.example`, `EnvironmentConfig.java` |
-| `AI_MARKDOWN_VALIDATION_STREAMING_BYPASS` | No | 串流時是否跳過 Markdown 驗證 | `false` | `.env.example`, `EnvironmentConfig.java` |
-| `LOG_LEVEL` | No | root logger 等級 | `WARN` | `.env.example`, `logback.xml`, `docker-compose.yml` |
-| `APP_LOG_LEVEL` | No | `ltdjms.discord.*` logger 等級 | `INFO` | `.env.example`, `logback.xml`, `docker-compose.yml` |
-| `LOG_DIR` | No | 日誌輸出路徑 | `logs` | `.env.example`, `logback.xml`, `docker-compose.yml` |
-| `LOG_MAX_FILE_SIZE` | No | 單個輪替檔最大大小 | `20MB` | `.env.example`, `logback.xml`, `docker-compose.yml` |
-| `LOG_MAX_HISTORY_DAYS` | No | 保留天數 | `30` | `.env.example`, `logback.xml`, `docker-compose.yml` |
-| `LOG_TOTAL_SIZE_CAP` | No | 所有歷史檔案總容量上限 | `3GB` | `.env.example`, `logback.xml`, `docker-compose.yml` |
+## 最小可用設定
 
-## 2. External Services And Credential Setup
+若你只想把系統成功跑起來，至少要先準備：
+
+- `DISCORD_BOT_TOKEN`
+- 可連線的 PostgreSQL
+- 可連線的 Redis
+- `AI_SERVICE_API_KEY`
+
+## 主要設定檔
+
+| 檔案 | 作用 | 備註 |
+| --- | --- | --- |
+| `.env.example` | 本機設定範本 | 新環境建議從這裡複製 |
+| `.env` | 本機覆蓋值 | 不應提交到版本控制 |
+| `src/main/resources/application.properties` | 預設值與部分註解 | 與 `application.conf` 並存 |
+| `src/main/resources/application.conf` | 較舊的 Typesafe Config 鍵名 | 仍被 `EnvironmentConfig` 載入 |
+| `src/main/resources/logback.xml` | log level、輸出目錄、輪替 | Docker 與本機都共用 |
+| `docker-compose.yml` | 容器環境變數映射 | 單機部署與本機整套啟動入口 |
+| `prompts/` | 外部提示詞目錄 | AI Chat / Agent 會讀取這裡的內容 |
+
+## 環境變數速覽
+
+### 核心執行與資料庫
+
+| Key | 何時要設 | 說明 | 預設 / 備註 |
+| --- | --- | --- | --- |
+| `DISCORD_BOT_TOKEN` | 一律必填 | Discord Bot Token | 無預設值 |
+| `DB_URL` | 想直接給 JDBC URL 時 | 直接指定 PostgreSQL 連線字串 | 會覆蓋 `DATABASE_*` |
+| `DATABASE_HOST` | 未使用 `DB_URL` 時 | 資料庫主機 | `localhost` 類型預設來自組合 |
+| `DATABASE_PORT` | 未使用 `DB_URL` 時 | 資料庫埠號 | `5432` |
+| `DATABASE_NAME` | 未使用 `DB_URL` 時 | 資料庫名稱 | `currency_bot` |
+| `DB_USERNAME` | 幾乎都要設 | 資料庫帳號 | 預設 `postgres` |
+| `DB_PASSWORD` | 幾乎都要設 | 資料庫密碼 | 預設 `postgres` |
+| `DATABASE_USER` | 舊設定仍沿用時 | 舊式帳號別名 | 低於 `DB_USERNAME` |
+| `DATABASE_PASSWORD` | 舊設定仍沿用時 | 舊式密碼別名 | 低於 `DB_PASSWORD` |
+| `DB_POOL_MAX_SIZE` | 要調校連線池時 | HikariCP 最大連線數 | `10` |
+| `DB_POOL_MIN_IDLE` | 要調校連線池時 | HikariCP 最小閒置數 | `2` |
+| `DB_POOL_CONNECTION_TIMEOUT` | 要調校連線池時 | 取連線逾時毫秒數 | `30000` |
+| `DB_POOL_IDLE_TIMEOUT` | 要調校連線池時 | 閒置逾時毫秒數 | `600000` |
+| `DB_POOL_MAX_LIFETIME` | 要調校連線池時 | 連線最長存活毫秒數 | `1800000` |
+| `REDIS_URI` | 幾乎都要設 | Redis 連線 URI | 內建預設 `redis://localhost:6379` |
+
+### AI 與提示詞
+
+| Key | 何時要設 | 說明 | 預設 / 備註 |
+| --- | --- | --- | --- |
+| `AI_SERVICE_API_KEY` | 一律必填 | OpenAI-compatible API key | 缺少時啟動失敗 |
+| `AI_SERVICE_BASE_URL` | 使用非預設供應商時 | AI API base URL | `https://api.openai.com/v1` |
+| `AI_SERVICE_MODEL` | 想指定模型時 | 模型名稱 | 程式預設 `gpt-3.5-turbo`；`.env.example` 示範為 `gpt-4o-mini` |
+| `AI_SERVICE_TEMPERATURE` | 想調整輸出風格時 | 模型 temperature | `0.7` |
+| `AI_SERVICE_TIMEOUT_SECONDS` | 想調整逾時時 | AI 呼叫逾時秒數 | `30` |
+| `AI_SHOW_REASONING` | 想顯示 reasoning 訊息時 | 是否輸出推理片段 | `false` |
+| `PROMPTS_DIR_PATH` | 想自訂提示詞位置時 | 提示詞資料夾路徑 | `./prompts` |
+| `PROMPT_MAX_SIZE_BYTES` | 想限制提示詞檔案大小時 | 單一提示詞檔大小上限 | `1048576` |
+| `AI_MARKDOWN_VALIDATION_ENABLED` | 想關閉 Markdown 驗證時 | 是否驗證 AI 回應 Markdown | `true` |
+| `AI_MARKDOWN_VALIDATION_STREAMING_BYPASS` | 想在串流時略過驗證時 | 串流模式是否跳過驗證 | `false` |
+
+### 綠界付款與 callback server
+
+| Key | 何時要設 | 說明 | 預設 / 備註 |
+| --- | --- | --- | --- |
+| `ECPAY_MERCHANT_ID` | 啟用法幣付款時 | 綠界 Merchant ID | 空字串 |
+| `ECPAY_HASH_KEY` | 啟用法幣付款時 | 綠界 HashKey | 空字串 |
+| `ECPAY_HASH_IV` | 啟用法幣付款時 | 綠界 HashIV | 空字串 |
+| `ECPAY_RETURN_URL` | 啟用 callback 時 | 綠界回推 URL | 未設時 callback server 不啟動 |
+| `ECPAY_STAGE_MODE` | 想切正式 / 測試環境時 | 是否使用測試端點 | `true` |
+| `ECPAY_CVS_EXPIRE_MINUTES` | 想調整超商代碼期限時 | 超商代碼有效分鐘數 | `10080` |
+| `ECPAY_CALLBACK_BIND_HOST` | 需要對外提供 callback server 時 | 內嵌 HTTP server 綁定 host | `127.0.0.1` |
+| `ECPAY_CALLBACK_BIND_PORT` | 需要對外提供 callback server 時 | 內嵌 HTTP server 綁定 port | `8085` |
+| `ECPAY_CALLBACK_PATH` | 想調整 callback path 時 | 綠界回推接收路徑 | `/ecpay/callback` |
+| `ECPAY_CALLBACK_SHARED_SECRET` | callback server 綁定公網時 | callback query token | 公開綁定時必填 |
+
+### 履約與日誌
+
+| Key | 何時要設 | 說明 | 預設 / 備註 |
+| --- | --- | --- | --- |
+| `PRODUCT_FULFILLMENT_SIGNING_SECRET` | 啟用外部履約 webhook 時 | webhook HMAC 密鑰 | 空字串 |
+| `LOG_LEVEL` | 想調整 root logger 時 | root logger 等級 | `WARN` |
+| `APP_LOG_LEVEL` | 想調整應用 logger 時 | `ltdjms.discord.*` 等級 | `INFO` |
+| `LOG_DIR` | 想改日誌路徑時 | 日誌輸出資料夾 | `logs` |
+| `LOG_MAX_FILE_SIZE` | 想調整輪替大小時 | 單檔大小上限 | `20MB` |
+| `LOG_MAX_HISTORY_DAYS` | 想調整保留天數時 | 歷史日誌保留天數 | `30` |
+| `LOG_TOTAL_SIZE_CAP` | 想調整總容量上限時 | 全部歷史檔容量上限 | `3GB` |
+
+## 外部服務該怎麼接
 
 ### Discord
 
-- Purpose: Bot 登入 Discord、同步 slash commands、接收互動與訊息事件
-- Required keys/config: `DISCORD_BOT_TOKEN`
-- Official setup entry: Discord Developer Portal (`https://discord.com/developers/applications`)
-- Acquisition steps:
-  1. 建立或開啟 Discord application
-  2. 在 `Bot` 分頁建立 Bot，重新產生 Token
-  3. 把 Token 放入 `.env` 或部署環境變數
-  4. 使用 `bot` + `applications.commands` scope 邀請 Bot 進入目標 guild
-- Development notes: `MESSAGE_CONTENT` intent 會在 JDA 啟動時啟用；slash commands 於 bot ready 後逐 guild 同步
-- Evidence: `.env.example`, `DiscordCurrencyBot.java`, `SlashCommandListener.java`
+- 需要 `DISCORD_BOT_TOKEN`
+- Bot 需具備 `bot` 與 `applications.commands` scope
+- 啟動後會逐 guild 同步 slash commands
+- `MESSAGE_CONTENT` intent 會在 JDA 啟動時啟用
 
 ### PostgreSQL
 
-- Purpose: 儲存 guild 設定、帳戶、商品、兌換碼、派單與法幣訂單資料
-- Required keys/config: `DB_URL` 或 `DATABASE_HOST` / `DATABASE_PORT` / `DATABASE_NAME`，搭配 `DB_USERNAME` / `DB_PASSWORD`
-- Official setup entry: `Unknown`（repo 未包含外部託管服務申請流程）
-- Acquisition steps:
-  1. 建立 PostgreSQL 資料庫（Docker Compose 預設用 `currency_bot`）
-  2. 建立使用者與密碼
-  3. 把連線資訊放入 `.env` 或部署環境變數
-  4. 啟動 bot，讓 Flyway 自動套用 migration
-- Development notes: `docker-compose.yml` 已提供本機 PostgreSQL；啟動時會先跑 migration
-- Evidence: `docker-compose.yml`, `EnvironmentConfig.java`, `DiscordCurrencyBot.java`, `src/main/resources/db/migration/`
+- 啟動時會先跑 Flyway migration
+- 若 schema 與程式不相容，bot 會在啟動期失敗
+- Docker Compose 預設會提供本機 PostgreSQL
 
 ### Redis
 
-- Purpose: 快取 guild 設定、AI Agent 部分查詢結果與其他高頻讀取資料
-- Required keys/config: `REDIS_URI`
-- Official setup entry: `Unknown`（repo 未包含託管 Redis 開通流程）
-- Acquisition steps:
-  1. 啟動 Redis（Docker Compose 預設提供 `redis` service）
-  2. 設定 `REDIS_URI`
-  3. 啟動 bot 並確認 Redis 可連線
-  4. 觀察日誌中的 Redis 初始化訊息
-- Development notes: 目前 `CacheModule` 直接建立 `RedisCacheService`；沒有在 DI 層自動切換到 `NoOpCacheService`
-- Evidence: `docker-compose.yml`, `CacheModule.java`, `RedisCacheService.java`, `NoOpCacheService.java`
+- 目前 DI 直接建立 `RedisCacheService`
+- 若 Redis 不可連線，啟動或後續快取操作可能直接失敗
+- repo 內雖有 `NoOpCacheService`，但不是預設 wiring
 
-### AI Provider (OpenAI-compatible)
+### AI Provider
 
-- Purpose: 提供提及式 AI Chat 與 AI Agent 模型推理
-- Required keys/config: `AI_SERVICE_API_KEY`; `AI_SERVICE_BASE_URL` 與 `AI_SERVICE_MODEL` 有內建預設
-- Official setup entry: 依供應商而定；repo 僅明示 OpenAI-compatible base URL 模式
-- Acquisition steps:
-  1. 選擇 OpenAI-compatible 供應商
-  2. 取得 API key 與 base URL
-  3. 把設定放入 `.env` 或部署環境變數
-  4. 在允許的 guild 頻道提及 Bot 驗證回應
-- Development notes: `AIChatModule` 會在組裝時驗證 AI 設定，因此 API key 缺失會直接導致應用啟動失敗；可透過 `PROMPTS_DIR_PATH` 掛載外部提示詞
-- Evidence: `.env.example`, `EnvironmentConfig.java`, `AIChatMentionListener.java`
+- 採 OpenAI-compatible API 介面
+- `AI_SERVICE_API_KEY` 缺少時，AI 模組組裝階段就會失敗
+- 可透過 `PROMPTS_DIR_PATH` 載入外部提示詞
 
 ### ECPay
 
-- Purpose: 為法幣限定商品產生超商代碼，並於付款回推後觸發履約與管理員通知
-- Required keys/config: `ECPAY_MERCHANT_ID`, `ECPAY_HASH_KEY`, `ECPAY_HASH_IV`, `ECPAY_RETURN_URL`, `ECPAY_STAGE_MODE`, callback 相關 `ECPAY_CALLBACK_*`
-- Official setup entry: 既有 spec 引用了綠界開發者文件與測試參數頁面
-- Acquisition steps:
-  1. 在綠界商店後台取得 Merchant ID、HashKey、HashIV
-  2. 配置可讓綠界回推的 `ECPAY_RETURN_URL`
-  3. 視部署情境設定 callback bind host / port / path
-  4. 若公開暴露 callback server，另行設定 `ECPAY_CALLBACK_SHARED_SECRET`
-- Development notes: 若未設定 `ECPAY_RETURN_URL`，callback server 不啟動；若綁定公網位址但未設定 shared secret，啟動會直接失敗
-- Evidence: `.env.example`, `EnvironmentConfig.java`, `EcpayCallbackHttpServer.java`, `FiatPaymentCallbackService.java`
+- 未設定 `ECPAY_RETURN_URL` 時，不會啟動 callback server
+- callback server 啟動後同時提供：
+  - `/`：宣傳首頁
+  - `ECPAY_CALLBACK_PATH`：綠界付款回推
+- 已付款 callback 會經過驗證、解密、冪等更新與後續履約
 
 ### Product Fulfillment Backend
 
-- Purpose: 商品購買或付款完成後，向外部後端發送履約 webhook
-- Required keys/config: 商品上的 `backendApiUrl`，以及 `PRODUCT_FULFILLMENT_SIGNING_SECRET`
-- Official setup entry: `Unknown`（由專案整合方自行提供）
-- Acquisition steps:
-  1. 準備支援 HTTPS 的履約端點
-  2. 在商品設定中填入 `backendApiUrl`
-  3. 配置 `PRODUCT_FULFILLMENT_SIGNING_SECRET`
-  4. 透過貨幣購買或法幣付款完成流程驗證 webhook 是否送達
-- Development notes: `backendApiUrl` 必須是 `https://`；自動建立護航訂單時還必須同時設定 `escortOptionCode`
-- Evidence: `Product.java`, `ProductFulfillmentApiService.java`, `.env.example`
+- 商品若設定 `backendApiUrl`，購買或付款完成後可觸發 webhook
+- `backendApiUrl` 必須是 `https://`
+- 若商品設定自動建立護航單，付款後還會觸發管理員通知流程
 
-## 3. Safety Notes
+## 常見誤設與症狀
 
-- Secret handling: Bot Token、AI key、ECPay 憑證、履約簽章密鑰都應放在 `.env`、部署環境變數或外部 secret manager，不應提交到版本控制
-- Local overrides: `DB_URL` 會優先覆蓋 `DATABASE_*` 組合；`DB_USERNAME` / `DB_PASSWORD` 也會優先於 `DATABASE_USER` / `DATABASE_PASSWORD`
-- Common misconfiguration symptoms:
-  - `DISCORD_BOT_TOKEN` 缺失：啟動直接失敗
-  - `AI_SERVICE_API_KEY` 缺失：應用在啟動組裝 AI 模組時就會失敗
-  - 公網 callback 未加 `ECPAY_CALLBACK_SHARED_SECRET`：綠界 callback server 啟動失敗
-  - Redis 不可連線：目前 DI 會直接建立 `RedisCacheService`，可能在啟動期就失敗
-  - `AI_SERVICE_MAX_TOKENS`：現行 `EnvironmentConfig` 不支援此變數，舊文件若提到它，應以程式碼現況為準
+| 症狀 | 常見原因 |
+| --- | --- |
+| `Discord bot token not configured` | 沒有提供 `DISCORD_BOT_TOKEN` |
+| `AI service API key not configured` | 沒有提供 `AI_SERVICE_API_KEY` |
+| callback server 啟動失敗 | 公網綁定但沒有 `ECPAY_CALLBACK_SHARED_SECRET` |
+| 付款完成但沒有履約 | ECPay callback 未到達、解密失敗，或外部履約 webhook 失敗 |
+| Redis 初始化失敗 | `REDIS_URI` 指向的服務不可連線 |
+| 舊文件提到 `AI_SERVICE_MAX_TOKENS` | 現行 `EnvironmentConfig` 已不支援此變數 |

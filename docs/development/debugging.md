@@ -2,6 +2,8 @@
 
 本文件提供 LTDJMS 開發者在本地開發環境中的除錯技巧與工具使用方法。
 
+> 補充說明：目前啟動方式以 `docs/getting-started.md` 為準；本機直跑請使用 `java -jar target/ltdjms-*.jar`，不是 `make run`。
+
 ## 1. 開發環境除錯設定
 
 ### 1.1 啟用 DEBUG 日誌
@@ -9,7 +11,7 @@
 **方法一：環境變數**
 ```bash
 export LOG_LEVEL=DEBUG
-make run
+java -jar target/ltdjms-*.jar
 ```
 
 **方法二：修改 logback.xml**
