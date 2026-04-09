@@ -35,6 +35,12 @@
 | `docker-compose.yml` | 容器環境變數映射 | 單機部署與本機整套啟動入口 |
 | `prompts/` | 外部提示詞目錄 | AI Chat / Agent 會讀取這裡的內容 |
 
+建議流程：
+
+- 第一次建立或調整部署關鍵值時，先執行 `make setup-env`
+- 之後若只是跟進 `.env.example` 新增欄位，執行 `make update-env`
+- 兩者都會保留未觸及的既有 secrets；`update-env` 只做非互動同步
+
 ## 環境變數速覽
 
 ### 核心執行與資料庫
@@ -79,6 +85,8 @@
 | `ECPAY_MERCHANT_ID` | 啟用法幣付款時 | 綠界 Merchant ID | 空字串 |
 | `ECPAY_HASH_KEY` | 啟用法幣付款時 | 綠界 HashKey | 空字串 |
 | `ECPAY_HASH_IV` | 啟用法幣付款時 | 綠界 HashIV | 空字串 |
+| `APP_PUBLIC_DOMAIN` | 使用 repo 管理的自架 ingress 時 | 對外公開 domain / host（不含協定） | 空字串；`make setup-env` 會從公開 URL / host 自動整理 |
+| `CADDY_ACME_EMAIL` | 使用 repo 管理的自架 ingress / TLS 時 | ACME 憑證通知 email | 空字串；由 `make setup-env` 提示填寫 |
 | `APP_PUBLIC_BASE_URL` | 使用 Compose 自架 ingress 啟用 callback 時 | 自架部署的公開 base URL；可填裸網域或完整 URL | 空字串；若 `ECPAY_RETURN_URL` 空白，系統會用它加上 `ECPAY_CALLBACK_PATH` 推導 callback URL |
 | `ECPAY_RETURN_URL` | callback URL 需要顯式 override 時 | 綠界回推 URL | 空字串；優先於 `APP_PUBLIC_BASE_URL` 推導值 |
 | `ECPAY_STAGE_MODE` | 想切正式 / 測試環境時 | 是否使用測試端點 | `true` |

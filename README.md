@@ -28,7 +28,7 @@ LTDJMS 是一個以 Java 17、Maven 與 JDA 建置的 Discord 管理機器人，
 ```bash
 git clone <your-repo-url>
 cd ltdjms
-cp .env.example .env
+make setup-env
 mkdir -p prompts
 make build
 make start-dev
@@ -46,7 +46,7 @@ make logs
 ### 本機 JVM 直跑
 
 ```bash
-cp .env.example .env
+make setup-env
 mkdir -p prompts
 make db-up
 make build
@@ -59,6 +59,7 @@ java -jar target/ltdjms-*.jar
 - 提及式 AI：在允許頻道提及 Bot
 - 付款回推：內嵌 `EcpayCallbackHttpServer`
 - 主程式入口：`src/main/java/ltdjms/discord/currency/bot/DiscordCurrencyBot.java`
+- 環境設定入口：`make setup-env`（互動式） / `make update-env`（範本同步）
 
 ## 核心能力
 
@@ -84,7 +85,9 @@ java -jar target/ltdjms-*.jar
 ## 啟動前必知
 
 - `AI_SERVICE_API_KEY` 目前在啟動時就會驗證，缺少時應用會直接失敗。
+- 建議先執行 `make setup-env` 產生或更新 `.env`；之後若 `.env.example` 有新增欄位，再執行 `make update-env` 補齊。
 - Docker Compose 自架路徑現在內建 repo 管理的 `nginx` ingress；一般只要填 `APP_PUBLIC_BASE_URL`，程式會自動推導 `ECPAY_RETURN_URL`。
+- `make setup-env` 會同步詢問公開 domain / TLS email，並寫入 `APP_PUBLIC_DOMAIN`、`CADDY_ACME_EMAIL`、`APP_PUBLIC_BASE_URL` 與 callback 策略欄位。
 - `ECPAY_RETURN_URL` 仍可保留為進階 override；只有當公開 callback URL 必須和 `APP_PUBLIC_BASE_URL + ECPAY_CALLBACK_PATH` 不同時才需要手動指定。
 - `ECPAY_CALLBACK_BIND_HOST=127.0.0.1` 與 `ECPAY_CALLBACK_BIND_PORT=8085` 在 Compose 自架模式下屬內部 wiring，通常不需要手動設定。
 - 若 `APP_PUBLIC_BASE_URL` 與 `ECPAY_RETURN_URL` 都未設定，綠界 callback server 不會啟動。
