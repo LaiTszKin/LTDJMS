@@ -79,8 +79,6 @@ services:
     volumes:
       - ./prompts:/app/prompts:ro
       - bot_logs:/app/logs
-    ports:
-      - "${APP_PUBLIC_HTTP_PORT:-80}:80"
     restart: unless-stopped
 
   nginx:
@@ -88,6 +86,8 @@ services:
     depends_on:
       - bot
     network_mode: "service:bot"
+    ports:
+      - "${APP_PUBLIC_HTTP_PORT:-80}:80"
     volumes:
       - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
     restart: unless-stopped

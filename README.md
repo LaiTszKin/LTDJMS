@@ -89,4 +89,7 @@ java -jar target/ltdjms-*.jar
 - `ECPAY_CALLBACK_BIND_HOST=127.0.0.1` 與 `ECPAY_CALLBACK_BIND_PORT=8085` 在 Compose 自架模式下屬內部 wiring，通常不需要手動設定。
 - 若 `APP_PUBLIC_BASE_URL` 與 `ECPAY_RETURN_URL` 都未設定，綠界 callback server 不會啟動。
 - 本機直跑沒有 `make run`；請使用 `java -jar target/ltdjms-*.jar`。
+- 宣傳首頁的 Vercel 自動部署 workflow 位於 `.github/workflows/vercel-landing-page.yml`；它是獨立於 Compose 自架 ingress 的另一條發布路徑，只有 `VERCEL_TRUSTED_AUTHORS` 名單中的 GitHub 使用者修改 `src/main/resources/web/` 並 push 到 `main` 時才會自動部署。
+- GitHub repository 需設定 `VERCEL_TOKEN` secret，以及 `VERCEL_ORG_ID`、`VERCEL_PROJECT_ID`、`VERCEL_TRUSTED_AUTHORS` variables，Vercel 專案則需預先建立並可由該 token 部署。
+- 若同一個 Vercel 專案仍連接 GitHub 自動部署，建議在 Vercel Project Settings -> Git 關閉自動部署或直接斷開 Git 連線，避免與 GitHub Actions 重複部署。
 - 目前以根目錄 `README.md` 與 `docs/*.md` 主文件作為閱讀入口；`docs/modules/`、`docs/architecture/` 等深度文件屬補充參考，遇到衝突時以程式碼為準。
