@@ -12,6 +12,9 @@ All notable changes to this project will be documented in this file.
 - **ops/env**: 原本的 `.env` 同步流程改由 `make update-env` 暴露，保留非互動補欄位與備份語意
 - **docs/deployment**: README、設定與快速開始文件改為說明 Caddy HTTPS、自架網域 / TLS 前置條件，以及 `setup-env` / `update-env` 的新操作流程
 
+### Fixed
+- **ops/caddy**: 修正 `network_mode: service:bot` 與 published ports 的 Docker 衝突，改由 `bot` service 發佈 `80/443`，讓共享 network namespace 的 Caddy ingress 可正常啟動
+
 ### Tests
 - 執行 `bash scripts/setup-env.test.sh`，測試通過（`PASS=5 FAIL=0`）
 - 執行 `mvn -Dtest=CaddyIngressConfigTest test`，測試通過

@@ -38,6 +38,9 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    ports:
+      - "80:80"
+      - "443:443"
     environment:
       DISCORD_BOT_TOKEN: ${DISCORD_BOT_TOKEN}
       AI_SERVICE_BASE_URL: ${AI_SERVICE_BASE_URL}
@@ -89,9 +92,6 @@ services:
     environment:
       APP_PUBLIC_DOMAIN: ${APP_PUBLIC_DOMAIN:?APP_PUBLIC_DOMAIN is required for Caddy HTTPS ingress}
       CADDY_ACME_EMAIL: ${CADDY_ACME_EMAIL:?CADDY_ACME_EMAIL is required for Caddy HTTPS ingress}
-    ports:
-      - "80:80"
-      - "443:443"
     volumes:
       - ./docker/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data

@@ -28,8 +28,10 @@ class CaddyIngressConfigTest {
         .contains(
             "CADDY_ACME_EMAIL: ${CADDY_ACME_EMAIL:?CADDY_ACME_EMAIL is required for Caddy HTTPS"
                 + " ingress}");
-    assertThat(compose).contains("- \"80:80\"");
-    assertThat(compose).contains("- \"443:443\"");
+    assertThat(compose).contains("  bot:\n");
+    assertThat(compose).contains("ports:\n      - \"80:80\"\n      - \"443:443\"");
+    assertThat(compose).containsOnlyOnce("- \"80:80\"");
+    assertThat(compose).containsOnlyOnce("- \"443:443\"");
     assertThat(compose).contains("- ./docker/caddy/Caddyfile:/etc/caddy/Caddyfile:ro");
     assertThat(compose).contains("- caddy_data:/data");
     assertThat(compose).contains("- caddy_config:/config");
