@@ -47,4 +47,19 @@ class EnvironmentConfigTest {
 
     assertThat(config.getProductFulfillmentSigningSecret()).isEqualTo("super-secret-value");
   }
+
+  @Test
+  void ecpayReturnUrlFallsBackToDerivedPublicBaseUrl() throws IOException {
+    Files.writeString(
+        tempDir.resolve(".env"),
+        """
+        APP_PUBLIC_BASE_URL=pay.example.com
+        ECPAY_CALLBACK_PATH=/ecpay/callback
+        """);
+
+    EnvironmentConfig config = new EnvironmentConfig(tempDir);
+
+    assertThat(config.getAppPublicBaseUrl()).isEqualTo("https://pay.example.com");
+    assertThat(config.getEcpayReturnUrl()).isEqualTo("https://pay.example.com/ecpay/callback");
+  }
 }

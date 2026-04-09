@@ -79,11 +79,12 @@
 | `ECPAY_MERCHANT_ID` | 啟用法幣付款時 | 綠界 Merchant ID | 空字串 |
 | `ECPAY_HASH_KEY` | 啟用法幣付款時 | 綠界 HashKey | 空字串 |
 | `ECPAY_HASH_IV` | 啟用法幣付款時 | 綠界 HashIV | 空字串 |
-| `ECPAY_RETURN_URL` | 啟用 callback 時 | 綠界回推 URL | 未設時 callback server 不啟動 |
+| `APP_PUBLIC_BASE_URL` | 使用 Compose 自架 ingress 啟用 callback 時 | 自架部署的公開 base URL；可填裸網域或完整 URL | 空字串；若 `ECPAY_RETURN_URL` 空白，系統會用它加上 `ECPAY_CALLBACK_PATH` 推導 callback URL |
+| `ECPAY_RETURN_URL` | callback URL 需要顯式 override 時 | 綠界回推 URL | 空字串；優先於 `APP_PUBLIC_BASE_URL` 推導值 |
 | `ECPAY_STAGE_MODE` | 想切正式 / 測試環境時 | 是否使用測試端點 | `true` |
 | `ECPAY_CVS_EXPIRE_MINUTES` | 想調整超商代碼期限時 | 超商代碼有效分鐘數 | `10080` |
-| `ECPAY_CALLBACK_BIND_HOST` | 需要對外提供 callback server 時 | 內嵌 HTTP server 綁定 host | `127.0.0.1` |
-| `ECPAY_CALLBACK_BIND_PORT` | 需要對外提供 callback server 時 | 內嵌 HTTP server 綁定 port | `8085` |
+| `ECPAY_CALLBACK_BIND_HOST` | 不使用 Compose 內建 ingress、需要進階 override 時 | 內嵌 HTTP server 綁定 host | `127.0.0.1`；Compose 自架預設由 repo 內 Nginx 代理到 loopback |
+| `ECPAY_CALLBACK_BIND_PORT` | 不使用 Compose 內建 ingress、需要進階 override 時 | 內嵌 HTTP server 綁定 port | `8085`；Compose 自架預設由 repo 內 Nginx 代理到這個內部 port |
 | `ECPAY_CALLBACK_PATH` | 想調整 callback path 時 | 綠界回推接收路徑 | `/ecpay/callback` |
 | `ECPAY_CALLBACK_SHARED_SECRET` | 舊部署仍保留設定時 | 舊版 callback query token 相容欄位 | 現行流程不再使用 |
 
@@ -128,10 +129,13 @@
 
 ### ECPay
 
-- 未設定 `ECPAY_RETURN_URL` 時，不會啟動 callback server
+- Compose 自架部署建議把 `APP_PUBLIC_BASE_URL` 當成主要設定入口；系統會在 `ECPAY_RETURN_URL` 留空時，自動推導 `APP_PUBLIC_BASE_URL + ECPAY_CALLBACK_PATH`
+- 若 `APP_PUBLIC_BASE_URL` 與 `ECPAY_RETURN_URL` 都未設定，不會啟動 callback server
+- `ECPAY_RETURN_URL` 仍可作為進階 override；當 callback URL 與公開 base URL 不同時再手動指定
 - callback server 啟動後同時提供：
   - `/`：宣傳首頁
   - `ECPAY_CALLBACK_PATH`：綠界付款回推
+- Docker Compose 現在會帶出 repo 內管理的 `nginx` ingress，對外代理 `/` 與 callback route 到 bot 內嵌 HTTP server
 - `ECPAY_STAGE_MODE=true` 時，callback server 只能綁定 `127.0.0.1` / `localhost` / `::1`
 - 取號若回傳 `The parameter [Data] decrypt fail`，優先檢查 `ECPAY_STAGE_MODE` 是否和 `MerchantID` / `HashKey` / `HashIV` 對應同一環境
 - 已付款 callback 會經過驗證、解密、冪等更新與後續履約
@@ -148,7 +152,8 @@
 | --- | --- |
 | `Discord bot token not configured` | 沒有提供 `DISCORD_BOT_TOKEN` |
 | `AI service API key not configured` | 沒有提供 `AI_SERVICE_API_KEY` |
-| callback server 啟動失敗 | `ECPAY_STAGE_MODE=true` 但 callback server 綁定了公網位址 |
+| callback server 沒有啟動 | `APP_PUBLIC_BASE_URL` 與 `ECPAY_RETURN_URL` 都沒設，導致無法解析最終 callback URL |
+| callback server 啟動失敗 | `ECPAY_STAGE_MODE=true` 但你在非 Compose 進階部署中把 callback server 綁到公網位址 |
 | 下單失敗且顯示 `The parameter [Data] decrypt fail` | `ECPAY_STAGE_MODE` 與 `MerchantID` / `HashKey` / `HashIV` 混用了不同環境，或金鑰含多餘空白 |
 | 付款完成但沒有履約 | ECPay callback 未到達、解密失敗，或外部履約 webhook 失敗 |
 | Redis 初始化失敗 | `REDIS_URI` 指向的服務不可連線 |

@@ -44,7 +44,9 @@ public class EcpayCallbackHttpServer {
       return;
     }
     if (config.getEcpayReturnUrl() == null || config.getEcpayReturnUrl().isBlank()) {
-      LOG.info("Skip starting ECPay callback server because ECPAY_RETURN_URL is not configured");
+      LOG.info(
+          "Skip starting ECPay callback server because no effective return URL is configured"
+              + " (set APP_PUBLIC_BASE_URL or ECPAY_RETURN_URL)");
       return;
     }
     String bindHost = sanitizeBindHost(config.getEcpayCallbackBindHost());

@@ -148,6 +148,54 @@ class EnvironmentConfigDotEnvIntegrationTest {
 
       assertThat(config.getDatabaseUrl()).isEqualTo("jdbc:postgresql://custom-host:5439/ltdjms");
     }
+
+    @Test
+    @DisplayName("should preserve explicit ECPAY_RETURN_URL over derived APP_PUBLIC_BASE_URL")
+    void explicitEcpayReturnUrlOverridesDerivedBaseUrl() throws IOException {
+      if (System.getenv("ECPAY_RETURN_URL") != null
+          || System.getenv("APP_PUBLIC_BASE_URL") != null) {
+        return;
+      }
+
+      Path envFile = tempDir.resolve(".env");
+      Files.writeString(
+          envFile,
+          """
+          APP_PUBLIC_BASE_URL=pay.example.com/base/
+          ECPAY_RETURN_URL=https://override.example.com/custom/callback
+          ECPAY_CALLBACK_PATH=/ecpay/callback
+          """);
+
+      EnvironmentConfig config = new EnvironmentConfig(tempDir);
+
+      assertThat(config.getAppPublicBaseUrl()).isEqualTo("https://pay.example.com/base");
+      assertThat(config.getEcpayReturnUrl())
+          .isEqualTo("https://override.example.com/custom/callback");
+    }
+
+    @Test
+    @DisplayName(
+        "should derive callback URL from APP_PUBLIC_BASE_URL when explicit return URL is missing")
+    void derivesCallbackUrlFromPublicBaseUrlWhenExplicitMissing() throws IOException {
+      if (System.getenv("ECPAY_RETURN_URL") != null
+          || System.getenv("APP_PUBLIC_BASE_URL") != null) {
+        return;
+      }
+
+      Path envFile = tempDir.resolve(".env");
+      Files.writeString(
+          envFile,
+          """
+          APP_PUBLIC_BASE_URL=https://pay.example.com/root/
+          ECPAY_CALLBACK_PATH=ecpay/callback
+          """);
+
+      EnvironmentConfig config = new EnvironmentConfig(tempDir);
+
+      assertThat(config.getAppPublicBaseUrl()).isEqualTo("https://pay.example.com/root");
+      assertThat(config.getEcpayReturnUrl())
+          .isEqualTo("https://pay.example.com/root/ecpay/callback");
+    }
   }
 
   @Nested

@@ -57,6 +57,7 @@ public final class EnvironmentConfig {
   private static final String ENV_AI_MARKDOWN_VALIDATION_ENABLED = "AI_MARKDOWN_VALIDATION_ENABLED";
   private static final String ENV_AI_MARKDOWN_VALIDATION_STREAMING_BYPASS =
       "AI_MARKDOWN_VALIDATION_STREAMING_BYPASS";
+  private static final String ENV_APP_PUBLIC_BASE_URL = "APP_PUBLIC_BASE_URL";
   private static final String ENV_ECPAY_MERCHANT_ID = "ECPAY_MERCHANT_ID";
   private static final String ENV_ECPAY_HASH_KEY = "ECPAY_HASH_KEY";
   private static final String ENV_ECPAY_HASH_IV = "ECPAY_HASH_IV";
@@ -97,6 +98,7 @@ public final class EnvironmentConfig {
   private static final String CFG_AI_MARKDOWN_VALIDATION_ENABLED = "ai.markdown-validation.enabled";
   private static final String CFG_AI_MARKDOWN_VALIDATION_STREAMING_BYPASS =
       "ai.markdown-validation.streaming-bypass";
+  private static final String CFG_APP_PUBLIC_BASE_URL = "app.public-base-url";
   private static final String CFG_ECPAY_MERCHANT_ID = "payment.ecpay.merchant-id";
   private static final String CFG_ECPAY_HASH_KEY = "payment.ecpay.hash-key";
   private static final String CFG_ECPAY_HASH_IV = "payment.ecpay.hash-iv";
@@ -130,6 +132,7 @@ public final class EnvironmentConfig {
   private static final boolean DEFAULT_AI_SHOW_REASONING = false;
   private static final boolean DEFAULT_AI_MARKDOWN_VALIDATION_ENABLED = true;
   private static final boolean DEFAULT_AI_MARKDOWN_VALIDATION_STREAMING_BYPASS = false;
+  private static final String DEFAULT_APP_PUBLIC_BASE_URL = "";
   private static final String DEFAULT_ECPAY_MERCHANT_ID = "";
   private static final String DEFAULT_ECPAY_HASH_KEY = "";
   private static final String DEFAULT_ECPAY_HASH_IV = "";
@@ -190,6 +193,7 @@ public final class EnvironmentConfig {
     defaults.put(
         CFG_AI_MARKDOWN_VALIDATION_STREAMING_BYPASS,
         DEFAULT_AI_MARKDOWN_VALIDATION_STREAMING_BYPASS);
+    defaults.put(CFG_APP_PUBLIC_BASE_URL, DEFAULT_APP_PUBLIC_BASE_URL);
     defaults.put(CFG_ECPAY_MERCHANT_ID, DEFAULT_ECPAY_MERCHANT_ID);
     defaults.put(CFG_ECPAY_HASH_KEY, DEFAULT_ECPAY_HASH_KEY);
     defaults.put(CFG_ECPAY_HASH_IV, DEFAULT_ECPAY_HASH_IV);
@@ -234,6 +238,7 @@ public final class EnvironmentConfig {
         dotEnvMapped,
         ENV_AI_MARKDOWN_VALIDATION_STREAMING_BYPASS,
         CFG_AI_MARKDOWN_VALIDATION_STREAMING_BYPASS);
+    mapEnvToConfig(dotEnvMapped, ENV_APP_PUBLIC_BASE_URL, CFG_APP_PUBLIC_BASE_URL);
     mapEnvToConfig(dotEnvMapped, ENV_ECPAY_MERCHANT_ID, CFG_ECPAY_MERCHANT_ID);
     mapEnvToConfig(dotEnvMapped, ENV_ECPAY_HASH_KEY, CFG_ECPAY_HASH_KEY);
     mapEnvToConfig(dotEnvMapped, ENV_ECPAY_HASH_IV, CFG_ECPAY_HASH_IV);
@@ -279,6 +284,7 @@ public final class EnvironmentConfig {
         sysEnvMapped,
         ENV_AI_MARKDOWN_VALIDATION_STREAMING_BYPASS,
         CFG_AI_MARKDOWN_VALIDATION_STREAMING_BYPASS);
+    mapSysEnvToConfig(sysEnvMapped, ENV_APP_PUBLIC_BASE_URL, CFG_APP_PUBLIC_BASE_URL);
     mapSysEnvToConfig(sysEnvMapped, ENV_ECPAY_MERCHANT_ID, CFG_ECPAY_MERCHANT_ID);
     mapSysEnvToConfig(sysEnvMapped, ENV_ECPAY_HASH_KEY, CFG_ECPAY_HASH_KEY);
     mapSysEnvToConfig(sysEnvMapped, ENV_ECPAY_HASH_IV, CFG_ECPAY_HASH_IV);
@@ -803,12 +809,30 @@ public final class EnvironmentConfig {
   }
 
   /**
+   * Gets the public base URL used to derive self-hosted callback URLs.
+   *
+   * @return normalized public base URL, empty string when not configured
+   */
+  public String getAppPublicBaseUrl() {
+    return normalizePublicBaseUrl(config.getString(CFG_APP_PUBLIC_BASE_URL));
+  }
+
+  /**
    * Gets ECPay payment result callback URL.
    *
-   * @return callback URL, empty string when not configured
+   * @return callback URL, empty string when neither explicit URL nor derivable public base URL is
+   *     configured
    */
   public String getEcpayReturnUrl() {
-    return config.getString(CFG_ECPAY_RETURN_URL);
+    String explicitReturnUrl = config.getString(CFG_ECPAY_RETURN_URL).trim();
+    if (!explicitReturnUrl.isBlank()) {
+      return explicitReturnUrl;
+    }
+    String publicBaseUrl = getAppPublicBaseUrl();
+    if (publicBaseUrl.isBlank()) {
+      return "";
+    }
+    return publicBaseUrl + normalizeCallbackPath(config.getString(CFG_ECPAY_CALLBACK_PATH));
   }
 
   /**
@@ -872,5 +896,33 @@ public final class EnvironmentConfig {
    */
   public String getProductFulfillmentSigningSecret() {
     return config.getString(CFG_PRODUCT_FULFILLMENT_SIGNING_SECRET);
+  }
+
+  private String normalizePublicBaseUrl(String rawValue) {
+    if (rawValue == null) {
+      return "";
+    }
+    String normalized = rawValue.trim();
+    if (normalized.isBlank()) {
+      return "";
+    }
+    if (!normalized.matches("^[a-zA-Z][a-zA-Z0-9+.-]*://.*$")) {
+      normalized = "https://" + normalized;
+    }
+    while (normalized.endsWith("/")) {
+      normalized = normalized.substring(0, normalized.length() - 1);
+    }
+    return normalized;
+  }
+
+  private String normalizeCallbackPath(String rawPath) {
+    if (rawPath == null || rawPath.isBlank()) {
+      return "/ecpay/callback";
+    }
+    String normalized = rawPath.trim();
+    if (!normalized.startsWith("/")) {
+      normalized = "/" + normalized;
+    }
+    return normalized;
   }
 }

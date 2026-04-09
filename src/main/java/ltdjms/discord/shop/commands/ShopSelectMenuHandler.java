@@ -1,6 +1,8 @@
 package ltdjms.discord.shop.commands;
 
 import java.util.List;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -16,9 +18,11 @@ import ltdjms.discord.shop.services.CurrencyPurchaseService;
 import ltdjms.discord.shop.services.FiatOrderService;
 import ltdjms.discord.shop.services.ShopAdminNotificationService;
 import ltdjms.discord.shop.services.ShopView;
+import net.dv8tion.jda.api.entities.User;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.component.StringSelectInteractionEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
+import net.dv8tion.jda.api.interactions.InteractionHook;
 import net.dv8tion.jda.api.interactions.components.buttons.ButtonStyle;
 
 /** Handles select menu and button interactions for shop purchase. */
@@ -34,6 +38,7 @@ public class ShopSelectMenuHandler extends ListenerAdapter {
   private final CurrencyPurchaseService purchaseService;
   private final FiatOrderService fiatOrderService;
   private final ShopAdminNotificationService adminNotificationService;
+  private final Set<String> inflightFiatOrders = ConcurrentHashMap.newKeySet();
 
   public ShopSelectMenuHandler(
       ProductService productService,
@@ -120,45 +125,131 @@ public class ShopSelectMenuHandler extends ListenerAdapter {
   private void handleFiatOrderSelect(
       StringSelectInteractionEvent event, long guildId, long userId) {
     long productId = Long.parseLong(event.getValues().get(0));
-    Result<FiatOrderService.FiatOrderResult, DomainError> orderResult =
-        fiatOrderService.createFiatOnlyOrder(guildId, userId, productId);
-    if (orderResult.isErr()) {
-      event.reply("下單失敗：" + orderResult.getError().message()).setEphemeral(true).queue();
+    String inflightKey = buildFiatOrderInflightKey(guildId, userId, productId);
+    if (!inflightFiatOrders.add(inflightKey)) {
+      event.reply("⚠️ 這筆法幣訂單正在處理中，請稍候檢查互動結果。").setEphemeral(true).queue();
       return;
     }
-
-    FiatOrderService.FiatOrderResult order = orderResult.getValue();
     event
-        .getUser()
-        .openPrivateChannel()
+        .deferReply(true)
         .queue(
-            channel ->
-                channel
-                    .sendMessage(order.formatDirectMessage())
-                    .queue(
-                        success -> event.reply("✅ 已將超商代碼與訂單編號私訊給你").setEphemeral(true).queue(),
-                        failure -> {
-                          LOG.warn(
-                              "Failed to DM fiat order info: userId={}, orderNumber={}",
-                              userId,
-                              order.orderNumber(),
-                              failure);
-                          event
-                              .reply("⚠️ 訂單已建立（`" + order.orderNumber() + "`），但無法私訊你，請開啟私訊後再試。")
-                              .setEphemeral(true)
-                              .queue();
-                        }),
+            hook ->
+                processDeferredFiatOrderSelection(
+                    hook, event.getUser(), guildId, userId, productId, inflightKey),
             failure -> {
+              inflightFiatOrders.remove(inflightKey);
               LOG.warn(
-                  "Failed to open DM for fiat order info: userId={}, orderNumber={}",
+                  "Failed to defer fiat order reply: guildId={}, userId={}, productId={}",
+                  guildId,
                   userId,
-                  order.orderNumber(),
+                  productId,
                   failure);
-              event
-                  .reply("⚠️ 訂單已建立（`" + order.orderNumber() + "`），但無法開啟私訊，請開啟私訊後再試。")
-                  .setEphemeral(true)
-                  .queue();
             });
+  }
+
+  private void processDeferredFiatOrderSelection(
+      InteractionHook hook,
+      User user,
+      long guildId,
+      long userId,
+      long productId,
+      String inflightKey) {
+    try {
+      Result<FiatOrderService.FiatOrderResult, DomainError> orderResult =
+          fiatOrderService.createFiatOnlyOrder(guildId, userId, productId);
+      if (orderResult.isErr()) {
+        completeDeferredFiatOrder(hook, "下單失敗：" + orderResult.getError().message(), inflightKey);
+        return;
+      }
+
+      FiatOrderService.FiatOrderResult order = orderResult.getValue();
+      user.openPrivateChannel()
+          .queue(
+              channel ->
+                  channel
+                      .sendMessage(order.formatDirectMessage())
+                      .queue(
+                          success ->
+                              completeDeferredFiatOrder(
+                                  hook,
+                                  buildFiatOrderInteractionMessage(order, true, null),
+                                  inflightKey),
+                          failure -> {
+                            LOG.warn(
+                                "Failed to DM fiat order info: userId={}, orderNumber={}",
+                                userId,
+                                order.orderNumber(),
+                                failure);
+                            completeDeferredFiatOrder(
+                                hook,
+                                buildFiatOrderInteractionMessage(
+                                    order, false, "⚠️ 無法私訊你，請直接使用以下資訊付款。"),
+                                inflightKey);
+                          }),
+              failure -> {
+                LOG.warn(
+                    "Failed to open DM for fiat order info: userId={}, orderNumber={}",
+                    userId,
+                    order.orderNumber(),
+                    failure);
+                completeDeferredFiatOrder(
+                    hook,
+                    buildFiatOrderInteractionMessage(order, false, "⚠️ 無法開啟私訊，請直接使用以下資訊付款。"),
+                    inflightKey);
+              });
+    } catch (Exception e) {
+      LOG.error(
+          "Error processing deferred fiat order: guildId={}, userId={}, productId={}",
+          guildId,
+          userId,
+          productId,
+          e);
+      completeDeferredFiatOrder(hook, "發生錯誤，請稍後再試", inflightKey);
+    }
+  }
+
+  private void completeDeferredFiatOrder(InteractionHook hook, String message, String inflightKey) {
+    hook.editOriginal(message)
+        .queue(
+            success -> inflightFiatOrders.remove(inflightKey),
+            failure -> {
+              inflightFiatOrders.remove(inflightKey);
+              LOG.warn("Failed to edit deferred fiat order reply", failure);
+            });
+  }
+
+  private String buildFiatOrderInteractionMessage(
+      FiatOrderService.FiatOrderResult order, boolean dmDelivered, String dmWarning) {
+    StringBuilder sb = new StringBuilder();
+    if (dmDelivered) {
+      sb.append("✅ 法幣訂單已建立，完整付款資訊也已私訊給你。\n\n");
+    } else {
+      sb.append("✅ 法幣訂單已建立。\n");
+      if (dmWarning != null && !dmWarning.isBlank()) {
+        sb.append(dmWarning).append("\n\n");
+      } else {
+        sb.append("\n");
+      }
+    }
+    sb.append("**商品：** ").append(order.product().name()).append("\n");
+    sb.append("**訂單編號：** `").append(order.orderNumber()).append("`\n");
+    sb.append("**超商代碼：** `").append(order.paymentNo()).append("`\n");
+    sb.append("**金額：** ").append(order.product().formatFiatPriceTwd()).append("\n");
+    if (order.expireDate() != null && !order.expireDate().isBlank()) {
+      sb.append("**繳費期限：** ").append(order.expireDate()).append("\n");
+    }
+    if (order.paymentUrl() != null && !order.paymentUrl().isBlank()) {
+      sb.append("**繳費說明：** ").append(order.paymentUrl()).append("\n");
+    }
+    if (order.fulfillmentWarning() != null && !order.fulfillmentWarning().isBlank()) {
+      sb.append(order.fulfillmentWarning()).append("\n");
+    }
+    sb.append("\n若需查詢訂單或回報付款，請提供訂單編號給管理員。");
+    return sb.toString();
+  }
+
+  private String buildFiatOrderInflightKey(long guildId, long userId, long productId) {
+    return guildId + ":" + userId + ":" + productId;
   }
 
   @Override

@@ -6,11 +6,14 @@ import static org.mockito.Mockito.*;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentMatchers;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
@@ -27,10 +30,16 @@ import ltdjms.discord.shop.services.FiatOrderService;
 import ltdjms.discord.shop.services.ShopAdminNotificationService;
 import ltdjms.discord.shop.services.ShopView;
 import net.dv8tion.jda.api.entities.Guild;
+import net.dv8tion.jda.api.entities.Message;
 import net.dv8tion.jda.api.entities.MessageEmbed;
 import net.dv8tion.jda.api.entities.User;
+import net.dv8tion.jda.api.entities.channel.concrete.PrivateChannel;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.component.StringSelectInteractionEvent;
+import net.dv8tion.jda.api.interactions.InteractionHook;
+import net.dv8tion.jda.api.requests.restaction.CacheRestAction;
+import net.dv8tion.jda.api.requests.restaction.MessageCreateAction;
+import net.dv8tion.jda.api.requests.restaction.WebhookMessageEditAction;
 import net.dv8tion.jda.api.requests.restaction.interactions.MessageEditCallbackAction;
 import net.dv8tion.jda.api.requests.restaction.interactions.ReplyCallbackAction;
 
@@ -66,6 +75,18 @@ class ShopSelectMenuHandlerTest {
 
   @Mock private MessageEditCallbackAction editAction;
 
+  @Mock private ReplyCallbackAction deferredReplyAction;
+
+  @Mock private InteractionHook interactionHook;
+
+  @Mock private WebhookMessageEditAction<Message> hookEditAction;
+
+  @Mock private CacheRestAction<PrivateChannel> openPrivateChannelAction;
+
+  @Mock private PrivateChannel privateChannel;
+
+  @Mock private MessageCreateAction dmMessageAction;
+
   private ShopSelectMenuHandler handler;
 
   @BeforeEach
@@ -85,7 +106,47 @@ class ShopSelectMenuHandlerTest {
     when(user.getIdLong()).thenReturn(TEST_USER_ID);
     when(selectEvent.isFromGuild()).thenReturn(true);
     when(selectEvent.reply(anyString())).thenReturn(replyAction);
+    when(selectEvent.deferReply(true)).thenReturn(deferredReplyAction);
     when(replyAction.setEphemeral(anyBoolean())).thenReturn(replyAction);
+    when(user.openPrivateChannel()).thenReturn(openPrivateChannelAction);
+    when(privateChannel.sendMessage(anyString())).thenReturn(dmMessageAction);
+    when(interactionHook.editOriginal(any(String.class))).thenReturn(hookEditAction);
+    doAnswer(
+            invocation -> {
+              @SuppressWarnings("unchecked")
+              Consumer<InteractionHook> success = invocation.getArgument(0);
+              success.accept(interactionHook);
+              return null;
+            })
+        .when(deferredReplyAction)
+        .queue(any(), any());
+    doAnswer(
+            invocation -> {
+              @SuppressWarnings("unchecked")
+              Consumer<PrivateChannel> success = invocation.getArgument(0);
+              success.accept(privateChannel);
+              return null;
+            })
+        .when(openPrivateChannelAction)
+        .queue(any(), any());
+    doAnswer(
+            invocation -> {
+              @SuppressWarnings("unchecked")
+              Consumer<Message> success = invocation.getArgument(0);
+              success.accept(null);
+              return null;
+            })
+        .when(dmMessageAction)
+        .queue(any(), any());
+    doAnswer(
+            invocation -> {
+              @SuppressWarnings("unchecked")
+              Consumer<Message> success = invocation.getArgument(0);
+              success.accept(null);
+              return null;
+            })
+        .when(hookEditAction)
+        .queue(any(), any());
 
     when(buttonEvent.getGuild()).thenReturn(guild);
     when(buttonEvent.getUser()).thenReturn(user);
@@ -238,8 +299,184 @@ class ShopSelectMenuHandlerTest {
 
     handler.onStringSelectInteraction(selectEvent);
 
-    verify(selectEvent).reply("下單失敗：商品不支援法幣");
+    verify(selectEvent).deferReply(true);
+    verify(interactionHook).editOriginal(eq("下單失敗：商品不支援法幣"));
+  }
+
+  @Test
+  @DisplayName("法幣下單成功應在 deferred reply 顯示訂單摘要")
+  void selectFiatProductSuccess_shouldEditDeferredReplyWithOrderSummary() {
+    when(selectEvent.getComponentId()).thenReturn(ShopView.SELECT_FIAT_PRODUCT);
+    when(selectEvent.getValues()).thenReturn(List.of(String.valueOf(TEST_PRODUCT_ID)));
+    when(fiatOrderService.createFiatOnlyOrder(TEST_GUILD_ID, TEST_USER_ID, TEST_PRODUCT_ID))
+        .thenReturn(
+            Result.ok(
+                new FiatOrderService.FiatOrderResult(
+                    new Product(
+                        TEST_PRODUCT_ID,
+                        TEST_GUILD_ID,
+                        "VIP 商品",
+                        "desc",
+                        null,
+                        null,
+                        null,
+                        1200L,
+                        Instant.now(),
+                        Instant.now()),
+                    "FD260409000001",
+                    "ABC123456789",
+                    "2026/04/12 23:59:59",
+                    "https://example.com/pay",
+                    null)));
+
+    handler.onStringSelectInteraction(selectEvent);
+
+    verify(selectEvent).deferReply(true);
+    verify(privateChannel).sendMessage(contains("超商代碼"));
+    verify(interactionHook)
+        .editOriginal(
+            ArgumentMatchers.<String>argThat(
+                msg ->
+                    msg.contains("法幣訂單已建立")
+                        && msg.contains("完整付款資訊也已私訊給你")
+                        && msg.contains("`FD260409000001`")
+                        && msg.contains("`ABC123456789`")));
+  }
+
+  @Test
+  @DisplayName("法幣下單在無法開啟私訊時應顯示付款備援資訊")
+  void selectFiatProductWhenOpenDmFails_shouldShowFallbackInfo() {
+    when(selectEvent.getComponentId()).thenReturn(ShopView.SELECT_FIAT_PRODUCT);
+    when(selectEvent.getValues()).thenReturn(List.of(String.valueOf(TEST_PRODUCT_ID)));
+    when(fiatOrderService.createFiatOnlyOrder(TEST_GUILD_ID, TEST_USER_ID, TEST_PRODUCT_ID))
+        .thenReturn(
+            Result.ok(
+                new FiatOrderService.FiatOrderResult(
+                    new Product(
+                        TEST_PRODUCT_ID,
+                        TEST_GUILD_ID,
+                        "VIP 商品",
+                        "desc",
+                        null,
+                        null,
+                        null,
+                        1200L,
+                        Instant.now(),
+                        Instant.now()),
+                    "FD260409000002",
+                    "ABC999999999",
+                    "2026/04/12 23:59:59",
+                    "https://example.com/pay",
+                    null)));
+    doAnswer(
+            invocation -> {
+              @SuppressWarnings("unchecked")
+              Consumer<Throwable> failure = invocation.getArgument(1);
+              failure.accept(new RuntimeException("DM disabled"));
+              return null;
+            })
+        .when(openPrivateChannelAction)
+        .queue(any(), any());
+
+    handler.onStringSelectInteraction(selectEvent);
+
+    verify(interactionHook)
+        .editOriginal(
+            ArgumentMatchers.<String>argThat(
+                msg ->
+                    msg.contains("無法開啟私訊")
+                        && msg.contains("`FD260409000002`")
+                        && msg.contains("`ABC999999999`")));
+  }
+
+  @Test
+  @DisplayName("法幣下單在私訊送出失敗時應顯示付款備援資訊")
+  void selectFiatProductWhenSendDmFails_shouldShowFallbackInfo() {
+    when(selectEvent.getComponentId()).thenReturn(ShopView.SELECT_FIAT_PRODUCT);
+    when(selectEvent.getValues()).thenReturn(List.of(String.valueOf(TEST_PRODUCT_ID)));
+    when(fiatOrderService.createFiatOnlyOrder(TEST_GUILD_ID, TEST_USER_ID, TEST_PRODUCT_ID))
+        .thenReturn(
+            Result.ok(
+                new FiatOrderService.FiatOrderResult(
+                    new Product(
+                        TEST_PRODUCT_ID,
+                        TEST_GUILD_ID,
+                        "VIP 商品",
+                        "desc",
+                        null,
+                        null,
+                        null,
+                        1200L,
+                        Instant.now(),
+                        Instant.now()),
+                    "FD260409000003",
+                    "ABC888888888",
+                    "2026/04/12 23:59:59",
+                    "https://example.com/pay",
+                    null)));
+    doAnswer(
+            invocation -> {
+              @SuppressWarnings("unchecked")
+              Consumer<Throwable> failure = invocation.getArgument(1);
+              failure.accept(new RuntimeException("Cannot send"));
+              return null;
+            })
+        .when(dmMessageAction)
+        .queue(any(), any());
+
+    handler.onStringSelectInteraction(selectEvent);
+
+    verify(interactionHook)
+        .editOriginal(
+            ArgumentMatchers.<String>argThat(
+                msg ->
+                    msg.contains("無法私訊你")
+                        && msg.contains("`FD260409000003`")
+                        && msg.contains("`ABC888888888`")));
+  }
+
+  @Test
+  @DisplayName("法幣下單失敗後應釋放 in-flight guard")
+  void selectFiatProductFailure_shouldReleaseInFlightGuard() {
+    when(selectEvent.getComponentId()).thenReturn(ShopView.SELECT_FIAT_PRODUCT);
+    when(selectEvent.getValues()).thenReturn(List.of(String.valueOf(TEST_PRODUCT_ID)));
+    when(fiatOrderService.createFiatOnlyOrder(TEST_GUILD_ID, TEST_USER_ID, TEST_PRODUCT_ID))
+        .thenReturn(
+            Result.err(new DomainError(DomainError.Category.INVALID_INPUT, "商品不支援法幣", null)));
+
+    handler.onStringSelectInteraction(selectEvent);
+    handler.onStringSelectInteraction(selectEvent);
+
+    verify(fiatOrderService, times(2))
+        .createFiatOnlyOrder(TEST_GUILD_ID, TEST_USER_ID, TEST_PRODUCT_ID);
+    verify(selectEvent, times(2)).deferReply(true);
+    verify(selectEvent, never()).reply("⚠️ 這筆法幣訂單正在處理中，請稍候檢查互動結果。");
+  }
+
+  @Test
+  @DisplayName("法幣下單在同一商品重複觸發時應提示處理中")
+  void selectFiatProductWhileInFlight_shouldReplyProcessingMessage() {
+    AtomicReference<Consumer<InteractionHook>> deferredConsumer = new AtomicReference<>();
+    doAnswer(
+            invocation -> {
+              @SuppressWarnings("unchecked")
+              Consumer<InteractionHook> success = invocation.getArgument(0);
+              deferredConsumer.set(success);
+              return null;
+            })
+        .when(deferredReplyAction)
+        .queue(any(), any());
+
+    when(selectEvent.getComponentId()).thenReturn(ShopView.SELECT_FIAT_PRODUCT);
+    when(selectEvent.getValues()).thenReturn(List.of(String.valueOf(TEST_PRODUCT_ID)));
+
+    handler.onStringSelectInteraction(selectEvent);
+    handler.onStringSelectInteraction(selectEvent);
+
+    verify(selectEvent).reply("⚠️ 這筆法幣訂單正在處理中，請稍候檢查互動結果。");
     verify(replyAction).setEphemeral(true);
+    verify(fiatOrderService, never()).createFiatOnlyOrder(anyLong(), anyLong(), anyLong());
+    verify(interactionHook, never()).editOriginal(anyString());
   }
 
   // ========== ButtonInteraction 測試 ==========

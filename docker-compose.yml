@@ -63,6 +63,12 @@ services:
       LOG_MAX_FILE_SIZE: ${LOG_MAX_FILE_SIZE:-20MB}
       LOG_MAX_HISTORY_DAYS: ${LOG_MAX_HISTORY_DAYS:-30}
       LOG_TOTAL_SIZE_CAP: ${LOG_TOTAL_SIZE_CAP:-3GB}
+      APP_PUBLIC_BASE_URL: ${APP_PUBLIC_BASE_URL:-}
+      ECPAY_RETURN_URL: ${ECPAY_RETURN_URL:-}
+      ECPAY_STAGE_MODE: ${ECPAY_STAGE_MODE:-true}
+      ECPAY_CALLBACK_PATH: ${ECPAY_CALLBACK_PATH:-/ecpay/callback}
+      ECPAY_CALLBACK_BIND_HOST: 127.0.0.1
+      ECPAY_CALLBACK_BIND_PORT: 8085
       REDIS_URI: redis://redis:6379
       JAVA_OPTS: >-
         -XX:+UseContainerSupport
@@ -73,6 +79,17 @@ services:
     volumes:
       - ./prompts:/app/prompts:ro
       - bot_logs:/app/logs
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:1.27-alpine
+    depends_on:
+      - bot
+    network_mode: "service:bot"
+    ports:
+      - "${APP_PUBLIC_HTTP_PORT:-80}:80"
+    volumes:
+      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
     restart: unless-stopped
 
 volumes:

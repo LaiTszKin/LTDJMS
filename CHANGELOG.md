@@ -4,11 +4,16 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Changed
+- **shop/fiat**: 法幣下單改為先完成 Discord deferred interaction，再回填訂單摘要；DM 失敗時會直接在 interaction 提供完整付款備援資訊，並阻止同一商品重複點擊時重入建單
+- **ops/ecpay**: 自架 Compose 部署新增 repo 管理的 Nginx ingress，並支援由 `APP_PUBLIC_BASE_URL` 自動推導 `ECPAY_RETURN_URL`
+
 ### Fixed
 - **shop/ecpay**: 移除 callback `ReturnURL` 的 query token 依賴，測試環境改為禁止公開 callback 綁定，並在 `Data decrypt fail` 時回報更明確的環境 / 金鑰診斷訊息
 
 ### Docs
 - **docs/ecpay**: 同步 `.env.example`、設定與開發文件，說明 stage/public callback 限制與 `Data decrypt fail` 排查方向
+- **docs/deployment**: README、設定與快速開始文件改為以 `APP_PUBLIC_BASE_URL` 為自架主要入口，說明 `ECPAY_RETURN_URL` 與 callback bind 只作進階 override
 
 ## [0.34.0] - 2026-04-09
 
