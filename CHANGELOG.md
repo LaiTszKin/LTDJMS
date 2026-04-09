@@ -4,16 +4,19 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+- **ops/caddy**: Docker Compose 自架部署新增 repo 管理的 Caddy HTTPS ingress，要求 `APP_PUBLIC_DOMAIN` 與 `CADDY_ACME_EMAIL`，並把 landing page 與 `ECPAY_CALLBACK_PATH` 代理到 bot loopback callback server
+- **ops/setup**: 新增互動式 `make setup-env` / `scripts/setup-env.sh`，可引導產生 `.env`、正規化公開網址，並補齊 Caddy / ECPay 相關欄位
+
 ### Changed
-- **shop/fiat**: 法幣下單改為先完成 Discord deferred interaction，再回填訂單摘要；DM 失敗時會直接在 interaction 提供完整付款備援資訊，並阻止同一商品重複點擊時重入建單
-- **ops/ecpay**: 自架 Compose 部署新增 repo 管理的 Nginx ingress，並支援由 `APP_PUBLIC_BASE_URL` 自動推導 `ECPAY_RETURN_URL`
+- **ops/env**: 原本的 `.env` 同步流程改由 `make update-env` 暴露，保留非互動補欄位與備份語意
+- **docs/deployment**: README、設定與快速開始文件改為說明 Caddy HTTPS、自架網域 / TLS 前置條件，以及 `setup-env` / `update-env` 的新操作流程
 
-### Fixed
-- **shop/ecpay**: 移除 callback `ReturnURL` 的 query token 依賴，測試環境改為禁止公開 callback 綁定，並在 `Data decrypt fail` 時回報更明確的環境 / 金鑰診斷訊息
-
-### Docs
-- **docs/ecpay**: 同步 `.env.example`、設定與開發文件，說明 stage/public callback 限制與 `Data decrypt fail` 排查方向
-- **docs/deployment**: README、設定與快速開始文件改為以 `APP_PUBLIC_BASE_URL` 為自架主要入口，說明 `ECPAY_RETURN_URL` 與 callback bind 只作進階 override
+### Tests
+- 執行 `bash scripts/setup-env.test.sh`，測試通過（`PASS=5 FAIL=0`）
+- 執行 `mvn -Dtest=CaddyIngressConfigTest test`，測試通過
+- 執行 `APP_PUBLIC_DOMAIN=example.com CADDY_ACME_EMAIL=ops@example.com docker compose config`，驗證 Compose 組態通過
+- 執行 `make test`，共 `2430` tests（`0` failures / `0` errors，`84` skipped），測試通過
 
 ## [0.34.0] - 2026-04-09
 
