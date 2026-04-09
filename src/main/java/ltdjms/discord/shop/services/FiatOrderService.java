@@ -122,7 +122,7 @@ public class FiatOrderService {
       if (fulfillmentWarning != null && !fulfillmentWarning.isBlank()) {
         sb.append("\n").append(fulfillmentWarning).append("\n");
       }
-      sb.append("\n請以此超商代碼完成付款。");
+      sb.append("\n請在付款期限內完成付款，否則訂單將被自動取消。");
       return sb.toString();
     }
   }

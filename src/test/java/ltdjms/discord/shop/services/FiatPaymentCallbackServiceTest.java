@@ -56,6 +56,7 @@ class FiatPaymentCallbackServiceTest {
   @Mock private ProductService productService;
   @Mock private ProductFulfillmentApiService productFulfillmentApiService;
   @Mock private ShopAdminNotificationService adminNotificationService;
+  @Mock private FiatOrderBuyerNotificationService buyerNotificationService;
 
   private FiatPaymentCallbackService service;
   private Clock fixedClock;
@@ -79,6 +80,7 @@ class FiatPaymentCallbackServiceTest {
             productService,
             productFulfillmentApiService,
             adminNotificationService,
+            buyerNotificationService,
             new ObjectMapper(),
             fixedClock);
   }
@@ -133,6 +135,7 @@ class FiatPaymentCallbackServiceTest {
     verify(adminNotificationService)
         .notifyAdminsOrderCreated(GUILD_ID, BUYER_ID, escortProduct(), "法幣付款完成", ORDER_NUMBER);
     verify(productFulfillmentApiService).notifyFulfillment(any());
+    verify(buyerNotificationService).notifyPaymentSucceeded(paidOrder);
     verify(fiatOrderRepository).markFulfilledIfNeeded(eq(ORDER_NUMBER), any(Instant.class));
   }
 
@@ -183,6 +186,7 @@ class FiatPaymentCallbackServiceTest {
     assertThat(result.httpStatus()).isEqualTo(200);
     verify(adminNotificationService, never())
         .notifyAdminsOrderCreated(anyLong(), anyLong(), any(), any(), any());
+    verify(buyerNotificationService, never()).notifyPaymentSucceeded(any());
     verify(productFulfillmentApiService, never()).notifyFulfillment(any());
     verify(fiatOrderRepository, never()).markAdminNotifiedIfNeeded(any(), any(Instant.class));
     verify(fiatOrderRepository, never()).markFulfilledIfNeeded(any(), any(Instant.class));
@@ -208,6 +212,7 @@ class FiatPaymentCallbackServiceTest {
             "application/json");
 
     assertThat(result.httpStatus()).isEqualTo(200);
+    verify(buyerNotificationService, never()).notifyPaymentSucceeded(any());
     verify(productFulfillmentApiService, never()).notifyFulfillment(any());
     verify(adminNotificationService, never())
         .notifyAdminsOrderCreated(anyLong(), anyLong(), any(), any(), any());
@@ -253,10 +258,66 @@ class FiatPaymentCallbackServiceTest {
             "application/json");
 
     assertThat(result.httpStatus()).isEqualTo(200);
+    verify(buyerNotificationService, never()).notifyPaymentSucceeded(any());
     verify(productFulfillmentApiService, never()).notifyFulfillment(any());
     verify(fiatOrderRepository, never()).markFulfilledIfNeeded(any(), any(Instant.class));
     verify(adminNotificationService, never())
         .notifyAdminsOrderCreated(anyLong(), anyLong(), any(), any(), any());
+  }
+
+  @Test
+  @DisplayName("付款成功通知失敗時不應影響 callback 成功與既有副作用")
+  void shouldIgnoreBuyerNotificationFailure() {
+    FiatOrder pendingOrder = pendingOrder();
+    FiatOrder paidOrder =
+        new FiatOrder(
+            1L,
+            GUILD_ID,
+            BUYER_ID,
+            PRODUCT_ID,
+            "護航商品",
+            ORDER_NUMBER,
+            "ABC123456789",
+            1200L,
+            FiatOrder.Status.PAID,
+            "1",
+            "付款成功",
+            Instant.now(fixedClock),
+            null,
+            null,
+            null,
+            Instant.now(fixedClock),
+            Instant.now(fixedClock));
+
+    when(fiatOrderRepository.findByOrderNumber(ORDER_NUMBER)).thenReturn(Optional.of(pendingOrder));
+    when(fiatOrderRepository.markPaidIfPending(
+            eq(ORDER_NUMBER), eq("1"), eq("付款成功"), any(), any(Instant.class)))
+        .thenReturn(Optional.of(paidOrder));
+    when(fiatOrderRepository.markAdminNotifiedIfNeeded(eq(ORDER_NUMBER), any(Instant.class)))
+        .thenReturn(Optional.of(paidOrder));
+    when(fiatOrderRepository.markFulfilledIfNeeded(eq(ORDER_NUMBER), any(Instant.class)))
+        .thenReturn(Optional.of(paidOrder));
+    when(productService.getProduct(PRODUCT_ID)).thenReturn(Optional.of(escortProduct()));
+    when(productFulfillmentApiService.notifyFulfillment(any())).thenReturn(Result.okVoid());
+    doThrow(new RuntimeException("DM failed"))
+        .when(buyerNotificationService)
+        .notifyPaymentSucceeded(paidOrder);
+
+    FiatPaymentCallbackService.CallbackResult result =
+        service.handleCallback(
+            encryptedPayload(
+                """
+                {"MerchantID":"2000132","MerchantTradeNo":"FD260304000001","TradeAmt":"1200","TradeStatus":"1","RtnCode":1,"RtnMsg":"付款成功"}
+                """),
+            "application/json");
+
+    assertThat(result.httpStatus()).isEqualTo(200);
+    assertThat(result.responseBody()).isEqualTo("1|OK");
+    verify(buyerNotificationService).notifyPaymentSucceeded(paidOrder);
+    verify(adminNotificationService)
+        .notifyAdminsOrderCreated(GUILD_ID, BUYER_ID, escortProduct(), "法幣付款完成", ORDER_NUMBER);
+    verify(productFulfillmentApiService).notifyFulfillment(any());
+    verify(fiatOrderRepository).markFulfilledIfNeeded(eq(ORDER_NUMBER), any(Instant.class));
   }
 
   @Test

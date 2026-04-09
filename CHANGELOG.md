@@ -7,10 +7,12 @@ All notable changes to this project will be documented in this file.
 ### Added
 - **ops/caddy**: Docker Compose 自架部署新增 repo 管理的 Caddy HTTPS ingress，要求 `APP_PUBLIC_DOMAIN` 與 `CADDY_ACME_EMAIL`，並把 landing page 與 `ECPAY_CALLBACK_PATH` 代理到 bot loopback callback server
 - **ops/setup**: 新增互動式 `make setup-env` / `scripts/setup-env.sh`，可引導產生 `.env`、正規化公開網址，並補齊 Caddy / ECPay 相關欄位
+- **shop/fiat**: 法幣建單成功後會私訊買家訂單編號、付款期限與逾期自動取消提醒；首次付款成功 callback 後再補發付款成功通知
 
 ### Changed
 - **ops/env**: 原本的 `.env` 同步流程改由 `make update-env` 暴露，保留非互動補欄位與備份語意
 - **docs/deployment**: README、設定與快速開始文件改為說明 Caddy HTTPS、自架網域 / TLS 前置條件，以及 `setup-env` / `update-env` 的新操作流程
+- **docs/shop**: README、功能總覽、架構、設定、開發指南與 AGENTS 已同步法幣買家通知與付款期限提醒流程
 
 ### Fixed
 - **ops/caddy**: 修正 `network_mode: service:bot` 與 published ports 的 Docker 衝突，改由 `bot` service 發佈 `80/443`，讓共享 network namespace 的 Caddy ingress 可正常啟動
@@ -20,6 +22,8 @@ All notable changes to this project will be documented in this file.
 - 執行 `mvn -Dtest=CaddyIngressConfigTest test`，測試通過
 - 執行 `APP_PUBLIC_DOMAIN=example.com CADDY_ACME_EMAIL=ops@example.com docker compose config`，驗證 Compose 組態通過
 - 執行 `make test`，共 `2430` tests（`0` failures / `0` errors，`84` skipped），測試通過
+- 執行 `mvn -q -Dtest=FiatOrderServiceTest,FiatPaymentCallbackServiceTest,ShopSelectMenuHandlerTest test`，測試通過
+- 執行 `make format-check`，檢查通過
 
 ## [0.34.0] - 2026-04-09
 

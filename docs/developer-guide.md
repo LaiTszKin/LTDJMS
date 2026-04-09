@@ -80,6 +80,7 @@
 
 - `/admin-panel` 的多步互動與欄位驗證
 - 商品購買後的退款、履約與通知
+- 法幣下單私訊中的付款期限提醒，以及付款成功後買家通知
 - ECPay callback 的重送 / 冪等處理
 - `DomainEventPublisher` listener wiring
 - AI 頻道限制、Agent 啟用與討論串繼承

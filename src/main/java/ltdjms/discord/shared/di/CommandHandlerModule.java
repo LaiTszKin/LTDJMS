@@ -58,6 +58,7 @@ import ltdjms.discord.shop.commands.ShopSelectMenuHandler;
 import ltdjms.discord.shop.domain.FiatOrderRepository;
 import ltdjms.discord.shop.services.EcpayCallbackHttpServer;
 import ltdjms.discord.shop.services.EcpayCvsPaymentService;
+import ltdjms.discord.shop.services.FiatOrderBuyerNotificationService;
 import ltdjms.discord.shop.services.FiatOrderService;
 import ltdjms.discord.shop.services.FiatPaymentCallbackService;
 import ltdjms.discord.shop.services.ProductFulfillmentApiService;
@@ -348,6 +349,12 @@ public class CommandHandlerModule {
 
   @Provides
   @Singleton
+  public FiatOrderBuyerNotificationService provideFiatOrderBuyerNotificationService() {
+    return new FiatOrderBuyerNotificationService();
+  }
+
+  @Provides
+  @Singleton
   public FiatOrderService provideFiatOrderService(
       ProductService productService,
       EcpayCvsPaymentService ecpayCvsPaymentService,
@@ -362,13 +369,15 @@ public class CommandHandlerModule {
       FiatOrderRepository fiatOrderRepository,
       ProductService productService,
       ProductFulfillmentApiService productFulfillmentApiService,
-      ShopAdminNotificationService shopAdminNotificationService) {
+      ShopAdminNotificationService shopAdminNotificationService,
+      FiatOrderBuyerNotificationService fiatOrderBuyerNotificationService) {
     return new FiatPaymentCallbackService(
         config,
         fiatOrderRepository,
         productService,
         productFulfillmentApiService,
-        shopAdminNotificationService);
+        shopAdminNotificationService,
+        fiatOrderBuyerNotificationService);
   }
 
   @Provides

@@ -38,6 +38,7 @@ public class FiatPaymentCallbackService {
   private final ProductService productService;
   private final ProductFulfillmentApiService productFulfillmentApiService;
   private final ShopAdminNotificationService adminNotificationService;
+  private final FiatOrderBuyerNotificationService buyerNotificationService;
   private final ObjectMapper objectMapper;
   private final Clock clock;
 
@@ -46,13 +47,15 @@ public class FiatPaymentCallbackService {
       FiatOrderRepository fiatOrderRepository,
       ProductService productService,
       ProductFulfillmentApiService productFulfillmentApiService,
-      ShopAdminNotificationService adminNotificationService) {
+      ShopAdminNotificationService adminNotificationService,
+      FiatOrderBuyerNotificationService buyerNotificationService) {
     this(
         config,
         fiatOrderRepository,
         productService,
         productFulfillmentApiService,
         adminNotificationService,
+        buyerNotificationService,
         new ObjectMapper(),
         Clock.systemUTC());
   }
@@ -63,6 +66,7 @@ public class FiatPaymentCallbackService {
       ProductService productService,
       ProductFulfillmentApiService productFulfillmentApiService,
       ShopAdminNotificationService adminNotificationService,
+      FiatOrderBuyerNotificationService buyerNotificationService,
       ObjectMapper objectMapper,
       Clock clock) {
     this.config = Objects.requireNonNull(config, "config must not be null");
@@ -75,6 +79,9 @@ public class FiatPaymentCallbackService {
     this.adminNotificationService =
         Objects.requireNonNull(
             adminNotificationService, "adminNotificationService must not be null");
+    this.buyerNotificationService =
+        Objects.requireNonNull(
+            buyerNotificationService, "buyerNotificationService must not be null");
     this.objectMapper = Objects.requireNonNull(objectMapper, "objectMapper must not be null");
     this.clock = Objects.requireNonNull(clock, "clock must not be null");
   }
@@ -142,6 +149,7 @@ public class FiatPaymentCallbackService {
       }
 
       handlePostPayment(paidOrder);
+      notifyBuyerPaymentSucceeded(paidOrder);
       return CallbackResult.ok();
     } catch (InvalidCallbackPayloadException e) {
       LOG.warn("Reject invalid ECPay callback payload: reason={}", e.getMessage());
@@ -149,6 +157,18 @@ public class FiatPaymentCallbackService {
     } catch (Exception e) {
       LOG.error("Failed to process ECPay callback payload", e);
       return CallbackResult.fail(500);
+    }
+  }
+
+  private void notifyBuyerPaymentSucceeded(FiatOrder order) {
+    try {
+      buyerNotificationService.notifyPaymentSucceeded(order);
+    } catch (Exception e) {
+      LOG.warn(
+          "Failed to trigger buyer paid notification: orderNumber={}, buyerUserId={}",
+          order.orderNumber(),
+          order.buyerUserId(),
+          e);
     }
   }
 
