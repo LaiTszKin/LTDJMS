@@ -158,7 +158,7 @@ public class ShopService {
 
 ### 3.2 CurrencyPurchaseService
 
-負責處理使用貨幣購買商品的業務邏輯，並協調自動獎勵與後端履約通知。
+負責處理使用貨幣購買商品的業務邏輯，並協調自動獎勵。
 
 目前實作依賴以下元件：
 
@@ -167,25 +167,19 @@ public class ShopService {
 - `BalanceAdjustmentService`: 扣款與退款
 - `CurrencyTransactionService`: 記錄購買與退款交易
 - `ProductRewardService`: 統一發放商品自動獎勵（貨幣或代幣）
-- `ProductFulfillmentApiService`: 在商品設定要求時通知後端履約
-
 購買流程：
 1. 驗證商品存在、屬於當前 guild，且已設定貨幣價格
 2. 查詢使用者貨幣餘額，若不足則回傳包含需求與現有餘額的錯誤
 3. 扣除貨幣並記錄 `CurrencyTransaction.Source.PRODUCT_PURCHASE`
 4. 若商品有自動獎勵，委派 `ProductRewardService.grantReward(...)` 發放
 5. 若獎勵發放失敗，立即自動退款並記錄 `CurrencyTransaction.Source.PRODUCT_PURCHASE_REFUND`
-6. 若商品設定需後端履約，呼叫 `ProductFulfillmentApiService.notifyFulfillment(...)`
-7. 後端履約通知失敗時不回滾購買，只在成功訊息附加警示
-8. 回傳 `PurchaseResult`，其中包含購買前餘額、最終餘額、價格與附加訊息
+6. 回傳 `PurchaseResult`，其中包含購買前餘額、最終餘額、價格與附加訊息
 
 `PurchaseResult.formatSuccessMessage()` 會輸出：
 - 商品名稱
 - 商品價格
 - 購買前 / 後餘額
 - 自動獎勵資訊（若有）
-- 後端履約警示（若有）
-
 ## 4. 指令與介面
 
 ### 4.1 ShopCommandHandler
@@ -636,8 +630,6 @@ sequenceDiagram
     participant Adjust as BalanceAdjustmentService
     participant Tx as CurrencyTransactionService
     participant Reward as ProductRewardService
-    participant Fulfillment as ProductFulfillmentApiService
-
     User->>Shop: 點擊「💰 購買商品」
     Shop->>SelectMenu: 顯示商品選單
     User->>SelectMenu: 選擇商品並確認
@@ -656,10 +648,6 @@ sequenceDiagram
             Purchase->>Tx: recordTransaction(PRODUCT_PURCHASE_REFUND)
             Purchase-->>SelectMenu: 返回錯誤
         end
-    end
-    opt 商品需要後端履約
-        Purchase->>Fulfillment: notifyFulfillment(...)
-        Fulfillment-->>Purchase: 成功 / 失敗
     end
     Purchase-->>SelectMenu: 返回購買結果
     SelectMenu-->>User: 顯示成功/失敗訊息

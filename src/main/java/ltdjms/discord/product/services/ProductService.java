@@ -1,9 +1,6 @@
 package ltdjms.discord.product.services;
 
-import java.net.InetAddress;
-import java.net.URI;
 import java.util.List;
-import java.util.Locale;
 import java.util.Optional;
 
 import org.slf4j.Logger;
@@ -64,18 +61,10 @@ public class ProductService {
         rewardAmount,
         currencyPrice,
         fiatPriceTwd,
-        null,
         false,
         null);
   }
 
-  /**
-   * Creates a new product.
-   *
-   * @param backendApiUrl external backend endpoint url
-   * @param autoCreateEscortOrder whether to open escort order on purchase
-   * @param escortOptionCode escort option code defined in EscortOrderOptionCatalog
-   */
   public Result<Product, DomainError> createProduct(
       long guildId,
       String name,
@@ -84,7 +73,6 @@ public class ProductService {
       Long rewardAmount,
       Long currencyPrice,
       Long fiatPriceTwd,
-      String backendApiUrl,
       boolean autoCreateEscortOrder,
       String escortOptionCode) {
 
@@ -97,7 +85,6 @@ public class ProductService {
             rewardAmount,
             currencyPrice,
             fiatPriceTwd,
-            backendApiUrl,
             autoCreateEscortOrder,
             escortOptionCode);
     if (validationResult.isErr()) {
@@ -115,21 +102,18 @@ public class ProductService {
               rewardAmount,
               currencyPrice,
               fiatPriceTwd,
-              normalized.backendApiUrl(),
               normalized.autoCreateEscortOrder(),
               normalized.escortOptionCode());
       Product saved = productRepository.save(product);
       LOG.info(
           "Created product: guildId={}, name={}, rewardType={}, rewardAmount={}, currencyPrice={},"
-              + " fiatPriceTwd={}, hasBackendApi={}, autoCreateEscortOrder={},"
-              + " escortOptionCode={}",
+              + " fiatPriceTwd={}, autoCreateEscortOrder={}, escortOptionCode={}",
           guildId,
           normalized.name(),
           rewardType,
           rewardAmount,
           currencyPrice,
           fiatPriceTwd,
-          normalized.backendApiUrl() != null,
           normalized.autoCreateEscortOrder(),
           normalized.escortOptionCode());
 
@@ -150,10 +134,6 @@ public class ProductService {
       Product.RewardType rewardType,
       Long rewardAmount,
       Long currencyPrice) {
-    Result<Unit, DomainError> nameValidationResult = validateName(name);
-    if (nameValidationResult.isErr()) {
-      return Result.err(nameValidationResult.getError());
-    }
     Optional<Product> existingOpt = productRepository.findById(productId);
     if (existingOpt.isEmpty()) {
       return Result.err(DomainError.invalidInput("找不到商品"));
@@ -167,7 +147,6 @@ public class ProductService {
         rewardAmount,
         currencyPrice,
         existing.fiatPriceTwd(),
-        existing.backendApiUrl(),
         existing.autoCreateEscortOrder(),
         existing.escortOptionCode());
   }
@@ -180,10 +159,6 @@ public class ProductService {
       Long rewardAmount,
       Long currencyPrice,
       Long fiatPriceTwd) {
-    Result<Unit, DomainError> nameValidationResult = validateName(name);
-    if (nameValidationResult.isErr()) {
-      return Result.err(nameValidationResult.getError());
-    }
     Optional<Product> existingOpt = productRepository.findById(productId);
     if (existingOpt.isEmpty()) {
       return Result.err(DomainError.invalidInput("找不到商品"));
@@ -197,18 +172,10 @@ public class ProductService {
         rewardAmount,
         currencyPrice,
         fiatPriceTwd,
-        existing.backendApiUrl(),
         existing.autoCreateEscortOrder(),
         existing.escortOptionCode());
   }
 
-  /**
-   * Updates an existing product.
-   *
-   * @param backendApiUrl external backend endpoint url
-   * @param autoCreateEscortOrder whether to open escort order on purchase
-   * @param escortOptionCode escort option code defined in EscortOrderOptionCatalog
-   */
   public Result<Product, DomainError> updateProduct(
       long productId,
       String name,
@@ -217,13 +184,8 @@ public class ProductService {
       Long rewardAmount,
       Long currencyPrice,
       Long fiatPriceTwd,
-      String backendApiUrl,
       boolean autoCreateEscortOrder,
       String escortOptionCode) {
-    Result<Unit, DomainError> nameValidationResult = validateName(name);
-    if (nameValidationResult.isErr()) {
-      return Result.err(nameValidationResult.getError());
-    }
     Optional<Product> existingOpt = productRepository.findById(productId);
     if (existingOpt.isEmpty()) {
       return Result.err(DomainError.invalidInput("找不到商品"));
@@ -236,7 +198,6 @@ public class ProductService {
         rewardAmount,
         currencyPrice,
         fiatPriceTwd,
-        backendApiUrl,
         autoCreateEscortOrder,
         escortOptionCode);
   }
@@ -249,7 +210,6 @@ public class ProductService {
       Long rewardAmount,
       Long currencyPrice,
       Long fiatPriceTwd,
-      String backendApiUrl,
       boolean autoCreateEscortOrder,
       String escortOptionCode) {
 
@@ -262,7 +222,6 @@ public class ProductService {
             rewardAmount,
             currencyPrice,
             fiatPriceTwd,
-            backendApiUrl,
             autoCreateEscortOrder,
             escortOptionCode);
     if (validationResult.isErr()) {
@@ -280,7 +239,6 @@ public class ProductService {
               rewardAmount,
               currencyPrice,
               fiatPriceTwd,
-              normalized.backendApiUrl(),
               normalized.autoCreateEscortOrder(),
               normalized.escortOptionCode());
       Product saved = productRepository.update(updated);
@@ -305,7 +263,6 @@ public class ProductService {
       Long rewardAmount,
       Long currencyPrice,
       Long fiatPriceTwd,
-      String backendApiUrl,
       boolean autoCreateEscortOrder,
       String escortOptionCode) {
     if (name == null || name.isBlank()) {
@@ -339,15 +296,6 @@ public class ProductService {
       return Result.err(DomainError.invalidInput("新台幣實際價值必須大於 0"));
     }
 
-    Result<String, DomainError> normalizedBackendApiResult = normalizeBackendApiUrl(backendApiUrl);
-    if (normalizedBackendApiResult.isErr()) {
-      return Result.err(normalizedBackendApiResult.getError());
-    }
-    String normalizedBackendApiUrl = normalizedBackendApiResult.getValue();
-    if (normalizedBackendApiUrl.isBlank()) {
-      normalizedBackendApiUrl = null;
-    }
-
     Result<String, DomainError> normalizedEscortOptionResult =
         normalizeEscortOption(autoCreateEscortOrder, escortOptionCode);
     if (normalizedEscortOptionResult.isErr()) {
@@ -358,105 +306,8 @@ public class ProductService {
       normalizedEscortOptionCode = null;
     }
 
-    if (autoCreateEscortOrder && normalizedBackendApiUrl == null) {
-      return Result.err(DomainError.invalidInput("啟用自動護航開單時，必須設定後端 API URL"));
-    }
-
     return Result.ok(
-        new ValidationResult(
-            normalizedName,
-            normalizedBackendApiUrl,
-            autoCreateEscortOrder,
-            normalizedEscortOptionCode));
-  }
-
-  private Result<String, DomainError> normalizeBackendApiUrl(String backendApiUrl) {
-    if (backendApiUrl == null || backendApiUrl.isBlank()) {
-      return Result.ok("");
-    }
-    String normalized = backendApiUrl.trim();
-    if (normalized.length() > 500) {
-      return Result.err(DomainError.invalidInput("後端 API URL 不能超過 500 個字元"));
-    }
-    try {
-      URI uri = URI.create(normalized);
-      String scheme = uri.getScheme();
-      if (scheme == null || !"https".equalsIgnoreCase(scheme)) {
-        return Result.err(DomainError.invalidInput("後端 API URL 必須使用 https://"));
-      }
-      if (uri.getHost() == null || uri.getHost().isBlank()) {
-        return Result.err(DomainError.invalidInput("後端 API URL 格式無效"));
-      }
-
-      if (isDisallowedBackendHost(uri.getHost())) {
-        return Result.err(DomainError.invalidInput("後端 API URL 不可使用 localhost 或內網位址"));
-      }
-
-      String normalizedScheme = scheme.toLowerCase(Locale.ROOT);
-      String normalizedUrl = normalizedScheme + normalized.substring(scheme.length());
-      return Result.ok(normalizedUrl);
-    } catch (IllegalArgumentException e) {
-      return Result.err(DomainError.invalidInput("後端 API URL 格式無效"));
-    }
-  }
-
-  private boolean isDisallowedBackendHost(String host) {
-    String normalizedHost = host.trim().toLowerCase(Locale.ROOT);
-    if (normalizedHost.equals("localhost") || normalizedHost.endsWith(".localhost")) {
-      return true;
-    }
-    if (!looksLikeIpLiteral(normalizedHost)) {
-      return false;
-    }
-    try {
-      InetAddress address = InetAddress.getByName(normalizedHost);
-      return isDisallowedBackendAddress(address);
-    } catch (Exception e) {
-      return true;
-    }
-  }
-
-  private boolean isDisallowedBackendAddress(InetAddress address) {
-    if (address.isAnyLocalAddress()
-        || address.isLoopbackAddress()
-        || address.isLinkLocalAddress()
-        || address.isSiteLocalAddress()
-        || address.isMulticastAddress()) {
-      return true;
-    }
-
-    byte[] rawAddress = address.getAddress();
-    if (rawAddress.length == 4) {
-      int firstOctet = rawAddress[0] & 0xff;
-      int secondOctet = rawAddress[1] & 0xff;
-      return firstOctet == 0
-          || firstOctet >= 224
-          || (firstOctet == 100 && secondOctet >= 64 && secondOctet <= 127)
-          || (firstOctet == 198 && (secondOctet == 18 || secondOctet == 19));
-    }
-
-    if (rawAddress.length == 16) {
-      int firstByte = rawAddress[0] & 0xff;
-      int secondByte = rawAddress[1] & 0xff;
-      return (firstByte & 0xfe) == 0xfc || (firstByte == 0xfe && (secondByte & 0xc0) == 0x80);
-    }
-
-    return true;
-  }
-
-  private boolean looksLikeIpLiteral(String host) {
-    if (host.contains(":")) {
-      return true;
-    }
-    if (!host.contains(".")) {
-      return false;
-    }
-    for (char ch : host.toCharArray()) {
-      if (!Character.isDigit(ch) && ch != '.') {
-        return false;
-      }
-    }
-    return true;
+        new ValidationResult(normalizedName, autoCreateEscortOrder, normalizedEscortOptionCode));
   }
 
   private Result<String, DomainError> normalizeEscortOption(
@@ -474,17 +325,6 @@ public class ProductService {
               "護航選項代碼無效，可用代碼：" + EscortOrderOptionCatalog.supportedCodesForDisplay()));
     }
     return Result.ok(normalizedCode);
-  }
-
-  private Result<Unit, DomainError> validateName(String name) {
-    if (name == null || name.isBlank()) {
-      return Result.err(DomainError.invalidInput("商品名稱不能為空"));
-    }
-    String normalizedName = name.trim();
-    if (normalizedName.length() > 100) {
-      return Result.err(DomainError.invalidInput("商品名稱不能超過 100 個字元"));
-    }
-    return Result.okVoid();
   }
 
   public Result<Unit, DomainError> deleteProduct(long productId) {
@@ -513,9 +353,8 @@ public class ProductService {
                 existing.guildId(), productId, ProductChangedEvent.OperationType.DELETED));
 
         return Result.okVoid();
-      } else {
-        return Result.err(DomainError.invalidInput("刪除商品失敗"));
       }
+      return Result.err(DomainError.invalidInput("刪除商品失敗"));
     } catch (Exception e) {
       LOG.error("Failed to delete product id={}", productId, e);
       return Result.err(DomainError.persistenceFailure("刪除商品失敗", e));
@@ -551,5 +390,5 @@ public class ProductService {
   }
 
   private record ValidationResult(
-      String name, String backendApiUrl, boolean autoCreateEscortOrder, String escortOptionCode) {}
+      String name, boolean autoCreateEscortOrder, String escortOptionCode) {}
 }

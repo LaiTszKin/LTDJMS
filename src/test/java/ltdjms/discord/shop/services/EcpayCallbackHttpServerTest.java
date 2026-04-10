@@ -93,7 +93,6 @@ class EcpayCallbackHttpServerTest {
     when(config.getEcpayCallbackBindHost()).thenReturn("127.0.0.1");
     when(config.getEcpayCallbackBindPort()).thenReturn(port);
     when(config.getEcpayCallbackPath()).thenReturn("/ecpay/callback");
-    when(config.getEcpayCallbackSharedSecret()).thenReturn("shared-secret");
     when(config.getEcpayStageMode()).thenReturn(true);
     when(callbackService.handleCallback("Data=ok", "application/x-www-form-urlencoded"))
         .thenReturn(FiatPaymentCallbackService.CallbackResult.ok());
@@ -126,7 +125,6 @@ class EcpayCallbackHttpServerTest {
     when(config.getEcpayCallbackBindHost()).thenReturn("127.0.0.1");
     when(config.getEcpayCallbackBindPort()).thenReturn(port);
     when(config.getEcpayCallbackPath()).thenReturn("/ecpay/callback");
-    when(config.getEcpayCallbackSharedSecret()).thenReturn("shared-secret");
     when(config.getEcpayStageMode()).thenReturn(true);
 
     server = new EcpayCallbackHttpServer(config, callbackService);

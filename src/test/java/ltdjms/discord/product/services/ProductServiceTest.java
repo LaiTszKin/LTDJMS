@@ -234,141 +234,6 @@ class ProductServiceTest {
     }
 
     @Test
-    @DisplayName("should normalize uppercase backend API URL scheme")
-    void shouldNormalizeUppercaseBackendApiUrlScheme() {
-      when(productRepository.existsByGuildIdAndName(TEST_GUILD_ID, "Backend Product"))
-          .thenReturn(false);
-      when(productRepository.save(any(Product.class)))
-          .thenAnswer(
-              invocation -> {
-                Product p = invocation.getArgument(0);
-                return new Product(
-                    1L,
-                    p.guildId(),
-                    p.name(),
-                    p.description(),
-                    p.rewardType(),
-                    p.rewardAmount(),
-                    p.currencyPrice(),
-                    p.fiatPriceTwd(),
-                    p.backendApiUrl(),
-                    p.autoCreateEscortOrder(),
-                    p.escortOptionCode(),
-                    p.createdAt(),
-                    p.updatedAt());
-              });
-
-      Result<Product, DomainError> result =
-          productService.createProduct(
-              TEST_GUILD_ID,
-              "Backend Product",
-              "desc",
-              null,
-              null,
-              300L,
-              null,
-              "HTTPS://backend.example.com/fulfill",
-              false,
-              null);
-
-      assertThat(result.isOk()).isTrue();
-      assertThat(result.getValue().backendApiUrl())
-          .isEqualTo("https://backend.example.com/fulfill");
-    }
-
-    @Test
-    @DisplayName("should reject localhost and private backend API target")
-    void shouldRejectLocalOrPrivateBackendApiUrl() {
-      when(productRepository.existsByGuildIdAndName(TEST_GUILD_ID, "Unsafe Backend"))
-          .thenReturn(false);
-
-      Result<Product, DomainError> result =
-          productService.createProduct(
-              TEST_GUILD_ID,
-              "Unsafe Backend",
-              "desc",
-              null,
-              null,
-              300L,
-              null,
-              "https://127.0.0.1/internal",
-              false,
-              null);
-
-      assertThat(result.isErr()).isTrue();
-      assertThat(result.getError().message()).contains("localhost 或內網位址");
-    }
-
-    @Test
-    @DisplayName("should reject special-use IPv4 backend API target")
-    void shouldRejectSpecialUseIpv4BackendApiUrl() {
-      when(productRepository.existsByGuildIdAndName(TEST_GUILD_ID, "Unsafe Backend"))
-          .thenReturn(false);
-
-      Result<Product, DomainError> result =
-          productService.createProduct(
-              TEST_GUILD_ID,
-              "Unsafe Backend",
-              "desc",
-              null,
-              null,
-              300L,
-              null,
-              "https://100.64.0.10/internal",
-              false,
-              null);
-
-      assertThat(result.isErr()).isTrue();
-      assertThat(result.getError().message()).contains("localhost 或內網位址");
-    }
-
-    @Test
-    @DisplayName("should reject ipv6 ula backend API target")
-    void shouldRejectIpv6UlaBackendApiUrl() {
-      when(productRepository.existsByGuildIdAndName(TEST_GUILD_ID, "Unsafe Backend"))
-          .thenReturn(false);
-
-      Result<Product, DomainError> result =
-          productService.createProduct(
-              TEST_GUILD_ID,
-              "Unsafe Backend",
-              "desc",
-              null,
-              null,
-              300L,
-              null,
-              "https://[fd00::1234]/internal",
-              false,
-              null);
-
-      assertThat(result.isErr()).isTrue();
-      assertThat(result.getError().message()).contains("localhost 或內網位址");
-    }
-
-    @Test
-    @DisplayName("should reject non-https backend API URL")
-    void shouldRejectNonHttpsBackendApiUrl() {
-      when(productRepository.existsByGuildIdAndName(TEST_GUILD_ID, "Unsafe Backend"))
-          .thenReturn(false);
-
-      Result<Product, DomainError> result =
-          productService.createProduct(
-              TEST_GUILD_ID,
-              "Unsafe Backend",
-              "desc",
-              null,
-              null,
-              300L,
-              null,
-              "http://backend.example.com/internal",
-              false,
-              null);
-
-      assertThat(result.isErr()).isTrue();
-      assertThat(result.getError().message()).contains("https://");
-    }
-
-    @Test
     @DisplayName("should handle persistence failure on create")
     void shouldHandlePersistenceFailureOnCreate() {
       // Given
@@ -479,6 +344,11 @@ class ProductServiceTest {
     @Test
     @DisplayName("should reject update with blank name")
     void shouldRejectUpdateWithBlankName() {
+      Product existing =
+          new Product(
+              1L, TEST_GUILD_ID, "舊名稱", "舊描述", null, null, null, Instant.now(), Instant.now());
+      when(productRepository.findById(1L)).thenReturn(Optional.of(existing));
+
       // When
       Result<Product, DomainError> result =
           productService.updateProduct(1L, "   ", "desc", null, null, null);
@@ -491,7 +361,12 @@ class ProductServiceTest {
     @Test
     @DisplayName("should reject update with name exceeding 100 characters")
     void shouldRejectUpdateWithNameExceeding100Characters() {
-      // When - name length check happens before repository lookup
+      Product existing =
+          new Product(
+              1L, TEST_GUILD_ID, "舊名稱", "舊描述", null, null, null, Instant.now(), Instant.now());
+      when(productRepository.findById(1L)).thenReturn(Optional.of(existing));
+
+      // When
       String longName = "a".repeat(101);
       Result<Product, DomainError> result =
           productService.updateProduct(1L, longName, "desc", null, null, null);

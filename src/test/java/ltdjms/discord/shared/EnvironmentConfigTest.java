@@ -39,16 +39,6 @@ class EnvironmentConfigTest {
   }
 
   @Test
-  void fulfillmentSigningSecretUsesDotEnvValueWhenProvided() throws IOException {
-    Files.writeString(
-        tempDir.resolve(".env"), "PRODUCT_FULFILLMENT_SIGNING_SECRET=super-secret-value\n");
-
-    EnvironmentConfig config = new EnvironmentConfig(tempDir);
-
-    assertThat(config.getProductFulfillmentSigningSecret()).isEqualTo("super-secret-value");
-  }
-
-  @Test
   void ecpayReturnUrlFallsBackToDerivedPublicBaseUrl() throws IOException {
     Files.writeString(
         tempDir.resolve(".env"),
@@ -61,5 +51,14 @@ class EnvironmentConfigTest {
 
     assertThat(config.getAppPublicBaseUrl()).isEqualTo("https://pay.example.com");
     assertThat(config.getEcpayReturnUrl()).isEqualTo("https://pay.example.com/ecpay/callback");
+  }
+
+  @Test
+  void callbackPathUsesDotEnvValueWhenProvided() throws IOException {
+    Files.writeString(tempDir.resolve(".env"), "ECPAY_CALLBACK_PATH=/custom/callback\n");
+
+    EnvironmentConfig config = new EnvironmentConfig(tempDir);
+
+    assertThat(config.getEcpayCallbackPath()).isEqualTo("/custom/callback");
   }
 }

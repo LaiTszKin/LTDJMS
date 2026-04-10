@@ -6,6 +6,8 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 import javax.sql.DataSource;
 
@@ -22,8 +24,11 @@ public class JdbcFiatOrderRepository implements FiatOrderRepository {
 
   private static final String SELECT_COLUMNS =
       "id, guild_id, buyer_user_id, product_id, product_name, order_number, payment_no,"
-          + " amount_twd, status, trade_status, payment_message, paid_at, fulfilled_at,"
-          + " admin_notified_at, last_callback_payload, created_at, updated_at";
+          + " amount_twd, status, trade_status, payment_message, paid_at, buyer_notified_at,"
+          + " reward_granted_at, fulfilled_at, admin_notified_at, last_callback_payload,"
+          + " fulfillment_processing_at, admin_notification_processing_at,"
+          + " reconciliation_processing_at, reconciliation_attempt_count,"
+          + " reconciliation_next_attempt_at, created_at, updated_at";
 
   private final DataSource dataSource;
 
@@ -36,8 +41,9 @@ public class JdbcFiatOrderRepository implements FiatOrderRepository {
     String sql =
         "INSERT INTO fiat_order (guild_id, buyer_user_id, product_id, product_name, order_number,"
             + " payment_no, amount_twd, status, trade_status, payment_message, paid_at,"
-            + " fulfilled_at, admin_notified_at, last_callback_payload, created_at, updated_at)"
-            + " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+            + " buyer_notified_at, reward_granted_at, fulfilled_at, admin_notified_at,"
+            + " last_callback_payload, reconciliation_attempt_count, created_at, updated_at)"
+            + " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
             + " RETURNING id";
 
     try (Connection conn = dataSource.getConnection();
@@ -53,11 +59,14 @@ public class JdbcFiatOrderRepository implements FiatOrderRepository {
       stmt.setString(9, order.tradeStatus());
       stmt.setString(10, order.paymentMessage());
       stmt.setTimestamp(11, toTimestamp(order.paidAt()));
-      stmt.setTimestamp(12, toTimestamp(order.fulfilledAt()));
-      stmt.setTimestamp(13, toTimestamp(order.adminNotifiedAt()));
-      stmt.setString(14, order.lastCallbackPayload());
-      stmt.setTimestamp(15, Timestamp.from(order.createdAt()));
-      stmt.setTimestamp(16, Timestamp.from(order.updatedAt()));
+      stmt.setTimestamp(12, toTimestamp(order.buyerNotifiedAt()));
+      stmt.setTimestamp(13, toTimestamp(order.rewardGrantedAt()));
+      stmt.setTimestamp(14, toTimestamp(order.fulfilledAt()));
+      stmt.setTimestamp(15, toTimestamp(order.adminNotifiedAt()));
+      stmt.setString(16, order.lastCallbackPayload());
+      stmt.setInt(17, 0);
+      stmt.setTimestamp(18, Timestamp.from(order.createdAt()));
+      stmt.setTimestamp(19, Timestamp.from(order.updatedAt()));
 
       try (ResultSet rs = stmt.executeQuery()) {
         if (!rs.next()) {
@@ -76,9 +85,13 @@ public class JdbcFiatOrderRepository implements FiatOrderRepository {
             order.tradeStatus(),
             order.paymentMessage(),
             order.paidAt(),
+            order.buyerNotifiedAt(),
+            order.rewardGrantedAt(),
             order.fulfilledAt(),
             order.adminNotifiedAt(),
             order.lastCallbackPayload(),
+            order.reconciliationAttemptCount(),
+            order.reconciliationNextAttemptAt(),
             order.createdAt(),
             order.updatedAt());
       }
@@ -140,7 +153,8 @@ public class JdbcFiatOrderRepository implements FiatOrderRepository {
       Instant paidAt) {
     String sql =
         "UPDATE fiat_order SET status = ?, trade_status = ?, payment_message = ?, paid_at = ?,"
-            + " last_callback_payload = ?, updated_at = NOW()"
+            + " last_callback_payload = ?, reconciliation_processing_at = NULL,"
+            + " updated_at = NOW()"
             + " WHERE order_number = ? AND status = ? RETURNING "
             + SELECT_COLUMNS;
     try (Connection conn = dataSource.getConnection();
@@ -162,6 +176,50 @@ public class JdbcFiatOrderRepository implements FiatOrderRepository {
     } catch (SQLException e) {
       LOG.error("Failed to mark fiat order as paid: orderNumber={}", orderNumber, e);
       throw new RepositoryException("Failed to mark fiat order as paid", e);
+    }
+  }
+
+  @Override
+  public Optional<FiatOrder> markBuyerNotifiedIfNeeded(String orderNumber, Instant notifiedAt) {
+    String sql =
+        "UPDATE fiat_order SET buyer_notified_at = ?, updated_at = NOW() WHERE order_number = ?"
+            + " AND buyer_notified_at IS NULL RETURNING "
+            + SELECT_COLUMNS;
+    try (Connection conn = dataSource.getConnection();
+        PreparedStatement stmt = conn.prepareStatement(sql)) {
+      stmt.setTimestamp(1, Timestamp.from(notifiedAt));
+      stmt.setString(2, orderNumber);
+      try (ResultSet rs = stmt.executeQuery()) {
+        if (rs.next()) {
+          return Optional.of(mapRow(rs));
+        }
+        return Optional.empty();
+      }
+    } catch (SQLException e) {
+      LOG.error("Failed to mark fiat buyer notified: orderNumber={}", orderNumber, e);
+      throw new RepositoryException("Failed to mark fiat buyer notified", e);
+    }
+  }
+
+  @Override
+  public Optional<FiatOrder> markRewardGrantedIfNeeded(String orderNumber, Instant grantedAt) {
+    String sql =
+        "UPDATE fiat_order SET reward_granted_at = ?, updated_at = NOW() WHERE order_number = ?"
+            + " AND reward_granted_at IS NULL RETURNING "
+            + SELECT_COLUMNS;
+    try (Connection conn = dataSource.getConnection();
+        PreparedStatement stmt = conn.prepareStatement(sql)) {
+      stmt.setTimestamp(1, Timestamp.from(grantedAt));
+      stmt.setString(2, orderNumber);
+      try (ResultSet rs = stmt.executeQuery()) {
+        if (rs.next()) {
+          return Optional.of(mapRow(rs));
+        }
+        return Optional.empty();
+      }
+    } catch (SQLException e) {
+      LOG.error("Failed to mark fiat reward granted: orderNumber={}", orderNumber, e);
+      throw new RepositoryException("Failed to mark fiat reward granted", e);
     }
   }
 
@@ -207,6 +265,60 @@ public class JdbcFiatOrderRepository implements FiatOrderRepository {
     } catch (SQLException e) {
       LOG.error("Failed to mark fiat admin notified: orderNumber={}", orderNumber, e);
       throw new RepositoryException("Failed to mark fiat admin notified", e);
+    }
+  }
+
+  @Override
+  public List<FiatOrder> findOrdersPendingPostPayment(int limit) {
+    String sql =
+        "SELECT "
+            + SELECT_COLUMNS
+            + " FROM fiat_order WHERE status = ? AND fulfilled_at IS NULL"
+            + " AND fulfillment_processing_at IS NULL ORDER BY paid_at ASC NULLS LAST,"
+            + " created_at ASC LIMIT ?";
+    List<FiatOrder> orders = new ArrayList<>();
+    try (Connection conn = dataSource.getConnection();
+        PreparedStatement stmt = conn.prepareStatement(sql)) {
+      stmt.setString(1, FiatOrder.Status.PAID.name());
+      stmt.setInt(2, limit);
+      try (ResultSet rs = stmt.executeQuery()) {
+        while (rs.next()) {
+          orders.add(mapRow(rs));
+        }
+      }
+      return orders;
+    } catch (SQLException e) {
+      LOG.error("Failed to find post-payment pending fiat orders", e);
+      throw new RepositoryException("Failed to find post-payment pending fiat orders", e);
+    }
+  }
+
+  @Override
+  public List<FiatOrder> findOrdersPendingReconciliation(
+      Instant notBefore, Instant createdAfter, int limit) {
+    String sql =
+        "SELECT "
+            + SELECT_COLUMNS
+            + " FROM fiat_order WHERE status = ? AND paid_at IS NULL"
+            + " AND created_at >= ? AND reconciliation_processing_at IS NULL"
+            + " AND (reconciliation_next_attempt_at IS NULL OR reconciliation_next_attempt_at <= ?)"
+            + " ORDER BY created_at ASC LIMIT ?";
+    List<FiatOrder> orders = new ArrayList<>();
+    try (Connection conn = dataSource.getConnection();
+        PreparedStatement stmt = conn.prepareStatement(sql)) {
+      stmt.setString(1, FiatOrder.Status.PENDING_PAYMENT.name());
+      stmt.setTimestamp(2, Timestamp.from(createdAfter));
+      stmt.setTimestamp(3, Timestamp.from(notBefore));
+      stmt.setInt(4, limit);
+      try (ResultSet rs = stmt.executeQuery()) {
+        while (rs.next()) {
+          orders.add(mapRow(rs));
+        }
+      }
+      return orders;
+    } catch (SQLException e) {
+      LOG.error("Failed to find pending reconciliation fiat orders", e);
+      throw new RepositoryException("Failed to find pending reconciliation fiat orders", e);
     }
   }
 
@@ -275,6 +387,64 @@ public class JdbcFiatOrderRepository implements FiatOrderRepository {
     }
   }
 
+  @Override
+  public boolean claimReconciliationProcessing(String orderNumber, Instant claimedAt) {
+    String sql =
+        "UPDATE fiat_order SET reconciliation_processing_at = ?, updated_at = NOW()"
+            + " WHERE order_number = ? AND status = ? AND paid_at IS NULL"
+            + " AND reconciliation_processing_at IS NULL";
+    try (Connection conn = dataSource.getConnection();
+        PreparedStatement stmt = conn.prepareStatement(sql)) {
+      stmt.setTimestamp(1, Timestamp.from(claimedAt));
+      stmt.setString(2, orderNumber);
+      stmt.setString(3, FiatOrder.Status.PENDING_PAYMENT.name());
+      return stmt.executeUpdate() > 0;
+    } catch (SQLException e) {
+      LOG.error("Failed to claim fiat reconciliation processing: orderNumber={}", orderNumber, e);
+      throw new RepositoryException("Failed to claim fiat reconciliation processing", e);
+    }
+  }
+
+  @Override
+  public void releaseReconciliationProcessing(String orderNumber) {
+    String sql =
+        "UPDATE fiat_order SET reconciliation_processing_at = NULL, updated_at = NOW()"
+            + " WHERE order_number = ? AND paid_at IS NULL";
+    try (Connection conn = dataSource.getConnection();
+        PreparedStatement stmt = conn.prepareStatement(sql)) {
+      stmt.setString(1, orderNumber);
+      stmt.executeUpdate();
+    } catch (SQLException e) {
+      LOG.error("Failed to release fiat reconciliation processing: orderNumber={}", orderNumber, e);
+      throw new RepositoryException("Failed to release fiat reconciliation processing", e);
+    }
+  }
+
+  @Override
+  public Optional<FiatOrder> markReconciliationAttempted(
+      String orderNumber, int attemptCount, Instant nextAttemptAt) {
+    String sql =
+        "UPDATE fiat_order SET reconciliation_processing_at = NULL,"
+            + " reconciliation_attempt_count = ?, reconciliation_next_attempt_at = ?,"
+            + " updated_at = NOW() WHERE order_number = ? AND paid_at IS NULL RETURNING "
+            + SELECT_COLUMNS;
+    try (Connection conn = dataSource.getConnection();
+        PreparedStatement stmt = conn.prepareStatement(sql)) {
+      stmt.setInt(1, attemptCount);
+      stmt.setTimestamp(2, Timestamp.from(nextAttemptAt));
+      stmt.setString(3, orderNumber);
+      try (ResultSet rs = stmt.executeQuery()) {
+        if (rs.next()) {
+          return Optional.of(mapRow(rs));
+        }
+        return Optional.empty();
+      }
+    } catch (SQLException e) {
+      LOG.error("Failed to mark fiat reconciliation attempt: orderNumber={}", orderNumber, e);
+      throw new RepositoryException("Failed to mark fiat reconciliation attempt", e);
+    }
+  }
+
   private FiatOrder mapRow(ResultSet rs) throws SQLException {
     return new FiatOrder(
         rs.getLong("id"),
@@ -289,9 +459,13 @@ public class JdbcFiatOrderRepository implements FiatOrderRepository {
         rs.getString("trade_status"),
         rs.getString("payment_message"),
         nullableInstant(rs, "paid_at"),
+        nullableInstant(rs, "buyer_notified_at"),
+        nullableInstant(rs, "reward_granted_at"),
         nullableInstant(rs, "fulfilled_at"),
         nullableInstant(rs, "admin_notified_at"),
         rs.getString("last_callback_payload"),
+        rs.getInt("reconciliation_attempt_count"),
+        nullableInstant(rs, "reconciliation_next_attempt_at"),
         requiredInstant(rs, "created_at"),
         requiredInstant(rs, "updated_at"));
   }

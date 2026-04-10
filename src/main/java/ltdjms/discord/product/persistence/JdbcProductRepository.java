@@ -25,8 +25,8 @@ public class JdbcProductRepository implements ProductRepository {
 
   private static final String SELECT_COLUMNS =
       "id, guild_id, name, description, reward_type, reward_amount, currency_price,"
-          + " fiat_price_twd, backend_api_url, auto_create_escort_order, escort_option_code,"
-          + " created_at, updated_at";
+          + " fiat_price_twd, auto_create_escort_order, escort_option_code, created_at,"
+          + " updated_at";
 
   private final DataSource dataSource;
 
@@ -38,9 +38,8 @@ public class JdbcProductRepository implements ProductRepository {
   public Product save(Product product) {
     String sql =
         "INSERT INTO product (guild_id, name, description, reward_type, reward_amount,"
-            + " currency_price, fiat_price_twd, backend_api_url, auto_create_escort_order,"
-            + " escort_option_code, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?,"
-            + " ?, ?) RETURNING id";
+            + " currency_price, fiat_price_twd, auto_create_escort_order, escort_option_code,"
+            + " created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id";
 
     try (Connection conn = dataSource.getConnection();
         PreparedStatement stmt = conn.prepareStatement(sql)) {
@@ -64,11 +63,10 @@ public class JdbcProductRepository implements ProductRepository {
       } else {
         stmt.setNull(7, Types.BIGINT);
       }
-      stmt.setString(8, product.backendApiUrl());
-      stmt.setBoolean(9, product.autoCreateEscortOrder());
-      stmt.setString(10, product.escortOptionCode());
-      stmt.setTimestamp(11, Timestamp.from(product.createdAt()));
-      stmt.setTimestamp(12, Timestamp.from(product.updatedAt()));
+      stmt.setBoolean(8, product.autoCreateEscortOrder());
+      stmt.setString(9, product.escortOptionCode());
+      stmt.setTimestamp(10, Timestamp.from(product.createdAt()));
+      stmt.setTimestamp(11, Timestamp.from(product.updatedAt()));
 
       try (ResultSet rs = stmt.executeQuery()) {
         if (!rs.next()) {
@@ -85,7 +83,6 @@ public class JdbcProductRepository implements ProductRepository {
                 product.rewardAmount(),
                 product.currencyPrice(),
                 product.fiatPriceTwd(),
-                product.backendApiUrl(),
                 product.autoCreateEscortOrder(),
                 product.escortOptionCode(),
                 product.createdAt(),
@@ -109,8 +106,8 @@ public class JdbcProductRepository implements ProductRepository {
 
     String sql =
         "UPDATE product SET name = ?, description = ?, reward_type = ?, reward_amount = ?,"
-            + " currency_price = ?, fiat_price_twd = ?, backend_api_url = ?,"
-            + " auto_create_escort_order = ?, escort_option_code = ?, updated_at = ? WHERE id = ?";
+            + " currency_price = ?, fiat_price_twd = ?, auto_create_escort_order = ?,"
+            + " escort_option_code = ?, updated_at = ? WHERE id = ?";
 
     try (Connection conn = dataSource.getConnection();
         PreparedStatement stmt = conn.prepareStatement(sql)) {
@@ -133,11 +130,10 @@ public class JdbcProductRepository implements ProductRepository {
       } else {
         stmt.setNull(6, Types.BIGINT);
       }
-      stmt.setString(7, product.backendApiUrl());
-      stmt.setBoolean(8, product.autoCreateEscortOrder());
-      stmt.setString(9, product.escortOptionCode());
-      stmt.setTimestamp(10, Timestamp.from(product.updatedAt()));
-      stmt.setLong(11, product.id());
+      stmt.setBoolean(7, product.autoCreateEscortOrder());
+      stmt.setString(8, product.escortOptionCode());
+      stmt.setTimestamp(9, Timestamp.from(product.updatedAt()));
+      stmt.setLong(10, product.id());
 
       int affected = stmt.executeUpdate();
       if (affected == 0) {
@@ -364,7 +360,6 @@ public class JdbcProductRepository implements ProductRepository {
         rewardAmount,
         currencyPrice,
         fiatPriceTwd,
-        rs.getString("backend_api_url"),
         rs.getBoolean("auto_create_escort_order"),
         rs.getString("escort_option_code"),
         rs.getTimestamp("created_at").toInstant(),

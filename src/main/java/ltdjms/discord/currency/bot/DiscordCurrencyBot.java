@@ -20,6 +20,7 @@ import ltdjms.discord.shared.di.JDAProvider;
 import ltdjms.discord.shop.commands.ShopButtonHandler;
 import ltdjms.discord.shop.commands.ShopSelectMenuHandler;
 import ltdjms.discord.shop.services.EcpayCallbackHttpServer;
+import ltdjms.discord.shop.services.FiatOrderProcessingScheduler;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
 import net.dv8tion.jda.api.requests.GatewayIntent;
@@ -36,6 +37,7 @@ public class DiscordCurrencyBot {
   private final DatabaseConfig databaseConfig;
   private final AppComponent appComponent;
   private final EcpayCallbackHttpServer ecpayCallbackHttpServer;
+  private final FiatOrderProcessingScheduler fiatOrderProcessingScheduler;
 
   public DiscordCurrencyBot(EnvironmentConfig envConfig) throws InterruptedException {
     LOG.info("Starting LTDJ management system...");
@@ -67,6 +69,7 @@ public class DiscordCurrencyBot {
     ShopSelectMenuHandler shopSelectMenuHandler = appComponent.shopSelectMenuHandler();
     AIChatMentionListener aiChatMentionListener = appComponent.aiChatMentionListener();
     this.ecpayCallbackHttpServer = appComponent.ecpayCallbackHttpServer();
+    this.fiatOrderProcessingScheduler = appComponent.fiatOrderProcessingScheduler();
 
     // Build JDA instance with default non-privileged gateway intents to avoid
     // DISALLOWED_INTENTS (4014) errors when the bot token does not have
@@ -97,6 +100,7 @@ public class DiscordCurrencyBot {
 
     // 啟動綠界付款回推監聽伺服器
     ecpayCallbackHttpServer.start();
+    fiatOrderProcessingScheduler.start();
 
     // Register slash commands globally
     slashCommandListener.registerCommands(jda);
@@ -127,6 +131,9 @@ public class DiscordCurrencyBot {
     LOG.info("Shutting down LTDJ management system...");
     if (ecpayCallbackHttpServer != null) {
       ecpayCallbackHttpServer.stop();
+    }
+    if (fiatOrderProcessingScheduler != null) {
+      fiatOrderProcessingScheduler.stop();
     }
     if (jda != null) {
       jda.shutdown();

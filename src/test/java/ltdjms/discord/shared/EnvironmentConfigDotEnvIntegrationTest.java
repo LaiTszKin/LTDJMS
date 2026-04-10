@@ -217,8 +217,7 @@ class EnvironmentConfigDotEnvIntegrationTest {
       assertThat(propertiesConfig.hasPath("db.url")).isTrue();
       assertThat(propertiesConfig.hasPath("database.host")).isTrue();
       assertThat(propertiesConfig.hasPath("ai.service.base-url")).isTrue();
-      assertThat(propertiesConfig.hasPath("payment.ecpay.callback.shared-secret")).isTrue();
-      assertThat(propertiesConfig.hasPath("shop.fulfillment.signing-secret")).isTrue();
+      assertThat(propertiesConfig.hasPath("payment.ecpay.callback.path")).isTrue();
       assertThat(propertiesConfig.hasPath("discord.bot-token")).isFalse();
       assertThat(propertiesConfig.hasPath("aichat.base-url")).isFalse();
       assertThat(propertiesConfig.hasPath("shop.ecpay.callback.shared-secret")).isFalse();
@@ -240,8 +239,7 @@ class EnvironmentConfigDotEnvIntegrationTest {
           .contains("`application.conf` 僅保留為 compatibility shim")
           .contains("`discord.bot.token`")
           .contains("`ai.service.base-url`")
-          .contains("`payment.ecpay.callback.shared-secret`")
-          .contains("`shop.fulfillment.signing-secret`")
+          .contains("`payment.ecpay.callback.path`")
           .contains("`prompts.dir.path`")
           .contains("`prompts.max-size`");
       assertThat(documentation)

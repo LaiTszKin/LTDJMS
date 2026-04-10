@@ -60,8 +60,6 @@ public class AdminProductPanelHandler extends ListenerAdapter {
   public static final String BUTTON_PREFIX_INTEGRATION_CONFIG = "admin_integration_config_";
   public static final String BUTTON_PREFIX_CODE_PAGE = "admin_code_page_";
   public static final String BUTTON_CODE_BACK = "admin_code_back";
-  public static final String BUTTON_INTEGRATION_PANEL_EDIT_BACKEND =
-      "admin_integration_panel_edit_backend";
   public static final String BUTTON_INTEGRATION_PANEL_CONFIRM = "admin_integration_panel_confirm";
   public static final String BUTTON_INTEGRATION_PANEL_CLOSE = "admin_integration_panel_close";
 
@@ -80,8 +78,6 @@ public class AdminProductPanelHandler extends ListenerAdapter {
   public static final String MODAL_SET_FIAT_VALUE = "admin_modal_set_fiat_value_";
   public static final String MODAL_INTEGRATION_CONFIG = "admin_modal_integration_config_";
   public static final String MODAL_GENERATE_CODES = "admin_modal_generate_codes_";
-  public static final String MODAL_INTEGRATION_PANEL_BACKEND_URL =
-      "admin_modal_integration_panel_backend_url";
 
   private final ProductService productService;
   private final RedemptionService redemptionService;
@@ -137,8 +133,6 @@ public class AdminProductPanelHandler extends ListenerAdapter {
         showProductList(event);
       } else if (buttonId.equals(BUTTON_CODE_BACK)) {
         showProductDetail(event);
-      } else if (buttonId.equals(BUTTON_INTEGRATION_PANEL_EDIT_BACKEND)) {
-        openIntegrationPanelBackendModal(event);
       } else if (buttonId.equals(BUTTON_INTEGRATION_PANEL_CONFIRM)) {
         handleIntegrationPanelConfirm(event);
       } else if (buttonId.equals(BUTTON_INTEGRATION_PANEL_CLOSE)) {
@@ -233,8 +227,6 @@ public class AdminProductPanelHandler extends ListenerAdapter {
         handleIntegrationConfigModal(event);
       } else if (modalId.startsWith(MODAL_GENERATE_CODES)) {
         handleGenerateCodesModal(event);
-      } else if (modalId.startsWith(MODAL_INTEGRATION_PANEL_BACKEND_URL)) {
-        handleIntegrationPanelBackendModal(event);
       }
     } catch (Exception e) {
       LOG.error("Error handling modal: {}", modalId, e);
@@ -249,7 +241,6 @@ public class AdminProductPanelHandler extends ListenerAdapter {
         || buttonId.equals(BUTTON_VIEW_CODES)
         || buttonId.equals(BUTTON_PRODUCT_BACK)
         || buttonId.equals(BUTTON_CODE_BACK)
-        || buttonId.equals(BUTTON_INTEGRATION_PANEL_EDIT_BACKEND)
         || buttonId.equals(BUTTON_INTEGRATION_PANEL_CONFIRM)
         || buttonId.equals(BUTTON_INTEGRATION_PANEL_CLOSE)
         || buttonId.startsWith(BUTTON_PREFIX_EDIT_PRODUCT)
@@ -264,8 +255,7 @@ public class AdminProductPanelHandler extends ListenerAdapter {
         || modalId.startsWith(MODAL_EDIT_PRODUCT)
         || modalId.startsWith(MODAL_SET_FIAT_VALUE)
         || modalId.startsWith(MODAL_INTEGRATION_CONFIG)
-        || modalId.startsWith(MODAL_GENERATE_CODES)
-        || modalId.startsWith(MODAL_INTEGRATION_PANEL_BACKEND_URL);
+        || modalId.startsWith(MODAL_GENERATE_CODES);
   }
 
   // ===== Product List =====
@@ -578,7 +568,6 @@ public class AdminProductPanelHandler extends ListenerAdapter {
                   new IntegrationConfigSessionState(
                       product.id(),
                       product.name(),
-                      product.backendApiUrl(),
                       product.autoCreateEscortOrder(),
                       product.escortOptionCode(),
                       null);
@@ -637,47 +626,6 @@ public class AdminProductPanelHandler extends ListenerAdapter {
         .queue();
   }
 
-  private void openIntegrationPanelBackendModal(ButtonInteractionEvent event) {
-    long guildId = event.getGuild().getIdLong();
-    String sessionKey = getSessionKey(event.getUser().getIdLong(), guildId);
-    IntegrationConfigSessionState state = integrationConfigSessions.get(sessionKey);
-    if (state == null) {
-      event.reply("設定面板已過期，請重新開啟").setEphemeral(true).queue();
-      return;
-    }
-
-    event
-        .replyModal(
-            AdminProductPanelModalFactory.createIntegrationPanelBackendUrlModal(
-                state.backendApiUrl))
-        .queue();
-  }
-
-  private void handleIntegrationPanelBackendModal(ModalInteractionEvent event) {
-    long guildId = event.getGuild().getIdLong();
-    String sessionKey = getSessionKey(event.getUser().getIdLong(), guildId);
-    IntegrationConfigSessionState state = integrationConfigSessions.get(sessionKey);
-    if (state == null) {
-      event.reply("設定面板已過期，請重新開啟").setEphemeral(true).queue();
-      return;
-    }
-
-    state.backendApiUrl = getModalValueOrNull(event, "backend_api_url");
-    state.statusMessage = "✅ 已更新後端 API URL（尚未送出）";
-    if (state.panelHook != null) {
-      state
-          .panelHook
-          .editOriginalEmbeds(buildIntegrationConfigPanelEmbed(state))
-          .setComponents(buildIntegrationConfigPanelComponents(state))
-          .queue(
-              msg ->
-                  LOG.trace("Updated integration config panel for productId={}", state.productId),
-              err -> LOG.warn("Failed to update integration config panel", err));
-    }
-
-    event.reply("✅ 已回填後端 API URL，請回設定面板按「確認送出」").setEphemeral(true).queue();
-  }
-
   private void handleIntegrationPanelConfirm(ButtonInteractionEvent event) {
     long guildId = event.getGuild().getIdLong();
     String sessionKey = getSessionKey(event.getUser().getIdLong(), guildId);
@@ -715,7 +663,6 @@ public class AdminProductPanelHandler extends ListenerAdapter {
             existing.rewardAmount(),
             existing.currencyPrice(),
             existing.fiatPriceTwd(),
-            state.backendApiUrl,
             state.autoCreateEscortOrder,
             finalEscortOptionCode);
     if (result.isErr()) {
@@ -728,15 +675,11 @@ public class AdminProductPanelHandler extends ListenerAdapter {
     }
 
     Product updated = result.getValue();
-    state.backendApiUrl = updated.backendApiUrl();
     state.autoCreateEscortOrder = updated.autoCreateEscortOrder();
     state.escortOptionCode = updated.escortOptionCode();
-    String backendStatus =
-        updated.backendApiUrl() == null || updated.backendApiUrl().isBlank() ? "未設定" : "已設定";
     String escortStatus =
         updated.autoCreateEscortOrder() ? "已啟用（" + updated.escortOptionCode() + "）" : "未啟用";
-    state.statusMessage =
-        String.format("✅ 接入設定已更新：後端 API %s，自動護航開單 %s", backendStatus, escortStatus);
+    state.statusMessage = String.format("✅ 接入設定已更新：自動護航開單 %s", escortStatus);
 
     refreshProductPanels(guildId);
     event
@@ -774,21 +717,6 @@ public class AdminProductPanelHandler extends ListenerAdapter {
         .getProduct(productId)
         .ifPresentOrElse(
             product -> {
-              TextInput backendApiInput =
-                  TextInput.create("backend_api_url", "後端 API URL", TextInputStyle.SHORT)
-                      .setPlaceholder("https://example.com/fulfillment")
-                      .setRequired(false)
-                      .setMaxLength(500)
-                      .build();
-              if (product.backendApiUrl() != null && !product.backendApiUrl().isBlank()) {
-                backendApiInput =
-                    TextInput.create("backend_api_url", "後端 API URL", TextInputStyle.SHORT)
-                        .setRequired(false)
-                        .setMaxLength(500)
-                        .setValue(product.backendApiUrl())
-                        .build();
-              }
-
               TextInput autoEscortInput =
                   TextInput.create("auto_create_escort_order", "自動護航開單", TextInputStyle.SHORT)
                       .setPlaceholder("true / false")
@@ -814,10 +742,7 @@ public class AdminProductPanelHandler extends ListenerAdapter {
 
               Modal modal =
                   Modal.create(MODAL_INTEGRATION_CONFIG + productId, "接入設定")
-                      .addComponents(
-                          ActionRow.of(backendApiInput),
-                          ActionRow.of(autoEscortInput),
-                          ActionRow.of(escortOptionInput))
+                      .addComponents(ActionRow.of(autoEscortInput), ActionRow.of(escortOptionInput))
                       .build();
               event.replyModal(modal).queue();
             },
@@ -834,7 +759,6 @@ public class AdminProductPanelHandler extends ListenerAdapter {
       return;
     }
 
-    String backendApiUrl = getModalValueOrNull(event, "backend_api_url");
     String autoEscortRaw = getModalValueOrNull(event, "auto_create_escort_order");
     String escortOptionCode = getModalValueOrNull(event, "escort_option_code");
 
@@ -854,7 +778,6 @@ public class AdminProductPanelHandler extends ListenerAdapter {
             existing.rewardAmount(),
             existing.currencyPrice(),
             existing.fiatPriceTwd(),
-            backendApiUrl,
             autoCreateEscortOrder,
             escortOptionCode);
     if (result.isErr()) {
@@ -863,14 +786,9 @@ public class AdminProductPanelHandler extends ListenerAdapter {
     }
 
     Product updated = result.getValue();
-    String backendStatus =
-        updated.backendApiUrl() == null || updated.backendApiUrl().isBlank() ? "未設定" : "已設定";
     String escortStatus =
         updated.autoCreateEscortOrder() ? "已啟用（" + updated.escortOptionCode() + "）" : "未啟用";
-    event
-        .reply(String.format("✅ 接入設定已更新\n後端 API：%s\n自動護航開單：%s", backendStatus, escortStatus))
-        .setEphemeral(true)
-        .queue();
+    event.reply(String.format("✅ 接入設定已更新\n自動護航開單：%s", escortStatus)).setEphemeral(true).queue();
   }
 
   // ===== Delete Product =====
@@ -1070,7 +988,6 @@ public class AdminProductPanelHandler extends ListenerAdapter {
   static class IntegrationConfigSessionState {
     final long productId;
     final String productName;
-    String backendApiUrl;
     boolean autoCreateEscortOrder;
     String escortOptionCode;
     String statusMessage;
@@ -1079,13 +996,11 @@ public class AdminProductPanelHandler extends ListenerAdapter {
     IntegrationConfigSessionState(
         long productId,
         String productName,
-        String backendApiUrl,
         boolean autoCreateEscortOrder,
         String escortOptionCode,
         String statusMessage) {
       this.productId = productId;
       this.productName = productName;
-      this.backendApiUrl = backendApiUrl;
       this.autoCreateEscortOrder = autoCreateEscortOrder;
       this.escortOptionCode = escortOptionCode;
       this.statusMessage = statusMessage;

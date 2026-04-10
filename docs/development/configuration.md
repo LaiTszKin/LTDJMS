@@ -92,17 +92,11 @@
   - 對應 config key：`redis.uri`
   - 格式：`redis://[host]:[port]`
 
-### 2.5 Webhook / Payment 安全設定
+### 2.5 Payment 設定
 
-- `ECPAY_CALLBACK_SHARED_SECRET`
-  - 預設：空字串
-  - 對應 config key：`payment.ecpay.callback.shared-secret`
-  - 說明：保留中的舊相容欄位；現行 callback 驗證不依賴 query token 或 shared-secret 授權流程，新部署不應將它視為必填安全設定
-
-- `PRODUCT_FULFILLMENT_SIGNING_SECRET`
-  - 預設：空字串
-  - 對應 config key：`shop.fulfillment.signing-secret`
-  - 說明：商品履約 webhook 的 HMAC 簽章密鑰；啟用商品履約時必須設定
+- 現行法幣付款流程不再使用 callback shared-secret 或外部履約 webhook signing secret。
+- 付款安全與狀態來源以綠界回推資料解密、訂單資料比對、冪等落庫與補償查單為主。
+- `payment.ecpay.callback.path` 是目前仍保留於 packaged defaults 的 callback 路徑設定鍵。
 
 ### 2.6 AI 服務設定（V010 新增）
 
@@ -280,8 +274,6 @@ ai.markdown-validation.enabled=true
 prompts.dir.path=./prompts
 prompts.max-size=1MB
 payment.ecpay.callback.path=/ecpay/callback
-payment.ecpay.callback.shared-secret=
-shop.fulfillment.signing-secret=
 ```
 
 完整內容請參考 `src/main/resources/application.properties`。

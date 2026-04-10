@@ -69,11 +69,6 @@ final class AdminProductPanelViewFactory {
             "實際價值（TWD）", product.hasFiatPriceTwd() ? product.formatFiatPriceTwd() : "未設定", true));
     fields.add(
         new EmbedView.FieldView(
-            "後端履約 API",
-            product.hasBackendApiIntegration() ? product.backendApiUrl() : "未設定",
-            false));
-    fields.add(
-        new EmbedView.FieldView(
             "自動護航開單",
             product.shouldAutoCreateEscortOrder()
                 ? "已啟用\n選項代碼：" + product.escortOptionCode()
@@ -147,12 +142,6 @@ final class AdminProductPanelViewFactory {
                 new EmbedView.FieldView(
                     "商品", state.productName + " (`" + state.productId + "`)", false),
                 new EmbedView.FieldView(
-                    "後端 API URL",
-                    state.backendApiUrl == null || state.backendApiUrl.isBlank()
-                        ? "未設定"
-                        : state.backendApiUrl,
-                    false),
-                new EmbedView.FieldView(
                     "自動護航開單", state.autoCreateEscortOrder ? "已啟用" : "未啟用", true),
                 new EmbedView.FieldView(
                     "護航選項代碼",
@@ -172,7 +161,7 @@ final class AdminProductPanelViewFactory {
     StringSelectMenu autoEscortSelect =
         StringSelectMenu.create(AdminProductPanelHandler.SELECT_INTEGRATION_PANEL_AUTO_ESCORT)
             .setPlaceholder("選擇是否啟用自動護航開單")
-            .addOption("啟用", "true", "需要設定後端 API 與護航選項")
+            .addOption("啟用", "true", "需要設定護航選項")
             .addOption("停用", "false", "不進行自動護航開單")
             .setDefaultValues(List.of(Boolean.toString(state.autoCreateEscortOrder)))
             .build();
@@ -254,11 +243,6 @@ final class AdminProductPanelViewFactory {
     rows.add(
         PanelComponentRenderer.buildActionRow(
             List.of(
-                new ButtonView(
-                    AdminProductPanelHandler.BUTTON_INTEGRATION_PANEL_EDIT_BACKEND,
-                    "🌐 設定後端 URL",
-                    ButtonStyle.SECONDARY,
-                    false),
                 new ButtonView(
                     AdminProductPanelHandler.BUTTON_INTEGRATION_PANEL_CONFIRM,
                     "✅ 確認送出",
@@ -381,10 +365,7 @@ final class AdminProductPanelViewFactory {
     if (!state.autoCreateEscortOrder) {
       return true;
     }
-    return state.backendApiUrl != null
-        && !state.backendApiUrl.isBlank()
-        && state.escortOptionCode != null
-        && !state.escortOptionCode.isBlank();
+    return state.escortOptionCode != null && !state.escortOptionCode.isBlank();
   }
 
   private static String truncate(String value, int maxLength) {

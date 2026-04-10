@@ -228,13 +228,12 @@ class AdminProductPanelHandlerTest {
   }
 
   @Test
-  void integrationConfigModal_shouldUpdateBackendIntegration() {
+  void integrationConfigModal_shouldUpdateEscortConfig() {
     var event = mock(net.dv8tion.jda.api.events.interaction.ModalInteractionEvent.class);
     var guild = mock(net.dv8tion.jda.api.entities.Guild.class);
     var adminMember = mock(net.dv8tion.jda.api.entities.Member.class);
     var reply =
         mock(net.dv8tion.jda.api.requests.restaction.interactions.ReplyCallbackAction.class);
-    var backendApiMapping = mock(net.dv8tion.jda.api.interactions.modals.ModalMapping.class);
     var autoEscortMapping = mock(net.dv8tion.jda.api.interactions.modals.ModalMapping.class);
     var escortOptionMapping = mock(net.dv8tion.jda.api.interactions.modals.ModalMapping.class);
 
@@ -246,8 +245,6 @@ class AdminProductPanelHandlerTest {
     when(event.getMember()).thenReturn(adminMember);
     when(adminMember.hasPermission(Permission.ADMINISTRATOR)).thenReturn(true);
 
-    when(event.getValue("backend_api_url")).thenReturn(backendApiMapping);
-    when(backendApiMapping.getAsString()).thenReturn("https://backend.example.com/fulfill");
     when(event.getValue("auto_create_escort_order")).thenReturn(autoEscortMapping);
     when(autoEscortMapping.getAsString()).thenReturn("true");
     when(event.getValue("escort_option_code")).thenReturn(escortOptionMapping);
@@ -267,7 +264,6 @@ class AdminProductPanelHandlerTest {
             null,
             null,
             null,
-            "https://backend.example.com/fulfill",
             true,
             "CONF_DAM_300W",
             Instant.now(),
@@ -280,7 +276,6 @@ class AdminProductPanelHandlerTest {
             isNull(),
             isNull(),
             isNull(),
-            eq("https://backend.example.com/fulfill"),
             eq(true),
             eq("CONF_DAM_300W")))
         .thenReturn(ltdjms.discord.shared.Result.ok(updatedProduct));
@@ -289,16 +284,7 @@ class AdminProductPanelHandlerTest {
 
     verify(productService)
         .updateProduct(
-            productId,
-            "Test Product",
-            null,
-            null,
-            null,
-            null,
-            null,
-            "https://backend.example.com/fulfill",
-            true,
-            "CONF_DAM_300W");
+            productId, "Test Product", null, null, null, null, null, true, "CONF_DAM_300W");
   }
 
   @Test

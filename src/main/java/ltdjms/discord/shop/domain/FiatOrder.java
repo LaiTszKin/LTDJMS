@@ -17,9 +17,13 @@ public record FiatOrder(
     String tradeStatus,
     String paymentMessage,
     Instant paidAt,
+    Instant buyerNotifiedAt,
+    Instant rewardGrantedAt,
     Instant fulfilledAt,
     Instant adminNotifiedAt,
     String lastCallbackPayload,
+    int reconciliationAttemptCount,
+    Instant reconciliationNextAttemptAt,
     Instant createdAt,
     Instant updatedAt) {
 
@@ -87,6 +91,10 @@ public record FiatOrder(
         null,
         null,
         null,
+        null,
+        null,
+        0,
+        null,
         now,
         now);
   }
@@ -97,6 +105,14 @@ public record FiatOrder(
 
   public boolean isFulfilled() {
     return fulfilledAt != null;
+  }
+
+  public boolean isBuyerNotified() {
+    return buyerNotifiedAt != null;
+  }
+
+  public boolean isRewardGranted() {
+    return rewardGrantedAt != null;
   }
 
   public boolean isAdminNotified() {

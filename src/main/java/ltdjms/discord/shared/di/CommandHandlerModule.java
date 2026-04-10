@@ -58,10 +58,13 @@ import ltdjms.discord.shop.commands.ShopSelectMenuHandler;
 import ltdjms.discord.shop.domain.FiatOrderRepository;
 import ltdjms.discord.shop.services.EcpayCallbackHttpServer;
 import ltdjms.discord.shop.services.EcpayCvsPaymentService;
+import ltdjms.discord.shop.services.EcpayTradeQueryService;
 import ltdjms.discord.shop.services.FiatOrderBuyerNotificationService;
+import ltdjms.discord.shop.services.FiatOrderPostPaymentWorker;
+import ltdjms.discord.shop.services.FiatOrderProcessingScheduler;
 import ltdjms.discord.shop.services.FiatOrderService;
 import ltdjms.discord.shop.services.FiatPaymentCallbackService;
-import ltdjms.discord.shop.services.ProductFulfillmentApiService;
+import ltdjms.discord.shop.services.FiatPaymentReconciliationService;
 import ltdjms.discord.shop.services.ShopAdminNotificationService;
 import ltdjms.discord.shop.services.ShopService;
 
@@ -312,27 +315,18 @@ public class CommandHandlerModule {
 
   @Provides
   @Singleton
-  public ProductFulfillmentApiService provideProductFulfillmentApiService(
-      EscortOptionPricingService escortOptionPricingService, EnvironmentConfig config) {
-    return new ProductFulfillmentApiService(escortOptionPricingService, config);
-  }
-
-  @Provides
-  @Singleton
   public ltdjms.discord.shop.services.CurrencyPurchaseService provideCurrencyPurchaseService(
       ProductService productService,
       BalanceService balanceService,
       BalanceAdjustmentService balanceAdjustmentService,
       CurrencyTransactionService currencyTransactionService,
-      ProductRewardService productRewardService,
-      ProductFulfillmentApiService productFulfillmentApiService) {
+      ProductRewardService productRewardService) {
     return new ltdjms.discord.shop.services.CurrencyPurchaseService(
         productService,
         balanceService,
         balanceAdjustmentService,
         currencyTransactionService,
-        productRewardService,
-        productFulfillmentApiService);
+        productRewardService);
   }
 
   @Provides
@@ -365,19 +359,46 @@ public class CommandHandlerModule {
   @Provides
   @Singleton
   public FiatPaymentCallbackService provideFiatPaymentCallbackService(
-      EnvironmentConfig config,
+      EnvironmentConfig config, FiatOrderRepository fiatOrderRepository) {
+    return new FiatPaymentCallbackService(config, fiatOrderRepository);
+  }
+
+  @Provides
+  @Singleton
+  public EcpayTradeQueryService provideEcpayTradeQueryService(EnvironmentConfig config) {
+    return new EcpayTradeQueryService(config);
+  }
+
+  @Provides
+  @Singleton
+  public FiatOrderPostPaymentWorker provideFiatOrderPostPaymentWorker(
       FiatOrderRepository fiatOrderRepository,
       ProductService productService,
-      ProductFulfillmentApiService productFulfillmentApiService,
+      ProductRewardService productRewardService,
       ShopAdminNotificationService shopAdminNotificationService,
       FiatOrderBuyerNotificationService fiatOrderBuyerNotificationService) {
-    return new FiatPaymentCallbackService(
-        config,
+    return new FiatOrderPostPaymentWorker(
         fiatOrderRepository,
         productService,
-        productFulfillmentApiService,
+        productRewardService,
         shopAdminNotificationService,
         fiatOrderBuyerNotificationService);
+  }
+
+  @Provides
+  @Singleton
+  public FiatPaymentReconciliationService provideFiatPaymentReconciliationService(
+      FiatOrderRepository fiatOrderRepository, EcpayTradeQueryService ecpayTradeQueryService) {
+    return new FiatPaymentReconciliationService(fiatOrderRepository, ecpayTradeQueryService);
+  }
+
+  @Provides
+  @Singleton
+  public FiatOrderProcessingScheduler provideFiatOrderProcessingScheduler(
+      FiatOrderPostPaymentWorker fiatOrderPostPaymentWorker,
+      FiatPaymentReconciliationService fiatPaymentReconciliationService) {
+    return new FiatOrderProcessingScheduler(
+        fiatOrderPostPaymentWorker, fiatPaymentReconciliationService);
   }
 
   @Provides

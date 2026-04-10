@@ -32,6 +32,7 @@ coverage:
 # Docker commands
 update:
 	git pull origin main
+	make sync-env
 	docker compose build
 
 start:

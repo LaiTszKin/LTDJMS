@@ -25,7 +25,6 @@
 
 - `prompts/` 目錄：若要載入外部提示詞
 - `APP_PUBLIC_DOMAIN`、`CADDY_ACME_EMAIL`、`APP_PUBLIC_BASE_URL` 與 `ECPAY_*`：若要啟用 Compose 自架的綠界超商代碼付款 callback
-- `PRODUCT_FULFILLMENT_SIGNING_SECRET`：若要呼叫外部履約 webhook
 
 ## 最短可用路徑：Docker Compose
 
@@ -83,7 +82,7 @@ make start
 - 若啟用綠界付款，至少已填 `APP_PUBLIC_BASE_URL` 或顯式 `ECPAY_RETURN_URL`
 - 若使用 repo 內 Compose ingress，`ECPAY_CALLBACK_BIND_HOST=127.0.0.1` 與 `ECPAY_CALLBACK_BIND_PORT=8085` 由部署組態固定處理，通常不用手改
 - 若不是使用 repo 內 Compose ingress，且 `ECPAY_STAGE_MODE=true`，才需要自己確認 `ECPAY_CALLBACK_BIND_HOST` 維持 loopback 位址
-- 若要做外部履約，商品的 `backendApiUrl` 與 `PRODUCT_FULFILLMENT_SIGNING_SECRET` 已準備好
+- 若要啟用法幣商品自動發貨，確認 `ECPAY_*` 設定正確，並讓 callback 可從公開網址回推到系統
 
 ## 啟動成功時你會看到什麼
 

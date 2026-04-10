@@ -46,8 +46,6 @@ class CurrencyPurchaseServiceTest {
 
   @Mock private ProductRewardService productRewardService;
 
-  @Mock private ProductFulfillmentApiService productFulfillmentApiService;
-
   private CurrencyPurchaseService purchaseService;
 
   @BeforeEach
@@ -58,8 +56,7 @@ class CurrencyPurchaseServiceTest {
             balanceService,
             balanceAdjustmentService,
             transactionService,
-            productRewardService,
-            null);
+            productRewardService);
   }
 
   @Nested
@@ -483,118 +480,6 @@ class CurrencyPurchaseServiceTest {
               1000L,
               ltdjms.discord.currency.domain.CurrencyTransaction.Source.PRODUCT_PURCHASE_REFUND,
               "商品購買退款: Test Product");
-    }
-  }
-
-  @Nested
-  @DisplayName("purchaseProduct - Backend fulfillment")
-  class BackendFulfillmentTests {
-
-    @Test
-    @DisplayName("should notify backend fulfillment when product has integration config")
-    void shouldNotifyBackendFulfillmentWhenConfigured() {
-      CurrencyPurchaseService serviceWithFulfillment =
-          new CurrencyPurchaseService(
-              productService,
-              balanceService,
-              balanceAdjustmentService,
-              transactionService,
-              productRewardService,
-              productFulfillmentApiService);
-
-      Product product =
-          new Product(
-              TEST_PRODUCT_ID,
-              TEST_GUILD_ID,
-              "Fulfillment Product",
-              "Description",
-              Product.RewardType.TOKEN,
-              TEST_REWARD_AMOUNT,
-              TEST_CURRENCY_PRICE,
-              null,
-              "https://backend.example.com/fulfillment",
-              false,
-              null,
-              Instant.now(),
-              Instant.now());
-      when(productService.getProduct(TEST_PRODUCT_ID)).thenReturn(Optional.of(product));
-
-      BalanceView balance = new BalanceView(TEST_GUILD_ID, TEST_USER_ID, 1000L, "Coins", "💰");
-      when(balanceService.tryGetBalance(TEST_GUILD_ID, TEST_USER_ID))
-          .thenReturn(Result.ok(balance));
-
-      var deductResult =
-          new BalanceAdjustmentService.BalanceAdjustmentResult(
-              TEST_GUILD_ID, TEST_USER_ID, 1000L, 500L, -TEST_CURRENCY_PRICE, "Coins", "💰");
-      when(balanceAdjustmentService.tryAdjustBalance(
-              TEST_GUILD_ID, TEST_USER_ID, -TEST_CURRENCY_PRICE))
-          .thenReturn(Result.ok(deductResult));
-      when(productRewardService.grantReward(any()))
-          .thenReturn(
-              Result.ok(
-                  new ProductRewardService.RewardGrantResult(TEST_REWARD_AMOUNT, null, 100L)));
-
-      when(productFulfillmentApiService.notifyFulfillment(any())).thenReturn(Result.okVoid());
-
-      Result<CurrencyPurchaseService.PurchaseResult, DomainError> result =
-          serviceWithFulfillment.purchaseProduct(TEST_GUILD_ID, TEST_USER_ID, TEST_PRODUCT_ID);
-
-      assertThat(result.isOk()).isTrue();
-      verify(productFulfillmentApiService).notifyFulfillment(any());
-    }
-
-    @Test
-    @DisplayName("should not fail purchase when backend fulfillment fails")
-    void shouldNotFailPurchaseWhenBackendFulfillmentFails() {
-      CurrencyPurchaseService serviceWithFulfillment =
-          new CurrencyPurchaseService(
-              productService,
-              balanceService,
-              balanceAdjustmentService,
-              transactionService,
-              productRewardService,
-              productFulfillmentApiService);
-
-      Product product =
-          new Product(
-              TEST_PRODUCT_ID,
-              TEST_GUILD_ID,
-              "Fulfillment Product",
-              "Description",
-              Product.RewardType.TOKEN,
-              TEST_REWARD_AMOUNT,
-              TEST_CURRENCY_PRICE,
-              null,
-              "https://backend.example.com/fulfillment",
-              false,
-              null,
-              Instant.now(),
-              Instant.now());
-      when(productService.getProduct(TEST_PRODUCT_ID)).thenReturn(Optional.of(product));
-
-      BalanceView balance = new BalanceView(TEST_GUILD_ID, TEST_USER_ID, 1000L, "Coins", "💰");
-      when(balanceService.tryGetBalance(TEST_GUILD_ID, TEST_USER_ID))
-          .thenReturn(Result.ok(balance));
-
-      var deductResult =
-          new BalanceAdjustmentService.BalanceAdjustmentResult(
-              TEST_GUILD_ID, TEST_USER_ID, 1000L, 500L, -TEST_CURRENCY_PRICE, "Coins", "💰");
-      when(balanceAdjustmentService.tryAdjustBalance(
-              TEST_GUILD_ID, TEST_USER_ID, -TEST_CURRENCY_PRICE))
-          .thenReturn(Result.ok(deductResult));
-      when(productRewardService.grantReward(any()))
-          .thenReturn(
-              Result.ok(
-                  new ProductRewardService.RewardGrantResult(TEST_REWARD_AMOUNT, null, 100L)));
-
-      when(productFulfillmentApiService.notifyFulfillment(any()))
-          .thenReturn(Result.err(DomainError.unexpectedFailure("backend error", null)));
-
-      Result<CurrencyPurchaseService.PurchaseResult, DomainError> result =
-          serviceWithFulfillment.purchaseProduct(TEST_GUILD_ID, TEST_USER_ID, TEST_PRODUCT_ID);
-
-      assertThat(result.isOk()).isTrue();
-      assertThat(result.getValue().formatSuccessMessage()).contains("後端履約通知失敗");
     }
   }
 

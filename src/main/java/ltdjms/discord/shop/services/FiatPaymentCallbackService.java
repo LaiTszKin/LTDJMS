@@ -20,11 +20,7 @@ import org.slf4j.LoggerFactory;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-import ltdjms.discord.product.domain.Product;
-import ltdjms.discord.product.services.ProductService;
-import ltdjms.discord.shared.DomainError;
 import ltdjms.discord.shared.EnvironmentConfig;
-import ltdjms.discord.shared.Result;
 import ltdjms.discord.shop.domain.FiatOrder;
 import ltdjms.discord.shop.domain.FiatOrderRepository;
 
@@ -35,53 +31,22 @@ public class FiatPaymentCallbackService {
 
   private final EnvironmentConfig config;
   private final FiatOrderRepository fiatOrderRepository;
-  private final ProductService productService;
-  private final ProductFulfillmentApiService productFulfillmentApiService;
-  private final ShopAdminNotificationService adminNotificationService;
-  private final FiatOrderBuyerNotificationService buyerNotificationService;
   private final ObjectMapper objectMapper;
   private final Clock clock;
 
   public FiatPaymentCallbackService(
-      EnvironmentConfig config,
-      FiatOrderRepository fiatOrderRepository,
-      ProductService productService,
-      ProductFulfillmentApiService productFulfillmentApiService,
-      ShopAdminNotificationService adminNotificationService,
-      FiatOrderBuyerNotificationService buyerNotificationService) {
-    this(
-        config,
-        fiatOrderRepository,
-        productService,
-        productFulfillmentApiService,
-        adminNotificationService,
-        buyerNotificationService,
-        new ObjectMapper(),
-        Clock.systemUTC());
+      EnvironmentConfig config, FiatOrderRepository fiatOrderRepository) {
+    this(config, fiatOrderRepository, new ObjectMapper(), Clock.systemUTC());
   }
 
   FiatPaymentCallbackService(
       EnvironmentConfig config,
       FiatOrderRepository fiatOrderRepository,
-      ProductService productService,
-      ProductFulfillmentApiService productFulfillmentApiService,
-      ShopAdminNotificationService adminNotificationService,
-      FiatOrderBuyerNotificationService buyerNotificationService,
       ObjectMapper objectMapper,
       Clock clock) {
     this.config = Objects.requireNonNull(config, "config must not be null");
     this.fiatOrderRepository =
         Objects.requireNonNull(fiatOrderRepository, "fiatOrderRepository must not be null");
-    this.productService = Objects.requireNonNull(productService, "productService must not be null");
-    this.productFulfillmentApiService =
-        Objects.requireNonNull(
-            productFulfillmentApiService, "productFulfillmentApiService must not be null");
-    this.adminNotificationService =
-        Objects.requireNonNull(
-            adminNotificationService, "adminNotificationService must not be null");
-    this.buyerNotificationService =
-        Objects.requireNonNull(
-            buyerNotificationService, "buyerNotificationService must not be null");
     this.objectMapper = Objects.requireNonNull(objectMapper, "objectMapper must not be null");
     this.clock = Objects.requireNonNull(clock, "clock must not be null");
   }
@@ -137,19 +102,13 @@ public class FiatPaymentCallbackService {
               .orElse(null);
 
       if (paidOrder == null) {
-        FiatOrder latestOrder =
-            fiatOrderRepository
-                .updateCallbackStatus(orderNumber, tradeStatus, paymentMessage, callbackPayload)
-                .orElse(order);
-        if (latestOrder.isPaid()) {
-          handlePostPayment(latestOrder);
-        }
+        fiatOrderRepository.updateCallbackStatus(
+            orderNumber, tradeStatus, paymentMessage, callbackPayload);
         LOG.info("ECPay callback duplicated paid notification: orderNumber={}", orderNumber);
         return CallbackResult.ok();
       }
 
-      handlePostPayment(paidOrder);
-      notifyBuyerPaymentSucceeded(paidOrder);
+      LOG.info("ECPay callback marked fiat order paid: orderNumber={}", paidOrder.orderNumber());
       return CallbackResult.ok();
     } catch (InvalidCallbackPayloadException e) {
       LOG.warn("Reject invalid ECPay callback payload: reason={}", e.getMessage());
@@ -158,92 +117,6 @@ public class FiatPaymentCallbackService {
       LOG.error("Failed to process ECPay callback payload", e);
       return CallbackResult.fail(500);
     }
-  }
-
-  private void notifyBuyerPaymentSucceeded(FiatOrder order) {
-    try {
-      buyerNotificationService.notifyPaymentSucceeded(order);
-    } catch (Exception e) {
-      LOG.warn(
-          "Failed to trigger buyer paid notification: orderNumber={}, buyerUserId={}",
-          order.orderNumber(),
-          order.buyerUserId(),
-          e);
-    }
-  }
-
-  private void handlePostPayment(FiatOrder order) {
-    if (order.isFulfilled()) {
-      LOG.info(
-          "Skip fulfillment for already-fulfilled paid order: orderNumber={}", order.orderNumber());
-      return;
-    }
-
-    Product product = productService.getProduct(order.productId()).orElse(null);
-    if (product == null) {
-      LOG.warn(
-          "Paid order product not found, skip fulfillment and admin notify: orderNumber={},"
-              + " productId={}",
-          order.orderNumber(),
-          order.productId());
-      return;
-    }
-
-    if (product.shouldAutoCreateEscortOrder() && !order.isAdminNotified()) {
-      Instant claimTime = Instant.now(clock);
-      if (fiatOrderRepository.claimAdminNotificationProcessing(order.orderNumber(), claimTime)) {
-        try {
-          adminNotificationService.notifyAdminsOrderCreated(
-              order.guildId(), order.buyerUserId(), product, "法幣付款完成", order.orderNumber());
-          fiatOrderRepository.markAdminNotifiedIfNeeded(order.orderNumber(), claimTime);
-        } catch (Exception e) {
-          fiatOrderRepository.releaseAdminNotificationProcessing(order.orderNumber());
-          LOG.warn(
-              "Failed to notify admins for paid escort order: orderNumber={}, reason={}",
-              order.orderNumber(),
-              e.getMessage(),
-              e);
-        }
-      } else {
-        LOG.info(
-            "Skip duplicate admin notification processing for paid order: orderNumber={}",
-            order.orderNumber());
-      }
-    }
-
-    Instant fulfillmentClaimTime = Instant.now(clock);
-    if (!fiatOrderRepository.claimFulfillmentProcessing(
-        order.orderNumber(), fulfillmentClaimTime)) {
-      LOG.info(
-          "Skip duplicate fulfillment processing for paid order: orderNumber={}",
-          order.orderNumber());
-      return;
-    }
-
-    if (!product.shouldCallBackendFulfillment()) {
-      fiatOrderRepository.markFulfilledIfNeeded(order.orderNumber(), fulfillmentClaimTime);
-      return;
-    }
-
-    Result<ltdjms.discord.shared.Unit, DomainError> fulfillmentResult =
-        productFulfillmentApiService.notifyFulfillment(
-            new ProductFulfillmentApiService.FulfillmentRequest(
-                order.guildId(),
-                order.buyerUserId(),
-                product,
-                ProductFulfillmentApiService.PurchaseSource.FIAT_PAYMENT_CALLBACK,
-                order.orderNumber(),
-                order.paymentNo()));
-    if (fulfillmentResult.isErr()) {
-      fiatOrderRepository.releaseFulfillmentProcessing(order.orderNumber());
-      LOG.warn(
-          "Backend fulfillment failed after paid callback: orderNumber={}, reason={}",
-          order.orderNumber(),
-          fulfillmentResult.getError().message());
-      return;
-    }
-
-    fiatOrderRepository.markFulfilledIfNeeded(order.orderNumber(), fulfillmentClaimTime);
   }
 
   private JsonNode parseCallbackNode(String requestBody, String contentType) {

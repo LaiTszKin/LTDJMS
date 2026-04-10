@@ -4,33 +4,38 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.35.0] - 2026-04-11
+
 ### Added
 - **ops/caddy**: Docker Compose 自架部署新增 repo 管理的 Caddy HTTPS ingress，要求 `APP_PUBLIC_DOMAIN` 與 `CADDY_ACME_EMAIL`，並把 landing page 與 `ECPAY_CALLBACK_PATH` 代理到 bot loopback callback server
 - **ops/setup**: 新增互動式 `make setup-env` / `scripts/setup-env.sh`，可引導產生 `.env`、正規化公開網址，並補齊 Caddy / ECPay 相關欄位
-- **shop/fiat**: 法幣建單成功後會私訊買家訂單編號、付款期限與逾期自動取消提醒；首次付款成功 callback 後再補發付款成功通知
+- **shop/fiat**: 新增 `FiatOrderPostPaymentWorker`、`FiatPaymentReconciliationService`、`EcpayTradeQueryService` 與背景排程，讓已付款訂單可由資料庫驅動補做通知、發獎與補償查單
 
 ### Changed
 - **ops/env**: 原本的 `.env` 同步流程改由 `make update-env` 暴露，保留非互動補欄位與備份語意
 - **docs/deployment**: README、設定與快速開始文件改為說明 Caddy HTTPS、自架網域 / TLS 前置條件，以及 `setup-env` / `update-env` 的新操作流程
-- **docs/shop**: README、功能總覽、架構、設定、開發指南與 AGENTS 已同步法幣買家通知與付款期限提醒流程
-- **aiagent/memory**: 工具執行歷史改為只保留可安全重放的摘要，跨回合 chat memory 不再重新注入 raw tool result
+- **docs/shop**: README、功能總覽、架構、設定、開發指南與 AGENTS 已同步法幣買家通知、付款補償處理與新 worker 架構
+- **shop/ecpay**: paid callback 改為只負責付款真相落庫；買家通知、管理員通知、獎勵發放與 fulfilled 標記移至背景 worker 冪等執行
 - **shared/config**: `EnvironmentConfig`、packaged defaults 與開發文件已對齊同一套 canonical schema，`application.properties` 成為唯一 live packaged defaults
 - **currency/persistence**: 主要 currency integration / performance 測試改走 production-aligned JOOQ account + config path，退出 main-source JDBC account/config 平行真相
-- **docs/plans**: 歸檔 issues 70-75 與 `caddy-env-setup` 已完成 spec sets，並同步修正文檔中的設定、currency persistence 與 AI Agent 記憶體描述
+- **docs/plans**: 歸檔 issues 70-75、`caddy-env-setup` 與 `payment-fulfillment-rearchitecture` 已完成 spec sets，並同步修正文檔中的設定、currency persistence、AI Agent 記憶體與 shop 付款架構描述
+
+### Removed
+- **shop/legacy-fulfillment**: 移除 `ProductFulfillmentApiService`、商品 `backendApiUrl`、admin product panel 對應欄位，以及 `PRODUCT_FULFILLMENT_SIGNING_SECRET` / `ECPAY_CALLBACK_SHARED_SECRET` 過時設定面
 
 ### Fixed
 - **ops/caddy**: 修正 `network_mode: service:bot` 與 published ports 的 Docker 衝突，改由 `bot` service 發佈 `80/443`，讓共享 network namespace 的 Caddy ingress 可正常啟動
 - **shop/fulfillment-security**: backend fulfillment transport 會固定使用驗證過的 target snapshot，避免 DNS rebinding 類型回歸並持續拒絕 non-public target
 - **shop/ecpay**: ECPay callback return URL 不再附加 query token，且 `ECPAY_STAGE_MODE=true` 搭配 public bind 會在啟動時 fail closed
-- **shop/ecpay-tests**: 補齊 callback server 對無 query token、新 stage/public 邊界與既有 paid/idempotent 驗證主流程的回歸保護
+- **shop/ecpay-tests**: 補齊 callback server 對無 query token、新 stage/public 邊界，以及 paid callback / reconciliation / worker 主流程的回歸保護
 
 ### Tests
 - 執行 `bash scripts/setup-env.test.sh`，測試通過（`PASS=5 FAIL=0`）
 - 執行 `mvn -Dtest=CaddyIngressConfigTest test`，測試通過
 - 執行 `APP_PUBLIC_DOMAIN=example.com CADDY_ACME_EMAIL=ops@example.com docker compose config`，驗證 Compose 組態通過
-- 執行 `make test`，共 `2430` tests（`0` failures / `0` errors，`84` skipped），測試通過
+- 執行 `mvn -q -Dtest=FiatOrderPostPaymentWorkerTest,FiatPaymentReconciliationServiceTest,EcpayTradeQueryServiceTest test`，測試通過
+- 執行 `make test`，共 `2419` tests（`0` failures / `0` errors，`85` skipped），測試通過
 - 執行 `mvn -q -Dtest=FiatOrderServiceTest,FiatPaymentCallbackServiceTest,ShopSelectMenuHandlerTest test`，測試通過
-- 執行 `make test`，共 `2441` tests（`0` failures / `0` errors，`85` skipped），測試通過
 - 執行 `mvn -Dtest='EnvironmentConfigDotEnvIntegrationTest,ProductFulfillmentApiServiceTest,EcpayCallbackHttpServerTest,LangChain4jAIChatServiceTest,InMemoryToolCallHistoryTest,SimplifiedChatMemoryProviderTest,JooqRepositoryIntegrationTest,RepositoryIntegrationTest,BotRestartIntegrationTest,BalanceAdjustmentCommandIntegrationTest,BalanceServiceIntegrationTest,CurrencyConfigCommandIntegrationTest,SlashCommandPerformanceTest' test`，測試通過（Docker 不可用時 Testcontainers cases 依設計略過）
 - 執行 `make test-integration`，測試階段通過但最終因既有 `jacoco` 行覆蓋率門檻 `0.66 < 0.80` 失敗
 - 執行 `make format-check`，檢查通過

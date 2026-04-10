@@ -94,13 +94,10 @@
 | `ECPAY_CALLBACK_BIND_HOST` | 不使用 Compose 內建 ingress、需要進階 override 時 | 內嵌 HTTP server 綁定 host | `127.0.0.1`；Compose 自架預設由 repo 內 Caddy 代理到 loopback |
 | `ECPAY_CALLBACK_BIND_PORT` | 不使用 Compose 內建 ingress、需要進階 override 時 | 內嵌 HTTP server 綁定 port | `8085`；Compose 自架預設由 repo 內 Caddy 代理到這個內部 port |
 | `ECPAY_CALLBACK_PATH` | 想調整 callback path 時 | 綠界回推接收路徑 | `/ecpay/callback` |
-| `ECPAY_CALLBACK_SHARED_SECRET` | 舊部署環境仍保留欄位時 | 舊相容欄位；現行 callback 驗證不依賴 query token 授權 | 空字串；新部署不應把它當成 callback 授權機制 |
-
-### 履約與日誌
+### 日誌
 
 | Key | 何時要設 | 說明 | 預設 / 備註 |
 | --- | --- | --- | --- |
-| `PRODUCT_FULFILLMENT_SIGNING_SECRET` | 啟用外部履約 webhook 時 | webhook HMAC 密鑰 | 空字串 |
 | `LOG_LEVEL` | 想調整 root logger 時 | root logger 等級 | `WARN` |
 | `APP_LOG_LEVEL` | 想調整應用 logger 時 | `ltdjms.discord.*` 等級 | `INFO` |
 | `LOG_DIR` | 想改日誌路徑時 | 日誌輸出資料夾 | `logs` |
@@ -150,13 +147,8 @@
 - 首次付款成功 callback 完成後，系統會再私訊買家付款成功通知；若私訊失敗，只記錄日誌，不會回滾付款狀態
 - 若 Caddy 無法啟動 HTTPS，優先檢查 DNS 是否已指向主機、主機是否開放 `80/443`，再查看 `docker compose logs caddy`
 - 取號若回傳 `The parameter [Data] decrypt fail`，優先檢查 `ECPAY_STAGE_MODE` 是否和 `MerchantID` / `HashKey` / `HashIV` 對應同一環境
-- 已付款 callback 會經過驗證、解密、冪等更新與後續履約
-
-### Product Fulfillment Backend
-
-- 商品若設定 `backendApiUrl`，購買或付款完成後可觸發 webhook
-- `backendApiUrl` 必須是 `https://`
-- 若商品設定自動建立護航單，付款後還會觸發管理員通知流程
+- 已付款 callback 會經過驗證、解密與冪等落庫
+- 已付款後的買家通知、商品獎勵發放、護航通知與補償查單，會由背景 worker 非同步處理
 
 ## 常見誤設與症狀
 
@@ -167,6 +159,6 @@
 | callback server 沒有啟動 | `APP_PUBLIC_BASE_URL` 與 `ECPAY_RETURN_URL` 都沒設，導致無法解析最終 callback URL |
 | callback server 啟動失敗 | `ECPAY_STAGE_MODE=true` 但你在非 Compose 進階部署中把 callback server 綁到公網位址 |
 | 下單失敗且顯示 `The parameter [Data] decrypt fail` | `ECPAY_STAGE_MODE` 與 `MerchantID` / `HashKey` / `HashIV` 混用了不同環境，或金鑰含多餘空白 |
-| 付款完成但沒有履約 | ECPay callback 未到達、解密失敗，或外部履約 webhook 失敗 |
+| 付款完成但沒有發貨 / 通知 | ECPay callback 未到達、解密失敗，或背景 worker 尚未完成重試 |
 | Redis 初始化失敗 | `REDIS_URI` 指向的服務不可連線 |
 | 舊文件提到 `AI_SERVICE_MAX_TOKENS` | 現行 `EnvironmentConfig` 已不支援此變數 |

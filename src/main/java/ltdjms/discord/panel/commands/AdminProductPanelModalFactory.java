@@ -192,20 +192,4 @@ final class AdminProductPanelModalFactory {
             ActionRow.of(countInput), ActionRow.of(quantityInput), ActionRow.of(expiresInput))
         .build();
   }
-
-  static Modal createIntegrationPanelBackendUrlModal(String backendApiUrl) {
-    TextInput.Builder inputBuilder =
-        TextInput.create("backend_api_url", "後端 API URL", TextInputStyle.SHORT)
-            .setPlaceholder("https://example.com/fulfillment")
-            .setRequired(false)
-            .setMaxLength(500);
-    if (backendApiUrl != null && !backendApiUrl.isBlank()) {
-      inputBuilder.setValue(backendApiUrl);
-    }
-
-    return Modal.create(
-            AdminProductPanelHandler.MODAL_INTEGRATION_PANEL_BACKEND_URL, "設定後端 API URL")
-        .addComponents(ActionRow.of(inputBuilder.build()))
-        .build();
-  }
 }
