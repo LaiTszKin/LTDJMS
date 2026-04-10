@@ -105,6 +105,12 @@ mvn clean verify
   make test-integration
   ```
 
+若改動包含 `src/main/resources/db/migration/`：
+
+- 新 migration 必須能在「已有舊表 / 舊 constraint 殘留」的資料庫上安全重跑。
+- 優先使用 `IF EXISTS` / `IF NOT EXISTS` 或 `DO $$ ... $$` 包住 DDL，避免整合測試在同一個 PostgreSQL 容器反覆建立 schema 時失敗。
+- 至少確認 `DatabaseMigrationRunnerIntegrationTest` 相關案例仍成立：空資料庫建表、既有資料升級、baseline 與 idempotent 重跑。
+
 ### 4.2 行為有意義變更的情況
 
 例如新增錯誤訊息、改變指令回應格式或調整邊界條件：
@@ -359,4 +365,3 @@ git commit -m "chore: fix code format"
 
 - 單元測試：`make test`
 - 全部測試：`make test-integration` 或 `mvn clean verify`
-

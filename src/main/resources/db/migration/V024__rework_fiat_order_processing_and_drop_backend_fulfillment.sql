@@ -9,16 +9,26 @@ ALTER TABLE product DROP CONSTRAINT IF EXISTS product_backend_api_url_http;
 ALTER TABLE product DROP CONSTRAINT IF EXISTS product_backend_api_url_https;
 ALTER TABLE product DROP CONSTRAINT IF EXISTS product_backend_api_url_not_private_addr;
 ALTER TABLE product DROP CONSTRAINT IF EXISTS product_auto_escort_requires_backend_api;
+ALTER TABLE product DROP CONSTRAINT IF EXISTS product_auto_escort_requires_option;
 
-ALTER TABLE product
-    ADD CONSTRAINT product_auto_escort_requires_option
-        CHECK (
-            NOT auto_create_escort_order
-            OR (
-                escort_option_code IS NOT NULL
-                AND length(trim(escort_option_code)) > 0
-            )
-        );
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+        FROM pg_constraint
+        WHERE conname = 'product_auto_escort_requires_option'
+    ) THEN
+        ALTER TABLE product
+            ADD CONSTRAINT product_auto_escort_requires_option
+                CHECK (
+                    NOT auto_create_escort_order
+                    OR (
+                        escort_option_code IS NOT NULL
+                        AND length(trim(escort_option_code)) > 0
+                    )
+                );
+    END IF;
+END $$;
 
 COMMENT ON COLUMN product.escort_option_code IS
     'Escort order option code used when auto_create_escort_order is enabled.';

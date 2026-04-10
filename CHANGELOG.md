@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+- **shop/migrations**: 修正 `V024__rework_fiat_order_processing_and_drop_backend_fulfillment.sql` 在既有 `product_auto_escort_requires_option` constraint 已存在時的重跑失敗，讓 Flyway migration 對整合測試與既有 schema 都保持可重入
+
+### Docs
+- **development/testing**: 補充 migration 變更時的可重入性與 `DatabaseMigrationRunnerIntegrationTest` 驗證要求
+
 ## [0.35.0] - 2026-04-11
 
 ### Added
