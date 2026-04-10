@@ -7,6 +7,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.io.IOException;
 import java.net.InetAddress;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
@@ -140,6 +141,9 @@ class ProductFulfillmentApiServiceTest {
         .isEqualTo("https://backend.example.com/fulfill");
     assertThat(targetCaptor.getValue().resolvedAddress().getHostAddress())
         .isEqualTo("93.184.216.34");
+    assertThat(targetCaptor.getValue().socketAddress().getAddress().getHostAddress())
+        .isEqualTo("93.184.216.34");
+    assertThat(targetCaptor.getValue().tlsServerName()).isEqualTo("backend.example.com");
     assertThat(targetCaptor.getValue().requestPath()).isEqualTo("/fulfill");
     assertThat(headersCaptor.getValue()).containsEntry("Content-Type", "application/json");
     assertThat(bodyCaptor.getValue()).contains("\"priceTwd\":650");
@@ -448,6 +452,126 @@ class ProductFulfillmentApiServiceTest {
     assertThat(result.isErr()).isTrue();
     assertThat(result.getError().message()).contains("localhost 或內網位址");
     verify(fulfillmentTransport, never()).sendJson(any(), any(), any());
+  }
+
+  @Test
+  @DisplayName("解析結果混入內網位址時應 fail closed")
+  void shouldRejectMixedPublicAndPrivateResolvedAddresses() throws Exception {
+    ProductFulfillmentApiService securedService =
+        new ProductFulfillmentApiService(
+            escortOptionPricingService,
+            fulfillmentTransport,
+            new ObjectMapper(),
+            Clock.fixed(Instant.parse("2026-03-04T00:00:00Z"), ZoneOffset.UTC),
+            host -> {
+              if ("backend.example.com".equals(host)) {
+                return new InetAddress[] {
+                  InetAddress.getByName("93.184.216.34"), InetAddress.getByName("127.0.0.1")
+                };
+              }
+              throw new java.net.UnknownHostException(host);
+            },
+            "test-signing-secret");
+
+    Product product =
+        new Product(
+            1L,
+            GUILD_ID,
+            "Mixed Address Backend",
+            null,
+            Product.RewardType.CURRENCY,
+            100L,
+            200L,
+            null,
+            "https://backend.example.com/fulfill",
+            false,
+            null,
+            Instant.now(),
+            Instant.now());
+
+    Result<ltdjms.discord.shared.Unit, DomainError> result =
+        securedService.notifyFulfillment(
+            new ProductFulfillmentApiService.FulfillmentRequest(
+                GUILD_ID,
+                USER_ID,
+                product,
+                ProductFulfillmentApiService.PurchaseSource.CURRENCY_PURCHASE,
+                null,
+                null));
+
+    assertThat(result.isErr()).isTrue();
+    assertThat(result.getError().message()).contains("localhost 或內網位址");
+    verify(fulfillmentTransport, never()).sendJson(any(), any(), any());
+  }
+
+  @Test
+  @DisplayName("未知主機應在送出前被拒絕")
+  void shouldRejectUnknownHostBeforeSending() throws Exception {
+    Product product =
+        new Product(
+            1L,
+            GUILD_ID,
+            "Unknown Host Backend",
+            null,
+            Product.RewardType.CURRENCY,
+            100L,
+            200L,
+            null,
+            "https://unknown.example/fulfill",
+            false,
+            null,
+            Instant.now(),
+            Instant.now());
+
+    Result<ltdjms.discord.shared.Unit, DomainError> result =
+        service.notifyFulfillment(
+            new ProductFulfillmentApiService.FulfillmentRequest(
+                GUILD_ID,
+                USER_ID,
+                product,
+                ProductFulfillmentApiService.PurchaseSource.CURRENCY_PURCHASE,
+                null,
+                null));
+
+    assertThat(result.isErr()).isTrue();
+    assertThat(result.getError().message()).contains("主機格式無效");
+    verify(fulfillmentTransport, never()).sendJson(any(), any(), any());
+  }
+
+  @Test
+  @DisplayName("傳輸失敗時應回傳 DomainError 且不得誤判為成功")
+  void shouldReturnDomainErrorWhenTransportFails() throws Exception {
+    Product product =
+        new Product(
+            1L,
+            GUILD_ID,
+            "Backend Failure",
+            null,
+            Product.RewardType.CURRENCY,
+            100L,
+            200L,
+            null,
+            "https://backend.example.com/fulfill",
+            false,
+            null,
+            Instant.now(),
+            Instant.now());
+
+    when(fulfillmentTransport.sendJson(any(), any(), any()))
+        .thenThrow(new IOException("tls handshake failed"));
+
+    Result<ltdjms.discord.shared.Unit, DomainError> result =
+        service.notifyFulfillment(
+            new ProductFulfillmentApiService.FulfillmentRequest(
+                GUILD_ID,
+                USER_ID,
+                product,
+                ProductFulfillmentApiService.PurchaseSource.CURRENCY_PURCHASE,
+                null,
+                null));
+
+    assertThat(result.isErr()).isTrue();
+    assertThat(result.getError().message()).contains("呼叫後端履約 API 失敗");
   }
 
   @Test
