@@ -10,7 +10,7 @@
 ## Change Summary
 - Requested change: 依 issue #70 將 fulfillment URL 的 DNS rebinding 防線做成可驗證、不可輕易回歸的設計。
 - Existing baseline: 現行程式已透過 `ResolvedTarget` + `PinnedHttpsFulfillmentTransport` 連到已解析 IP，代表 issue 描述中的核心風險已被部分緩解，但該安全意圖仍主要存在於實作細節與有限測試。
-- Proposed design delta: 不重做 fulfillment pipeline，而是把 target snapshot 語意、non-public block 與 no-redirect 行為固定下來，並補齊 regression coverage。
+- Proposed design delta: 不重做 fulfillment pipeline，而是把 target snapshot 語意收斂進 `ResolvedTarget` helper／accessor，固定 non-public block 與 no-redirect 行為，並補齊 regression coverage。
 
 ## Scope Mapping
 - Spec requirements covered: `R1.1-R1.3`, `R2.1-R2.3`
@@ -80,8 +80,8 @@
 
 ## Validation Plan
 - Tests:
-  - Unit / regression：驗證 `ResolvedTarget` 內容與 transport 消費方式
-  - Adversarial：non-public address、unknown host、non-2xx、transport failure
+  - Unit / regression：驗證 `ResolvedTarget` 內容、`socketAddress()` / `tlsServerName()` 與 transport 消費方式
+  - Adversarial：non-public address、mixed public/private address、unknown host、non-2xx、transport failure
 - Contract checks: `contract.md` 無外部契約；僅檢查既有 webhook payload / signature header 不變。
 - Rollback / fallback: 若整理後出現連線相容性問題，可回退至目前已驗證的 pinned transport 實作，但不得回退到 hostname re-resolution 模式。
 

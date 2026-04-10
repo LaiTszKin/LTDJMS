@@ -296,17 +296,7 @@ public class ProductFulfillmentApiService {
         }
       }
 
-      InetAddress selectedAddress = resolvedAddresses[0];
-      int port = uri.getPort() > 0 ? uri.getPort() : 443;
-      String path = uri.getRawPath();
-      if (path == null || path.isBlank()) {
-        path = "/";
-      }
-      if (uri.getRawQuery() != null && !uri.getRawQuery().isBlank()) {
-        path += "?" + uri.getRawQuery();
-      }
-      String hostHeader = port == 443 ? host : host + ":" + port;
-      return Result.ok(new ResolvedTarget(uri, selectedAddress, port, hostHeader, path));
+      return Result.ok(ResolvedTarget.fromValidatedUri(uri, resolvedAddresses[0]));
     } catch (UnknownHostException e) {
       return Result.err(DomainError.invalidInput("後端履約 API URL 主機格式無效"));
     }
@@ -385,7 +375,30 @@ public class ProductFulfillmentApiService {
       InetAddress resolvedAddress,
       int port,
       String hostHeader,
-      String requestPath) {}
+      String requestPath) {
+
+    static ResolvedTarget fromValidatedUri(URI originalUri, InetAddress resolvedAddress) {
+      int port = originalUri.getPort() > 0 ? originalUri.getPort() : 443;
+      String path = originalUri.getRawPath();
+      if (path == null || path.isBlank()) {
+        path = "/";
+      }
+      if (originalUri.getRawQuery() != null && !originalUri.getRawQuery().isBlank()) {
+        path += "?" + originalUri.getRawQuery();
+      }
+      String originalHost = originalUri.getHost();
+      String hostHeader = port == 443 ? originalHost : originalHost + ":" + port;
+      return new ResolvedTarget(originalUri, resolvedAddress, port, hostHeader, path);
+    }
+
+    InetSocketAddress socketAddress() {
+      return new InetSocketAddress(resolvedAddress, port);
+    }
+
+    String tlsServerName() {
+      return originalUri.getHost();
+    }
+  }
 
   record TransportResponse(int statusCode, String body) {}
 
@@ -406,17 +419,16 @@ public class ProductFulfillmentApiService {
       int timeoutMillis = Math.toIntExact(timeout.toMillis());
 
       try (Socket plainSocket = new Socket()) {
-        plainSocket.connect(
-            new InetSocketAddress(target.resolvedAddress(), target.port()), timeoutMillis);
+        plainSocket.connect(target.socketAddress(), timeoutMillis);
         plainSocket.setSoTimeout(timeoutMillis);
 
         try (SSLSocket socket =
             (SSLSocket)
                 sslSocketFactory.createSocket(
-                    plainSocket, target.originalUri().getHost(), target.port(), true)) {
+                    plainSocket, target.tlsServerName(), target.port(), true)) {
           SSLParameters sslParameters = socket.getSSLParameters();
           sslParameters.setEndpointIdentificationAlgorithm("HTTPS");
-          sslParameters.setServerNames(List.of(new SNIHostName(target.originalUri().getHost())));
+          sslParameters.setServerNames(List.of(new SNIHostName(target.tlsServerName())));
           socket.setSSLParameters(sslParameters);
           socket.startHandshake();
           socket.setSoTimeout(timeoutMillis);

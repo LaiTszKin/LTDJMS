@@ -31,9 +31,9 @@
 **AND** 原始 hostname 只能用於 Host header 與 TLS SNI，不可再次決定實際 socket 目的地
 
 **Requirements**:
-- [ ] R1.1 `resolveAndValidateTargetUri()` 必須輸出完整 `ResolvedTarget` 快照（original URI、resolved IP、port、host header、request path）。
-- [ ] R1.2 transport 僅能消費 `ResolvedTarget` 進行連線，禁止內部以 hostname 重解。
-- [ ] R1.3 對外行為仍維持既有 fulfillment payload 與簽章標頭格式。
+- [x] R1.1 `resolveAndValidateTargetUri()` 必須輸出完整 `ResolvedTarget` 快照（original URI、resolved IP、port、host header、request path）。
+- [x] R1.2 transport 僅能消費 `ResolvedTarget` 進行連線，禁止內部以 hostname 重解。
+- [x] R1.3 對外行為仍維持既有 fulfillment payload 與簽章標頭格式。
 
 ### Requirement 2: 只允許 public HTTPS target，且不接受逃逸路徑
 **GIVEN** 商品 backend fulfillment URL 可能來自管理員設定  
@@ -43,16 +43,16 @@
 **AND** 不可因 redirect、fallback host 或 transport-level convenience 行為繞過原始驗證結果
 
 **Requirements**:
-- [ ] R2.1 僅接受 `https://` URL，拒絕 localhost、loopback、site-local、link-local、multicast、ULA 與現有已封鎖的 special-use ranges。
-- [ ] R2.2 transport 不自動跟隨 redirect 到另一個 host / scheme / port。
-- [ ] R2.3 non-2xx、TLS / socket failure、DNS 解析失敗都要轉成可觀測的 `DomainError`，且不得留下 partial fulfillment side effect。
+- [x] R2.1 僅接受 `https://` URL，拒絕 localhost、loopback、site-local、link-local、multicast、ULA 與現有已封鎖的 special-use ranges。
+- [x] R2.2 transport 不自動跟隨 redirect 到另一個 host / scheme / port。
+- [x] R2.3 non-2xx、TLS / socket failure、DNS 解析失敗都要轉成可觀測的 `DomainError`，且不得留下 partial fulfillment side effect。
 
 ## Error and Edge Cases
-- [ ] 管理員輸入 `http://`、空 host、localhost、`.localhost` 或無法解析的 URL。
-- [ ] host 首次解析為 public IP，但未來 refactor 若改回 hostname-based client，會重新暴露 DNS rebinding 風險。
-- [ ] 解析結果含 mixed public/private addresses 時必須 fail closed。
-- [ ] backend 回傳 3xx / 5xx / chunked error body 時，不能繞過失敗處理。
-- [ ] TLS handshake、socket timeout 或讀取回應失敗時，不得誤記為 fulfillment 成功。
+- [x] 管理員輸入 `http://`、空 host、localhost、`.localhost` 或無法解析的 URL。
+- [x] host 首次解析為 public IP，但未來 refactor 若改回 hostname-based client，會重新暴露 DNS rebinding 風險。
+- [x] 解析結果含 mixed public/private addresses 時必須 fail closed。
+- [x] backend 回傳 3xx / 5xx / chunked error body 時，不能繞過失敗處理。
+- [x] TLS handshake、socket timeout 或讀取回應失敗時，不得誤記為 fulfillment 成功。
 
 ## Clarification Questions
 None
