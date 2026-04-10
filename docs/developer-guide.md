@@ -6,7 +6,7 @@
 - 服務層偏好使用 `Result<T, DomainError>`，不是直接拋通用例外。
 - 面板更新、快取失效、Agent 設定同步大量依賴 `DomainEventPublisher`。
 - 商品流程不是只有「扣款」：還可能接著發獎勵、呼叫外部履約、發通知。
-- ECPay callback 與售後 / 履約流程都帶有明確的冪等 claim 邏輯。
+- ECPay callback、付款後背景 worker、補償查單與售後流程都帶有明確的冪等 claim 邏輯。
 - AI 頻道白名單與 AI Agent 啟用是兩套設定，修改時不要混在一起。
 
 ## 最值得先讀的程式
@@ -87,7 +87,7 @@
 
 ### Mock / fake 原則
 
-- Discord 互動、AI provider、ECPay、履約 webhook 應以 mock / fake 隔離
+- Discord 互動、AI provider、ECPay 與付款後背景流程應以 mock / fake 隔離
 - 不要只驗證「沒有丟例外」，要驗 side effect 是否真的發生
 
 ## 除錯入口

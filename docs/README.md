@@ -18,7 +18,7 @@
 ### 我要把系統跑起來
 
 - `docs/getting-started.md`：本機啟動、Docker Compose、部署前檢查
-- `docs/configuration.md`：`.env`、資料庫、Redis、AI、ECPay、履約 webhook
+- `docs/configuration.md`：`.env`、資料庫、Redis、AI、ECPay、付款 callback / 背景 worker
 
 ### 我要理解系統怎麼組成
 

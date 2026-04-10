@@ -80,7 +80,7 @@ java -jar target/ltdjms-*.jar
 
 - 以 Docker Compose 啟動 bot、PostgreSQL、Redis
 - 透過 Flyway migration 維護資料庫 schema
-- 追蹤付款回推、履約 webhook、事件管線與 Discord 互動流程
+- 追蹤付款回推、背景 worker、補償查單、事件管線與 Discord 互動流程
 
 ## 啟動前必知
 
