@@ -8,6 +8,7 @@
 - 商品流程不是只有「扣款」：還可能接著發獎勵、呼叫外部履約、發通知。
 - ECPay callback、付款後背景 worker、補償查單與售後流程都帶有明確的冪等 claim 邏輯。
 - AI 頻道白名單與 AI Agent 啟用是兩套設定，修改時不要混在一起。
+- AI mention routing 先看 Agent 啟用，再看一般 AI allowlist，不要把兩者重新合併成單一 gate。
 
 ## 最值得先讀的程式
 

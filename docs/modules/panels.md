@@ -64,7 +64,7 @@
 
 - **`AIConfigManagementFacade`**：AI 功能配置管理聚合
   - 整合 `AIChannelRestrictionService`、`AIAgentService`
-  - 管理 AI 頻道限制與 AI agent 配置
+  - 管理 AI 頻道限制與 AI agent 配置，兩者是獨立設定域，Agent 啟用不代表一般 AI allowlist 已放行
 
 #### 面板服務
 

@@ -123,7 +123,7 @@ public class AIConfigManagementFacade {
    * 獲取伺服器中已啟用 AI Agent 模式的頻道列表。
    *
    * @param guildId 伺服器 ID
-   * @return 已啟用的頻道 ID 列表
+   * @return 已啟用的頻道 ID 列表；此設定只影響 Agent routing，不會覆蓋一般 AI allowlist
    */
   public Result<java.util.List<Long>, DomainError> getEnabledAgentChannels(long guildId) {
     LOG.debug("Getting enabled agent channels for guildId={}", guildId);
@@ -135,7 +135,7 @@ public class AIConfigManagementFacade {
    *
    * @param guildId 伺服器 ID
    * @param channelId 頻道 ID
-   * @return 是否啟用
+   * @return 是否啟用；這只代表 Agent routing 狀態，不表示一般 AI allowlist 已放行
    */
   public boolean isAgentEnabled(long guildId, long channelId) {
     return aiAgentChannelConfigService.isAgentEnabled(guildId, channelId);

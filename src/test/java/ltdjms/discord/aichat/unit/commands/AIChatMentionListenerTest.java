@@ -1,6 +1,7 @@
 package ltdjms.discord.aichat.unit.commands;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -83,6 +84,7 @@ class AIChatMentionListenerTest {
     when(regularUser.isBot()).thenReturn(false);
     when(jda.getSelfUser()).thenReturn(botUser);
     when(botUser.getId()).thenReturn("999");
+    when(messageChannel.getId()).thenReturn("456");
 
     // Mock sendMessage 返回一個可用的 MessageCreateAction
     when(messageChannel.sendMessage(any(CharSequence.class))).thenReturn(messageCreateAction);
@@ -125,6 +127,24 @@ class AIChatMentionListenerTest {
 
       // Assert - 不應該觸發任何回應
       verify(messageChannel, never()).sendMessage(any(CharSequence.class));
+    }
+
+    @Test
+    @DisplayName("當 Agent 啟用時，即使 allowlist 拒絕仍應走 Agent 路徑")
+    void shouldTriggerAgentResponseWhenAgentEnabledEvenIfAllowlistDenied() {
+      // Arrange
+      when(agentConfigService.isAgentEnabled(123L, 456L)).thenReturn(true);
+      when(guild.getIdLong()).thenReturn(123L);
+      when(messageChannel.getIdLong()).thenReturn(456L);
+      when(regularUser.getId()).thenReturn("789");
+      when(message.getContentRaw()).thenReturn("<@999> hello");
+
+      // Act
+      listener.onMessageReceived(event);
+
+      // Assert - Agent 路徑仍應發送初始思考訊息
+      verify(messageChannel).sendMessage(any(CharSequence.class));
+      verify(channelRestrictionService, never()).isChannelAllowed(anyLong(), anyLong(), anyLong());
     }
 
     @Test
@@ -295,6 +315,30 @@ class AIChatMentionListenerTest {
 
       // Assert - 不應該觸發任何回應
       verify(messageChannel, never()).sendMessage(any(CharSequence.class));
+    }
+  }
+
+  @Nested
+  @DisplayName("路由失敗處理")
+  class RoutingFailure {
+
+    @Test
+    @DisplayName("當 Agent 設定服務不可用時，應 fail closed")
+    void shouldDenyWhenAgentConfigUnavailable() {
+      // Arrange
+      when(guild.getIdLong()).thenReturn(123L);
+      when(messageChannel.getIdLong()).thenReturn(456L);
+      when(regularUser.getId()).thenReturn("789");
+      when(message.getContentRaw()).thenReturn("<@999> hello");
+      when(agentConfigService.isAgentEnabled(123L, 456L))
+          .thenThrow(new IllegalStateException("agent config unavailable"));
+
+      // Act
+      listener.onMessageReceived(event);
+
+      // Assert - 服務不可用時不應誤放行
+      verify(messageChannel, never()).sendMessage(any(CharSequence.class));
+      verify(channelRestrictionService, never()).isChannelAllowed(anyLong(), anyLong(), anyLong());
     }
   }
 }

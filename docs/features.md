@@ -54,7 +54,7 @@ LTDJMS 目前把 Discord guild 中最常見的四類流程放進同一個 bot：
 
 - 入口：在允許頻道提及 Bot，以及 `/admin-panel` 中的 AI 設定
 - AI Chat 只會在允許的頻道 / 類別運作
-- AI Agent 頻道啟用是另一套設定，與一般 AI 白名單分開維護
+- AI Agent 頻道啟用是另一套設定，與一般 AI 白名單分開維護；Agent 啟用頻道可獨立於 AI allowlist 走 Agent 路徑
 - Agent 模式目前可執行的 Discord 工具包含：
   - 建立 / 列出 / 刪除頻道、類別、角色
   - 查詢與修改頻道、類別、角色權限
@@ -66,6 +66,6 @@ LTDJMS 目前把 Discord guild 中最常見的四類流程放進同一個 bot：
 
 - 多數互動只支援 guild，不支援在 DM 直接執行 slash command
 - `/currency-config`、`/admin-panel`、`/dispatch-panel` 需要管理員權限
-- AI 不在白名單頻道時會直接忽略 mention
+- 未啟用 Agent 的 AI 頻道若不在白名單內，會直接忽略 mention
 - 僅當 `APP_PUBLIC_BASE_URL` 與 `ECPAY_RETURN_URL` 都未設定時，付款回推服務才不會啟動
 - 付款、派單、售後這三類流程都依賴狀態轉移與冪等控制，不能只看表面 UI 流程

@@ -6,7 +6,7 @@ AI Agent 模組提供 Discord 機器人的 AI 工具調用功能，允許 AI 在
 
 **核心特性**：
 - **工具註冊系統**：動態註冊和管理可被 AI 調用的系統工具
-- **頻道級別控制**：管理員可控制哪些頻道啟用 AI Agent 模式
+- **頻道級別控制**：管理員可控制哪些頻道啟用 AI Agent 模式；已啟用的頻道可獨立於一般 AI allowlist 進入 Agent routing
 - **序列化執行**：使用 FIFO 佇列確保工具調用按順序執行
 - **審計日誌**：記錄所有工具調用的去敏摘要
 - **記憶體隔離**：後續 chat memory 只保留 memory-safe summary，不再回灌 raw tool result
@@ -346,6 +346,7 @@ public record AIAgentChannelConfigChangedEvent(
 
 - **序列化執行**：一次僅執行一個工具調用
 - **頻道控制**：未啟用 AI Agent 的頻道無法使用工具
+- **頻道控制**：未啟用 AI Agent 的頻道無法使用工具；啟用 Agent 後不需要同時加入一般 AI allowlist
 - **權限要求**：機器人需要有創建頻道/類別的權限
 - **名稱限制**：頻道/類別名稱不超過 100 字符
 - **Discord 限流**：遇到 429 錯誤時自動等待重試
