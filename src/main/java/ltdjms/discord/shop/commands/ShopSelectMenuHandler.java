@@ -10,6 +10,8 @@ import org.slf4j.LoggerFactory;
 import ltdjms.discord.currency.services.BalanceService;
 import ltdjms.discord.discord.domain.ButtonView;
 import ltdjms.discord.discord.services.DiscordComponentRenderer;
+import ltdjms.discord.dispatch.domain.EscortDispatchOrder;
+import ltdjms.discord.dispatch.services.EscortDispatchHandoffService;
 import ltdjms.discord.product.domain.Product;
 import ltdjms.discord.product.services.ProductService;
 import ltdjms.discord.shared.DomainError;
@@ -37,6 +39,7 @@ public class ShopSelectMenuHandler extends ListenerAdapter {
   private final BalanceService balanceService;
   private final CurrencyPurchaseService purchaseService;
   private final FiatOrderService fiatOrderService;
+  private final EscortDispatchHandoffService escortDispatchHandoffService;
   private final ShopAdminNotificationService adminNotificationService;
   private final Set<String> inflightFiatOrders = ConcurrentHashMap.newKeySet();
 
@@ -45,11 +48,13 @@ public class ShopSelectMenuHandler extends ListenerAdapter {
       BalanceService balanceService,
       CurrencyPurchaseService purchaseService,
       FiatOrderService fiatOrderService,
+      EscortDispatchHandoffService escortDispatchHandoffService,
       ShopAdminNotificationService adminNotificationService) {
     this.productService = productService;
     this.balanceService = balanceService;
     this.purchaseService = purchaseService;
     this.fiatOrderService = fiatOrderService;
+    this.escortDispatchHandoffService = escortDispatchHandoffService;
     this.adminNotificationService = adminNotificationService;
   }
 
@@ -288,25 +293,38 @@ public class ShopSelectMenuHandler extends ListenerAdapter {
         return;
       }
 
-      notifyAdminsOrderCreated(
-          event.getGuild(), userId, purchaseResult.getValue().product(), "貨幣購買", null);
-      event.reply(purchaseResult.getValue().formatSuccessMessage()).setEphemeral(true).queue();
+      String successMessage = purchaseResult.getValue().formatSuccessMessage();
+      Product purchasedProduct = purchaseResult.getValue().product();
+      if (purchasedProduct.shouldAutoCreateEscortOrder()) {
+        Result<EscortDispatchOrder, DomainError> handoffResult =
+            escortDispatchHandoffService.handoffFromCurrencyPurchase(
+                guildId, userId, purchasedProduct, event.getId());
+        if (handoffResult.isOk()) {
+          notifyAdminsOrderCreated(handoffResult.getValue());
+        } else {
+          LOG.warn(
+              "Failed to create escort dispatch handoff for currency purchase: guildId={},"
+                  + " userId={}, productId={}",
+              guildId,
+              userId,
+              purchasedProduct.id(),
+              handoffResult.getError());
+          successMessage += "\n\n⚠️ 自動護航單建立失敗，請稍後通知管理員。";
+        }
+      }
+
+      event.reply(successMessage).setEphemeral(true).queue();
     } catch (Exception e) {
       LOG.error("Error handling purchase button: {}", buttonId, e);
       event.reply("發生錯誤，請稍後再試").setEphemeral(true).queue();
     }
   }
 
-  private void notifyAdminsOrderCreated(
-      net.dv8tion.jda.api.entities.Guild guild,
-      long buyerUserId,
-      Product product,
-      String orderType,
-      String orderReference) {
-    if (guild == null) {
+  private void notifyAdminsOrderCreated(EscortDispatchOrder order) {
+    if (order == null) {
       return;
     }
     adminNotificationService.notifyAdminsOrderCreated(
-        guild.getIdLong(), buyerUserId, product, orderType, orderReference);
+        order.guildId(), order.customerUserId(), order);
   }
 }

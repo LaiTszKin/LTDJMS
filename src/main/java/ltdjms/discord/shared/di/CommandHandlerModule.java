@@ -18,6 +18,7 @@ import ltdjms.discord.currency.services.CurrencyConfigService;
 import ltdjms.discord.currency.services.CurrencyTransactionService;
 import ltdjms.discord.dispatch.commands.DispatchPanelCommandHandler;
 import ltdjms.discord.dispatch.services.DispatchAfterSalesStaffService;
+import ltdjms.discord.dispatch.services.EscortDispatchHandoffService;
 import ltdjms.discord.dispatch.services.EscortOptionPricingService;
 import ltdjms.discord.gametoken.commands.DiceGame1CommandHandler;
 import ltdjms.discord.gametoken.commands.DiceGame2CommandHandler;
@@ -375,12 +376,14 @@ public class CommandHandlerModule {
       FiatOrderRepository fiatOrderRepository,
       ProductService productService,
       ProductRewardService productRewardService,
+      EscortDispatchHandoffService escortDispatchHandoffService,
       ShopAdminNotificationService shopAdminNotificationService,
       FiatOrderBuyerNotificationService fiatOrderBuyerNotificationService) {
     return new FiatOrderPostPaymentWorker(
         fiatOrderRepository,
         productService,
         productRewardService,
+        escortDispatchHandoffService,
         shopAdminNotificationService,
         fiatOrderBuyerNotificationService);
   }
@@ -415,12 +418,14 @@ public class CommandHandlerModule {
       BalanceService balanceService,
       ltdjms.discord.shop.services.CurrencyPurchaseService currencyPurchaseService,
       FiatOrderService fiatOrderService,
+      EscortDispatchHandoffService escortDispatchHandoffService,
       ShopAdminNotificationService shopAdminNotificationService) {
     return new ShopSelectMenuHandler(
         productService,
         balanceService,
         currencyPurchaseService,
         fiatOrderService,
+        escortDispatchHandoffService,
         shopAdminNotificationService);
   }
 

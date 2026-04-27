@@ -7,6 +7,7 @@ import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import ltdjms.discord.dispatch.domain.EscortDispatchOrder;
 import ltdjms.discord.product.domain.Product;
 import ltdjms.discord.shared.di.JDAProvider;
 import net.dv8tion.jda.api.Permission;
@@ -33,6 +34,64 @@ public class ShopAdminNotificationService {
 
     String message =
         buildAdminOrderNotification(guild, buyerUserId, product, orderType, orderReference);
+    Set<Long> notified = new HashSet<>();
+
+    List<Member> members = guild.getMembers();
+    if (members != null) {
+      for (Member member : members) {
+        if (!isAdmin(member, guild)) {
+          continue;
+        }
+        User adminUser = member.getUser();
+        if (adminUser == null || !notified.add(adminUser.getIdLong())) {
+          continue;
+        }
+        sendAdminNotification(adminUser, message);
+      }
+    }
+
+    long ownerId = 0L;
+    try {
+      ownerId = guild.getOwnerIdLong();
+    } catch (Exception e) {
+      LOG.debug(
+          "Unable to resolve guild owner id for order notification: guildId={}",
+          guild.getIdLong(),
+          e);
+    }
+    final long finalOwnerId = ownerId;
+    if (finalOwnerId > 0 && !notified.contains(finalOwnerId)) {
+      guild
+          .retrieveMemberById(finalOwnerId)
+          .queue(
+              ownerMember -> {
+                User owner = ownerMember.getUser();
+                if (owner != null) {
+                  sendAdminNotification(owner, message);
+                }
+              },
+              failure ->
+                  LOG.debug(
+                      "Failed to retrieve guild owner for order notification: guildId={},"
+                          + " ownerId={}",
+                      guild.getIdLong(),
+                      finalOwnerId,
+                      failure));
+    }
+  }
+
+  public void notifyAdminsOrderCreated(long guildId, long buyerUserId, EscortDispatchOrder order) {
+    if (order == null) {
+      return;
+    }
+
+    Guild guild = JDAProvider.getJda().getGuildById(guildId);
+    if (guild == null) {
+      LOG.warn("Guild not found when notifying admins: guildId={}", guildId);
+      return;
+    }
+
+    String message = buildAdminOrderNotification(guild, buyerUserId, order);
     Set<Long> notified = new HashSet<>();
 
     List<Member> members = guild.getMembers();
@@ -109,6 +168,57 @@ public class ShopAdminNotificationService {
     }
     builder.append("\n請使用 `/dispatch-panel` 進行派單分配。");
     return builder.toString();
+  }
+
+  private String buildAdminOrderNotification(
+      Guild guild, long buyerUserId, EscortDispatchOrder order) {
+    StringBuilder builder = new StringBuilder();
+    builder.append("📩 有新護航工作交接，請儘速處理\n\n");
+    builder
+        .append("**伺服器：** ")
+        .append(guild.getName())
+        .append(" (`")
+        .append(guild.getId())
+        .append("`)\n");
+    builder.append("**買家：** <@").append(buyerUserId).append(">\n");
+    builder.append("**來源類型：** ").append(describeSourceType(order.sourceType())).append("\n");
+    if (order.sourceReference() != null && !order.sourceReference().isBlank()) {
+      builder.append("**來源參考：** `").append(order.sourceReference()).append("`\n");
+    }
+    if (order.sourceProductName() != null && !order.sourceProductName().isBlank()) {
+      builder.append("**來源商品：** ").append(order.sourceProductName()).append("\n");
+    }
+    String priceText = formatSourcePrice(order);
+    if (!priceText.isBlank()) {
+      builder.append("**價格快照：** ").append(priceText).append("\n");
+    }
+    if (order.sourceEscortOptionCode() != null && !order.sourceEscortOptionCode().isBlank()) {
+      builder.append("**護航選項：** `").append(order.sourceEscortOptionCode()).append("`\n");
+    }
+    builder.append("**Dispatch 編號：** `").append(order.orderNumber()).append("`\n");
+    builder.append("\n請使用 `/dispatch-panel` 檢視或後續處理此工作項。");
+    return builder.toString();
+  }
+
+  private String describeSourceType(EscortDispatchOrder.SourceType sourceType) {
+    if (sourceType == null) {
+      return "未知";
+    }
+    return switch (sourceType) {
+      case MANUAL -> "手動派單";
+      case CURRENCY_PURCHASE -> "貨幣購買";
+      case FIAT_PAYMENT -> "法幣付款";
+    };
+  }
+
+  private String formatSourcePrice(EscortDispatchOrder order) {
+    if (order.sourceCurrencyPrice() != null && order.sourceCurrencyPrice() > 0) {
+      return String.format("%,d 貨幣", order.sourceCurrencyPrice());
+    }
+    if (order.sourceFiatPriceTwd() != null && order.sourceFiatPriceTwd() > 0) {
+      return String.format("NT$%,d", order.sourceFiatPriceTwd());
+    }
+    return "";
   }
 
   private boolean isAdmin(Member member, Guild guild) {

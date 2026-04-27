@@ -14,6 +14,7 @@ import ltdjms.discord.dispatch.persistence.JdbcDispatchAfterSalesStaffRepository
 import ltdjms.discord.dispatch.persistence.JdbcEscortDispatchOrderRepository;
 import ltdjms.discord.dispatch.persistence.JdbcEscortOptionPriceRepository;
 import ltdjms.discord.dispatch.services.DispatchAfterSalesStaffService;
+import ltdjms.discord.dispatch.services.EscortDispatchHandoffService;
 import ltdjms.discord.dispatch.services.EscortDispatchOrderService;
 import ltdjms.discord.dispatch.services.EscortOptionPricingService;
 
@@ -32,6 +33,13 @@ public class DispatchModule {
   public EscortDispatchOrderService provideEscortDispatchOrderService(
       EscortDispatchOrderRepository repository) {
     return new EscortDispatchOrderService(repository);
+  }
+
+  @Provides
+  @Singleton
+  public EscortDispatchHandoffService provideEscortDispatchHandoffService(
+      EscortDispatchOrderRepository repository) {
+    return new EscortDispatchHandoffService(repository);
   }
 
   @Provides

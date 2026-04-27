@@ -9,6 +9,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import ltdjms.discord.currency.domain.CurrencyTransaction;
+import ltdjms.discord.dispatch.domain.EscortDispatchOrder;
+import ltdjms.discord.dispatch.services.EscortDispatchHandoffService;
 import ltdjms.discord.gametoken.domain.GameTokenTransaction;
 import ltdjms.discord.product.domain.Product;
 import ltdjms.discord.product.services.ProductRewardService;
@@ -27,6 +29,7 @@ public class FiatOrderPostPaymentWorker {
   private final FiatOrderRepository fiatOrderRepository;
   private final ProductService productService;
   private final ProductRewardService productRewardService;
+  private final EscortDispatchHandoffService escortDispatchHandoffService;
   private final ShopAdminNotificationService adminNotificationService;
   private final FiatOrderBuyerNotificationService buyerNotificationService;
   private final Clock clock;
@@ -35,12 +38,14 @@ public class FiatOrderPostPaymentWorker {
       FiatOrderRepository fiatOrderRepository,
       ProductService productService,
       ProductRewardService productRewardService,
+      EscortDispatchHandoffService escortDispatchHandoffService,
       ShopAdminNotificationService adminNotificationService,
       FiatOrderBuyerNotificationService buyerNotificationService) {
     this(
         fiatOrderRepository,
         productService,
         productRewardService,
+        escortDispatchHandoffService,
         adminNotificationService,
         buyerNotificationService,
         Clock.systemUTC());
@@ -50,12 +55,14 @@ public class FiatOrderPostPaymentWorker {
       FiatOrderRepository fiatOrderRepository,
       ProductService productService,
       ProductRewardService productRewardService,
+      EscortDispatchHandoffService escortDispatchHandoffService,
       ShopAdminNotificationService adminNotificationService,
       FiatOrderBuyerNotificationService buyerNotificationService,
       Clock clock) {
     this.fiatOrderRepository = Objects.requireNonNull(fiatOrderRepository);
     this.productService = Objects.requireNonNull(productService);
     this.productRewardService = Objects.requireNonNull(productRewardService);
+    this.escortDispatchHandoffService = Objects.requireNonNull(escortDispatchHandoffService);
     this.adminNotificationService = Objects.requireNonNull(adminNotificationService);
     this.buyerNotificationService = Objects.requireNonNull(buyerNotificationService);
     this.clock = Objects.requireNonNull(clock);
@@ -86,12 +93,20 @@ public class FiatOrderPostPaymentWorker {
       }
 
       if (product.shouldAutoCreateEscortOrder() && !order.isAdminNotified()) {
+        Result<EscortDispatchOrder, DomainError> handoffResult =
+            escortDispatchHandoffService.handoffFromFiatPayment(
+                order.guildId(), order.buyerUserId(), product, order.orderNumber());
+        if (handoffResult.isErr()) {
+          throw new IllegalStateException(handoffResult.getError().message());
+        }
+
+        EscortDispatchOrder dispatchOrder = handoffResult.getValue();
         Instant adminClaimTime = Instant.now(clock);
         if (fiatOrderRepository.claimAdminNotificationProcessing(
             order.orderNumber(), adminClaimTime)) {
           try {
             adminNotificationService.notifyAdminsOrderCreated(
-                order.guildId(), order.buyerUserId(), product, "法幣付款完成", order.orderNumber());
+                dispatchOrder.guildId(), dispatchOrder.customerUserId(), dispatchOrder);
             fiatOrderRepository.markAdminNotifiedIfNeeded(order.orderNumber(), adminClaimTime);
           } catch (Exception e) {
             fiatOrderRepository.releaseAdminNotificationProcessing(order.orderNumber());

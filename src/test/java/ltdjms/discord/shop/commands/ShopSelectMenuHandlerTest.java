@@ -21,6 +21,8 @@ import org.mockito.quality.Strictness;
 
 import ltdjms.discord.currency.domain.BalanceView;
 import ltdjms.discord.currency.services.BalanceService;
+import ltdjms.discord.dispatch.domain.EscortDispatchOrder;
+import ltdjms.discord.dispatch.services.EscortDispatchHandoffService;
 import ltdjms.discord.product.domain.Product;
 import ltdjms.discord.product.services.ProductService;
 import ltdjms.discord.shared.DomainError;
@@ -61,6 +63,8 @@ class ShopSelectMenuHandlerTest {
 
   @Mock private FiatOrderService fiatOrderService;
 
+  @Mock private EscortDispatchHandoffService escortDispatchHandoffService;
+
   @Mock private ShopAdminNotificationService adminNotificationService;
 
   @Mock private StringSelectInteractionEvent selectEvent;
@@ -97,6 +101,7 @@ class ShopSelectMenuHandlerTest {
             balanceService,
             purchaseService,
             fiatOrderService,
+            escortDispatchHandoffService,
             adminNotificationService);
 
     // 設定預設的 mock 行為
@@ -152,6 +157,7 @@ class ShopSelectMenuHandlerTest {
     when(buttonEvent.getUser()).thenReturn(user);
     when(buttonEvent.isFromGuild()).thenReturn(true);
     when(buttonEvent.reply(anyString())).thenReturn(replyAction);
+    when(buttonEvent.getId()).thenReturn("interaction-1234567890");
   }
 
   // ========== StringSelectInteraction 測試 ==========
@@ -540,6 +546,58 @@ class ShopSelectMenuHandlerTest {
 
     handler.onButtonInteraction(buttonEvent);
 
+    verify(buttonEvent).reply(argThat((String msg) -> msg.contains("購買成功")));
+    verify(replyAction).setEphemeral(true);
+  }
+
+  @Test
+  @DisplayName("自動護航商品購買成功後應先建立 handoff 再通知管理員")
+  void confirmAutoEscortPurchaseSuccess_shouldHandOffBeforeNotifyingAdmins() {
+    String buttonId = ShopSelectMenuHandler.BUTTON_CONFIRM_PURCHASE + TEST_PRODUCT_ID;
+    var product =
+        new Product(
+            TEST_PRODUCT_ID,
+            TEST_GUILD_ID,
+            "Test Product",
+            null,
+            null,
+            null,
+            100L,
+            null,
+            true,
+            "escort-a",
+            Instant.now(),
+            Instant.now());
+    var purchaseResult = new CurrencyPurchaseService.PurchaseResult(product, 500L, 400L, 100L, "");
+    EscortDispatchOrder dispatchOrder =
+        EscortDispatchOrder.createAutoHandoff(
+            "ESC-20260411-ABC123",
+            TEST_GUILD_ID,
+            0L,
+            0L,
+            TEST_USER_ID,
+            EscortDispatchOrder.SourceType.CURRENCY_PURCHASE,
+            "interaction-1234567890",
+            product.id(),
+            product.name(),
+            product.currencyPrice(),
+            product.fiatPriceTwd(),
+            product.escortOptionCode());
+
+    when(buttonEvent.getComponentId()).thenReturn(buttonId);
+    when(purchaseService.purchaseProduct(TEST_GUILD_ID, TEST_USER_ID, TEST_PRODUCT_ID))
+        .thenReturn(Result.ok(purchaseResult));
+    when(escortDispatchHandoffService.handoffFromCurrencyPurchase(
+            TEST_GUILD_ID, TEST_USER_ID, product, "interaction-1234567890"))
+        .thenReturn(Result.ok(dispatchOrder));
+
+    handler.onButtonInteraction(buttonEvent);
+
+    verify(escortDispatchHandoffService)
+        .handoffFromCurrencyPurchase(
+            TEST_GUILD_ID, TEST_USER_ID, product, "interaction-1234567890");
+    verify(adminNotificationService)
+        .notifyAdminsOrderCreated(TEST_GUILD_ID, TEST_USER_ID, dispatchOrder);
     verify(buttonEvent).reply(argThat((String msg) -> msg.contains("購買成功")));
     verify(replyAction).setEphemeral(true);
   }

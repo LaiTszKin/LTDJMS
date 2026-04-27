@@ -3,6 +3,7 @@ package ltdjms.discord.shop.services;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -20,6 +21,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import ltdjms.discord.currency.domain.CurrencyTransaction;
+import ltdjms.discord.dispatch.domain.EscortDispatchOrder;
+import ltdjms.discord.dispatch.services.EscortDispatchHandoffService;
 import ltdjms.discord.gametoken.domain.GameTokenTransaction;
 import ltdjms.discord.product.domain.Product;
 import ltdjms.discord.product.services.ProductRewardService;
@@ -36,6 +39,7 @@ class FiatOrderPostPaymentWorkerTest {
   @Mock private FiatOrderRepository fiatOrderRepository;
   @Mock private ltdjms.discord.product.services.ProductService productService;
   @Mock private ProductRewardService productRewardService;
+  @Mock private EscortDispatchHandoffService escortDispatchHandoffService;
   @Mock private ShopAdminNotificationService adminNotificationService;
   @Mock private FiatOrderBuyerNotificationService buyerNotificationService;
 
@@ -48,6 +52,7 @@ class FiatOrderPostPaymentWorkerTest {
             fiatOrderRepository,
             productService,
             productRewardService,
+            escortDispatchHandoffService,
             adminNotificationService,
             buyerNotificationService,
             Clock.fixed(NOW, ZoneOffset.UTC));
@@ -61,6 +66,10 @@ class FiatOrderPostPaymentWorkerTest {
     when(fiatOrderRepository.claimFulfillmentProcessing(eq(order.orderNumber()), any()))
         .thenReturn(true);
     when(productService.getProduct(order.productId())).thenReturn(Optional.of(product));
+    EscortDispatchOrder dispatchOrder = autoDispatchOrder(order, product);
+    when(escortDispatchHandoffService.handoffFromFiatPayment(
+            eq(order.guildId()), eq(order.buyerUserId()), eq(product), eq(order.orderNumber())))
+        .thenReturn(Result.ok(dispatchOrder));
     when(fiatOrderRepository.claimAdminNotificationProcessing(eq(order.orderNumber()), any()))
         .thenReturn(true);
     when(productRewardService.grantReward(any()))
@@ -68,15 +77,16 @@ class FiatOrderPostPaymentWorkerTest {
 
     worker.processSingleOrder(order);
 
-    verify(buyerNotificationService).notifyPaymentSucceeded(order);
+    var callOrder =
+        inOrder(buyerNotificationService, escortDispatchHandoffService, adminNotificationService);
+    callOrder.verify(buyerNotificationService).notifyPaymentSucceeded(order);
+    callOrder
+        .verify(escortDispatchHandoffService)
+        .handoffFromFiatPayment(order.guildId(), order.buyerUserId(), product, order.orderNumber());
+    callOrder
+        .verify(adminNotificationService)
+        .notifyAdminsOrderCreated(eq(order.guildId()), eq(order.buyerUserId()), eq(dispatchOrder));
     verify(fiatOrderRepository).markBuyerNotifiedIfNeeded(eq(order.orderNumber()), any());
-    verify(adminNotificationService)
-        .notifyAdminsOrderCreated(
-            eq(order.guildId()),
-            eq(order.buyerUserId()),
-            eq(product),
-            eq("法幣付款完成"),
-            eq(order.orderNumber()));
     verify(fiatOrderRepository).markAdminNotifiedIfNeeded(eq(order.orderNumber()), any());
     verify(productRewardService)
         .grantReward(
@@ -116,17 +126,22 @@ class FiatOrderPostPaymentWorkerTest {
     when(fiatOrderRepository.claimFulfillmentProcessing(eq(order.orderNumber()), any()))
         .thenReturn(true);
     when(productService.getProduct(order.productId())).thenReturn(Optional.of(product));
+    when(escortDispatchHandoffService.handoffFromFiatPayment(
+            eq(order.guildId()), eq(order.buyerUserId()), eq(product), eq(order.orderNumber())))
+        .thenReturn(Result.ok(autoDispatchOrder(order, product)));
     when(fiatOrderRepository.claimAdminNotificationProcessing(eq(order.orderNumber()), any()))
         .thenReturn(true);
     org.mockito.Mockito.doThrow(new IllegalStateException("boom"))
         .when(adminNotificationService)
-        .notifyAdminsOrderCreated(anyLong(), anyLong(), eq(product), any(), any());
+        .notifyAdminsOrderCreated(anyLong(), anyLong(), any(EscortDispatchOrder.class));
 
     worker.processSingleOrder(order);
 
     verify(fiatOrderRepository).releaseAdminNotificationProcessing(order.orderNumber());
     verify(fiatOrderRepository).releaseFulfillmentProcessing(order.orderNumber());
     verify(fiatOrderRepository, never()).markFulfilledIfNeeded(any(), any());
+    verify(escortDispatchHandoffService)
+        .handoffFromFiatPayment(order.guildId(), order.buyerUserId(), product, order.orderNumber());
   }
 
   private FiatOrder paidOrder() {
@@ -155,11 +170,39 @@ class FiatOrderPostPaymentWorkerTest {
   }
 
   private Product rewardedEscortProduct() {
-    return Product.create(
-        123L, "護航商品", "desc", Product.RewardType.CURRENCY, 50L, null, 1200L, true, "escort-a");
+    return new Product(
+        789L,
+        123L,
+        "護航商品",
+        "desc",
+        Product.RewardType.CURRENCY,
+        50L,
+        null,
+        1200L,
+        true,
+        "escort-a",
+        NOW,
+        NOW);
   }
 
   private Product escortOnlyProduct() {
-    return Product.create(123L, "護航商品", "desc", null, null, null, 1200L, true, "escort-a");
+    return new Product(
+        789L, 123L, "護航商品", "desc", null, null, null, 1200L, true, "escort-a", NOW, NOW);
+  }
+
+  private EscortDispatchOrder autoDispatchOrder(FiatOrder order, Product product) {
+    return EscortDispatchOrder.createAutoHandoff(
+        "ESC-20260411-ABC123",
+        order.guildId(),
+        0L,
+        0L,
+        order.buyerUserId(),
+        EscortDispatchOrder.SourceType.FIAT_PAYMENT,
+        order.orderNumber(),
+        product.id(),
+        product.name(),
+        product.currencyPrice(),
+        product.fiatPriceTwd(),
+        product.escortOptionCode());
   }
 }

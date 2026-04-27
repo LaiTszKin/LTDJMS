@@ -11,6 +11,7 @@
 - Requested change: 修正 `auto_create_escort_order` 商品在購買完成後沒有真正進入 dispatch aggregate 的問題
 - Existing baseline: `shop` 只在購買完成後發送 admin DM，`dispatch` aggregate 沒有來源商品 / 訂單欄位可承接此脈絡
 - Proposed design delta: 在 `shop` 與 `dispatch` 之間建立明確 handoff service，讓自動護航開單直接寫入 dispatch durable state，通知改為派生副作用
+- Delivered design delta: 實作 `EscortDispatchHandoffService` 作為共同交接邊界，`ShopSelectMenuHandler` 與 `FiatOrderPostPaymentWorker` 先落庫再通知，`ShopAdminNotificationService` 以 `EscortDispatchOrder` 生成 admin DM，`DispatchPanelMessageFactory` 直接顯示來源快照。
 
 ## Scope Mapping
 - Spec requirements covered: `R1.1-R3.3`
@@ -23,7 +24,7 @@
 - 貨幣購買與法幣付款完成都會檢查商品設定，但目前只呼叫 `ShopAdminNotificationService`
 - `EscortDispatchOrder` 缺少來源商品 / 訂單欄位，導致 purchase intent 無法跨模組落地
 
-## Proposed Architecture
+## Delivered Architecture
 - 新增一個由 `shop` 觸發、`dispatch` 擁有的 handoff boundary（例如 `EscortDispatchHandoffService`）
 - handoff payload 直接包含 source order reference、source type、source product snapshot、escort option snapshot、price snapshot
 - `ShopAdminNotificationService` 改為讀取 dispatch record 產生通知，而不是直接從 product 拼湊一次性訊息
@@ -74,6 +75,12 @@
 - Tests: `UT` handoff service、`IT` repository/migration、重放與 DM failure regression
 - Contract checks: `N/A`
 - Rollback / fallback: 如需回退，可暫時停用自動 handoff 並保留既有通知，但不得在同一版本長期維持雙重 canonical source
+
+## Delivered Notes
+- Migration `V025__add_escort_dispatch_source_snapshot.sql` 已新增 `escort_dispatch_order` 的來源快照欄位。
+- `EscortDispatchOrder` 現在可保存 source type / source reference / source product / escort option / price snapshot。
+- `DispatchPanelMessageFactory` 與 `ShopAdminNotificationService` 已改為從 durable dispatch record 讀取來源資訊。
+- 單元與整合測試已覆蓋 duplicate source reference、deleted product 與 admin DM failure 回歸情境。
 
 ## Open Questions
 None

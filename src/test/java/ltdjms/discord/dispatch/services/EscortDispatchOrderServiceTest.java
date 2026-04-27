@@ -416,7 +416,6 @@ class EscortDispatchOrderServiceTest {
         TEST_ADMIN_ID,
         TEST_ESCORT_USER_ID,
         TEST_CUSTOMER_USER_ID,
-        status,
         createdAt,
         confirmedAt,
         completionRequestedAt,
@@ -425,6 +424,14 @@ class EscortDispatchOrderServiceTest {
         afterSalesAssigneeUserId,
         afterSalesAssignedAt,
         afterSalesClosedAt,
-        updatedAt);
+        updatedAt,
+        EscortDispatchOrder.SourceType.MANUAL,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        status);
   }
 }
