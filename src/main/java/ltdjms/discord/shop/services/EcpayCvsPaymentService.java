@@ -100,6 +100,7 @@ public class EcpayCvsPaymentService {
                   + " ECPAY_STAGE_MODE=false。請切回測試環境或改用正式環境金鑰。"));
     }
 
+    Instant requestAt = Instant.now(clock);
     String merchantTradeNo = generateMerchantTradeNo();
 
     try {
@@ -171,6 +172,9 @@ public class EcpayCvsPaymentService {
       JsonNode cvsInfo = dataNode.path("CVSInfo");
       String paymentNo = cvsInfo.path("PaymentNo").asText("");
       String expireDate = textOrNull(cvsInfo.path("ExpireDate").asText(null));
+      Instant expireAt =
+          resolveExpireAt(
+              expireDate, requestAt, clampCvsExpireMinutes(config.getEcpayCvsExpireMinutes()));
       String paymentUrl = textOrNull(cvsInfo.path("PaymentURL").asText(null));
 
       if (orderNumber.isBlank() || paymentNo.isBlank()) {
@@ -178,7 +182,8 @@ public class EcpayCvsPaymentService {
         return Result.err(DomainError.unexpectedFailure("綠界回傳資料不完整", null));
       }
 
-      return Result.ok(new CvsPaymentCode(orderNumber, paymentNo, expireDate, paymentUrl));
+      return Result.ok(
+          new CvsPaymentCode(orderNumber, paymentNo, expireDate, expireAt, paymentUrl));
     } catch (InterruptedException e) {
       Thread.currentThread().interrupt();
       LOG.warn("ECPay request interrupted", e);
@@ -255,6 +260,27 @@ public class EcpayCvsPaymentService {
     return Math.min(input, 43200);
   }
 
+  private Instant resolveExpireAt(String expireDate, Instant fallbackBase, int expireMinutes) {
+    Instant parsed = parseExpireAt(expireDate);
+    if (parsed != null) {
+      return parsed;
+    }
+    return fallbackBase.plus(Duration.ofMinutes(clampCvsExpireMinutes(expireMinutes)));
+  }
+
+  private Instant parseExpireAt(String expireDate) {
+    if (expireDate == null || expireDate.isBlank()) {
+      return null;
+    }
+    try {
+      LocalDateTime localDateTime = LocalDateTime.parse(expireDate.trim(), TRADE_DATE_FORMAT);
+      return localDateTime.atZone(ZoneId.of("Asia/Taipei")).toInstant();
+    } catch (Exception e) {
+      LOG.warn("Failed to parse ECPay expire date: expireDate={}", expireDate, e);
+      return null;
+    }
+  }
+
   private synchronized String generateMerchantTradeNo() {
     long currentMillis = Instant.now(clock).toEpochMilli();
     if (currentMillis < lastTradeNoMillis) {
@@ -309,5 +335,9 @@ public class EcpayCvsPaymentService {
 
   /** CVS payment code info returned from ECPay. */
   public record CvsPaymentCode(
-      String orderNumber, String paymentNo, String expireDate, String paymentUrl) {}
+      String orderNumber,
+      String paymentNo,
+      String expireDate,
+      Instant expireAt,
+      String paymentUrl) {}
 }

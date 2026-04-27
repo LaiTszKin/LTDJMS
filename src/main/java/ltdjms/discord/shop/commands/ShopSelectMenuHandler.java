@@ -244,7 +244,7 @@ public class ShopSelectMenuHandler extends ListenerAdapter {
     if (order.fulfillmentWarning() != null && !order.fulfillmentWarning().isBlank()) {
       sb.append(order.fulfillmentWarning()).append("\n");
     }
-    sb.append("請在付款期限內完成付款，否則訂單將被自動取消。\n");
+    sb.append("請在付款期限內完成付款，否則訂單將自動轉為逾期取消狀態。\n");
     sb.append("\n若需查詢訂單或回報付款，請提供訂單編號給管理員。");
     return sb.toString();
   }

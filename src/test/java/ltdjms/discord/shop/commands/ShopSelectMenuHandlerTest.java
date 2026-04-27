@@ -341,7 +341,7 @@ class ShopSelectMenuHandlerTest {
                         && msg.contains("完整付款資訊也已私訊給你")
                         && msg.contains("`FD260409000001`")
                         && msg.contains("`ABC123456789`")
-                        && msg.contains("訂單將被自動取消")));
+                        && msg.contains("逾期取消狀態")));
   }
 
   @Test
@@ -388,7 +388,7 @@ class ShopSelectMenuHandlerTest {
                     msg.contains("無法開啟私訊")
                         && msg.contains("`FD260409000002`")
                         && msg.contains("`ABC999999999`")
-                        && msg.contains("訂單將被自動取消")));
+                        && msg.contains("逾期取消狀態")));
   }
 
   @Test
@@ -435,7 +435,7 @@ class ShopSelectMenuHandlerTest {
                     msg.contains("無法私訊你")
                         && msg.contains("`FD260409000003`")
                         && msg.contains("`ABC888888888`")
-                        && msg.contains("訂單將被自動取消")));
+                        && msg.contains("逾期取消狀態")));
   }
 
   @Test

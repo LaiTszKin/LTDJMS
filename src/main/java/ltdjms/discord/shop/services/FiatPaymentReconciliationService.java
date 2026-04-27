@@ -23,6 +23,7 @@ public class FiatPaymentReconciliationService {
   private static final Logger LOG = LoggerFactory.getLogger(FiatPaymentReconciliationService.class);
   private static final int DEFAULT_BATCH_SIZE = 20;
   private static final Duration RECONCILIATION_WINDOW = Duration.ofDays(7);
+  private static final String EXPIRED_TERMINAL_REASON = "EXPIRED";
 
   private final FiatOrderRepository fiatOrderRepository;
   private final EcpayTradeQueryService ecpayTradeQueryService;
@@ -47,11 +48,19 @@ public class FiatPaymentReconciliationService {
 
   public void reconcilePendingOrders() {
     Instant now = Instant.now(clock);
+    expirePendingOrders(now);
     List<FiatOrder> orders =
         fiatOrderRepository.findOrdersPendingReconciliation(
             now, now.minus(RECONCILIATION_WINDOW), DEFAULT_BATCH_SIZE);
     for (FiatOrder order : orders) {
       reconcileSingleOrder(order, now);
+    }
+  }
+
+  void expirePendingOrders(Instant now) {
+    List<FiatOrder> orders = fiatOrderRepository.findOrdersPendingExpiry(now, DEFAULT_BATCH_SIZE);
+    for (FiatOrder order : orders) {
+      fiatOrderRepository.markExpiredIfPending(order.orderNumber(), now, EXPIRED_TERMINAL_REASON);
     }
   }
 
@@ -70,16 +79,26 @@ public class FiatPaymentReconciliationService {
 
       EcpayTradeQueryService.QueryTradeResult trade = queryResult.getValue();
       if (!trade.paid()) {
-        scheduleRetry(order, now);
+        Instant decisionTime = Instant.now(clock);
+        if (!decisionTime.isBefore(order.expireAt())) {
+          fiatOrderRepository.markExpiredIfPending(
+              order.orderNumber(), decisionTime, EXPIRED_TERMINAL_REASON);
+        } else {
+          scheduleRetry(order, decisionTime);
+        }
         return;
       }
 
-      fiatOrderRepository.markPaidIfPending(
-          order.orderNumber(),
-          trade.tradeStatus(),
-          trade.message(),
-          buildSyntheticPayload(trade),
-          now);
+      if (fiatOrderRepository
+          .markPaidIfPending(
+              order.orderNumber(),
+              trade.tradeStatus(),
+              trade.message(),
+              buildSyntheticPayload(trade),
+              now)
+          .isEmpty()) {
+        fiatOrderRepository.releaseReconciliationProcessing(order.orderNumber());
+      }
     } catch (Exception e) {
       fiatOrderRepository.releaseReconciliationProcessing(order.orderNumber());
       LOG.warn("Failed to reconcile fiat order: orderNumber={}", order.orderNumber(), e);

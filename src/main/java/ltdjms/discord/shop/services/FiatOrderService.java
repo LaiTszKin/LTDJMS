@@ -73,7 +73,8 @@ public class FiatOrderService {
               product.name(),
               paymentCode.orderNumber(),
               paymentCode.paymentNo(),
-              product.fiatPriceTwd());
+              product.fiatPriceTwd(),
+              paymentCode.expireAt());
       fiatOrderRepository.save(order);
     } catch (Exception e) {
       LOG.error(
@@ -122,7 +123,7 @@ public class FiatOrderService {
       if (fulfillmentWarning != null && !fulfillmentWarning.isBlank()) {
         sb.append("\n").append(fulfillmentWarning).append("\n");
       }
-      sb.append("\n請在付款期限內完成付款，否則訂單將被自動取消。");
+      sb.append("\n請在付款期限內完成付款，否則訂單將自動轉為逾期取消狀態。");
       return sb.toString();
     }
   }

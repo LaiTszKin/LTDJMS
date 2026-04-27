@@ -102,6 +102,7 @@ class FiatOrderServiceTest {
                     "FD260224000001",
                     "ABC123456789",
                     "2026/02/26 23:59:59",
+                    Instant.parse("2026-02-26T15:59:59Z"),
                     "https://example.com")));
 
     Result<FiatOrderService.FiatOrderResult, DomainError> result =
@@ -114,7 +115,7 @@ class FiatOrderServiceTest {
     assertThat(result.getValue().formatDirectMessage()).contains("超商代碼");
     assertThat(result.getValue().formatDirectMessage()).contains("2026/02/26 23:59:59");
     assertThat(result.getValue().formatDirectMessage()).contains("請在付款期限內完成付款");
-    assertThat(result.getValue().formatDirectMessage()).contains("訂單將被自動取消");
+    assertThat(result.getValue().formatDirectMessage()).contains("逾期取消狀態");
   }
 
   @Test
@@ -140,8 +141,11 @@ class FiatOrderServiceTest {
                     "FD260224000001",
                     "ABC123456789",
                     "2026/02/26 23:59:59",
+                    Instant.parse("2026-02-26T15:59:59Z"),
                     "https://example.com")));
-    when(fiatOrderRepository.save(any(FiatOrder.class)))
+    org.mockito.ArgumentCaptor<FiatOrder> orderCaptor =
+        org.mockito.ArgumentCaptor.forClass(FiatOrder.class);
+    when(fiatOrderRepository.save(orderCaptor.capture()))
         .thenAnswer(invocation -> invocation.getArgument(0));
 
     Result<FiatOrderService.FiatOrderResult, DomainError> result =
@@ -149,6 +153,7 @@ class FiatOrderServiceTest {
 
     assertThat(result.isOk()).isTrue();
     assertThat(result.getValue().fulfillmentWarning()).isNull();
+    assertThat(orderCaptor.getValue().expireAt()).isEqualTo(Instant.parse("2026-02-26T15:59:59Z"));
     verify(fiatOrderRepository).save(any(FiatOrder.class));
   }
 }

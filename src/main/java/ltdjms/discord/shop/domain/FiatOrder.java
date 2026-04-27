@@ -3,7 +3,7 @@ package ltdjms.discord.shop.domain;
 import java.time.Instant;
 import java.util.Objects;
 
-/** Fiat order tracked until payment callback marks it as paid. */
+/** Fiat order tracked until payment callback marks it as paid or expired. */
 public record FiatOrder(
     Long id,
     long guildId,
@@ -17,6 +17,9 @@ public record FiatOrder(
     String tradeStatus,
     String paymentMessage,
     Instant paidAt,
+    Instant expireAt,
+    Instant expiredAt,
+    String terminalReason,
     Instant buyerNotifiedAt,
     Instant rewardGrantedAt,
     Instant fulfilledAt,
@@ -29,7 +32,8 @@ public record FiatOrder(
 
   public enum Status {
     PENDING_PAYMENT,
-    PAID
+    PAID,
+    EXPIRED
   }
 
   public FiatOrder {
@@ -37,6 +41,7 @@ public record FiatOrder(
     Objects.requireNonNull(orderNumber, "orderNumber must not be null");
     Objects.requireNonNull(paymentNo, "paymentNo must not be null");
     Objects.requireNonNull(status, "status must not be null");
+    Objects.requireNonNull(expireAt, "expireAt must not be null");
     Objects.requireNonNull(createdAt, "createdAt must not be null");
     Objects.requireNonNull(updatedAt, "updatedAt must not be null");
 
@@ -61,8 +66,27 @@ public record FiatOrder(
     if (amountTwd <= 0) {
       throw new IllegalArgumentException("amountTwd must be positive");
     }
+    if (status == Status.PENDING_PAYMENT && paidAt != null) {
+      throw new IllegalArgumentException("paidAt must be null when status is PENDING_PAYMENT");
+    }
     if (status == Status.PAID && paidAt == null) {
       throw new IllegalArgumentException("paidAt is required when status is PAID");
+    }
+    if (status == Status.EXPIRED) {
+      if (paidAt != null) {
+        throw new IllegalArgumentException("paidAt must be null when status is EXPIRED");
+      }
+      if (expiredAt == null) {
+        throw new IllegalArgumentException("expiredAt is required when status is EXPIRED");
+      }
+      if (terminalReason == null || terminalReason.isBlank()) {
+        throw new IllegalArgumentException("terminalReason is required when status is EXPIRED");
+      }
+    } else if (expiredAt != null) {
+      throw new IllegalArgumentException("expiredAt must be null unless status is EXPIRED");
+    }
+    if (terminalReason != null && terminalReason.isBlank()) {
+      throw new IllegalArgumentException("terminalReason must not be blank when provided");
     }
   }
 
@@ -73,7 +97,8 @@ public record FiatOrder(
       String productName,
       String orderNumber,
       String paymentNo,
-      long amountTwd) {
+      long amountTwd,
+      Instant expireAt) {
     Instant now = Instant.now();
     return new FiatOrder(
         null,
@@ -86,6 +111,9 @@ public record FiatOrder(
         amountTwd,
         Status.PENDING_PAYMENT,
         null,
+        null,
+        null,
+        expireAt,
         null,
         null,
         null,
@@ -101,6 +129,14 @@ public record FiatOrder(
 
   public boolean isPaid() {
     return status == Status.PAID;
+  }
+
+  public boolean isExpired() {
+    return status == Status.EXPIRED;
+  }
+
+  public boolean isTerminal() {
+    return status == Status.PAID || status == Status.EXPIRED;
   }
 
   public boolean isFulfilled() {
