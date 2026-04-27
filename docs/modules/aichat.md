@@ -534,7 +534,7 @@ mvn test -Dtest=AIChannelRestrictionIntegrationTest
 @Singleton
 public class LangChain4jAIChatService implements AIChatService {
     private final StreamingChatModel chatModel;
-    private final PersistentChatMemoryProvider chatMemoryProvider;
+    private final ChatMemoryProvider chatMemoryProvider;
     private final SystemPrompt systemPrompt;
     private final MessageSplitter messageSplitter;
 
@@ -544,7 +544,7 @@ public class LangChain4jAIChatService implements AIChatService {
 
 **功能特性**：
 - 串流回應處理（`TokenStream` → `StreamingResponseHandler`）
-- 會話記憶管理（整合 Redis + PostgreSQL）
+- 會話記憶管理（使用 canonical SimplifiedChatMemoryProvider，僅依賴 Discord Thread 歷史 + in-memory tool history）
 - 異常到 `DomainError` 的映射（`LangChain4jExceptionMapper`）
 - 推理內容支援（已預留結構，待框架升級）
 
@@ -588,28 +588,28 @@ AI_MAX_RETRIES=2
 
 ### 會話記憶管理
 
-#### PersistentChatMemoryProvider
+#### SimplifiedChatMemoryProvider
 
-整合 Redis + PostgreSQL 的會話記憶提供者：
+唯一 canonical runtime 的會話記憶提供者：
 
 **功能**：
-- Redis 快取（30 分鐘 TTL）
-- PostgreSQL 持久化存儲
+- Discord Thread 歷史即時載入
+- in-memory 工具調用歷史
 - Token 限制歷史裁剪
-- 工具調用結果歷史記錄
+- restart 後 thread history 可重新抓取，但 in-memory tool call history 會消失
 
 **會話 ID 策略**：
-- `{guildId}:{channelId}:{userId}` - 用戶特定會話
-- `{guildId}:{channelId}` - 頻道共享會話
+- `{guildId}:{threadId}:{userId}` - Thread 級別會話
+- 非 Thread 會話僅保留短期 window，不視為 canonical persistence
 
 #### RedisPostgresChatMemoryStore
 
-ChatMemoryStore 實作，處理訊息的持久化：
+Deprecated legacy `ChatMemoryStore` 兼容資產，僅保留給歷史 migration / audit 說明：
 
 ```java
 public class RedisPostgresChatMemoryStore implements ChatMemoryStore {
-    // Redis 優先，PostgreSQL 後備
-    // 同時更新兩個存儲
+    // 不屬於 canonical runtime path
+    // 僅用於 legacy persistence compatibility
 }
 ```
 
@@ -694,6 +694,10 @@ public record LangChain4jToolExecutedEvent(
 # 執行 LangChain4J 相關單元測試
 mvn test -Dtest=LangChain4jAIChatServiceTest
 mvn test -Dtest=LangChain4jExceptionMapperTest
+mvn test -Dtest=SimplifiedChatMemoryProviderTest
+mvn test -Dtest=AIAgentModuleTest
+
+# legacy compatibility（非 canonical runtime）
 mvn test -Dtest=PersistentChatMemoryProviderTest
 mvn test -Dtest=RedisPostgresChatMemoryStoreTest
 ```

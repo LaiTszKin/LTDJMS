@@ -24,12 +24,12 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 import dev.langchain4j.invocation.InvocationParameters;
+import dev.langchain4j.memory.chat.ChatMemoryProvider;
 import dev.langchain4j.model.chat.StreamingChatModel;
 import dev.langchain4j.service.TokenStream;
 import ltdjms.discord.aiagent.services.AIAgentChannelConfigService;
 import ltdjms.discord.aiagent.services.InMemoryToolCallHistory;
 import ltdjms.discord.aiagent.services.LangChain4jAgentService;
-import ltdjms.discord.aiagent.services.PersistentChatMemoryProvider;
 import ltdjms.discord.aiagent.services.ToolExecutionContext;
 import ltdjms.discord.aiagent.services.ToolExecutionInterceptor;
 import ltdjms.discord.aiagent.services.tools.LangChain4jCreateCategoryTool;
@@ -83,7 +83,7 @@ class LangChain4jAIChatServiceTest {
   private PromptLoader mockPromptLoader;
   private DomainEventPublisher mockEventPublisher;
   private StreamingChatModel mockStreamingModel;
-  private PersistentChatMemoryProvider mockChatMemoryProvider;
+  private ChatMemoryProvider mockChatMemoryProvider;
   private ToolExecutionInterceptor mockToolExecutionInterceptor;
   private InMemoryToolCallHistory mockToolCallHistory;
   private LangChain4jCreateChannelTool mockCreateChannelTool;
@@ -129,7 +129,7 @@ class LangChain4jAIChatServiceTest {
     mockPromptLoader = mock(PromptLoader.class);
     mockEventPublisher = mock(DomainEventPublisher.class);
     mockStreamingModel = mock(StreamingChatModel.class);
-    mockChatMemoryProvider = mock(PersistentChatMemoryProvider.class);
+    mockChatMemoryProvider = mock(ChatMemoryProvider.class);
     mockToolExecutionInterceptor = mock(ToolExecutionInterceptor.class);
     mockToolCallHistory = mock(InMemoryToolCallHistory.class);
     mockCreateChannelTool = mock(LangChain4jCreateChannelTool.class);

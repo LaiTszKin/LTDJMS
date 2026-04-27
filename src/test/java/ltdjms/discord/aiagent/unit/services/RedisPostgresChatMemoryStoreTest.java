@@ -29,12 +29,12 @@ import ltdjms.discord.aiagent.services.RedisPostgresChatMemoryStore;
 import ltdjms.discord.shared.cache.CacheService;
 
 /**
- * 測試 {@link RedisPostgresChatMemoryStore} 的 ChatMemoryStore 實作。
+ * 測試 {@link RedisPostgresChatMemoryStore} 的 deprecated legacy ChatMemoryStore 兼容行為。
  *
- * <p>測試範圍：
+ * <p>測試範圍（deprecated legacy compatibility）：
  *
  * <ul>
- *   <li>T034: RedisPostgresChatMemoryStore 單元測試
+ *   <li>T034: RedisPostgresChatMemoryStore legacy compatibility 單元測試
  * </ul>
  *
  * <p>測試案例涵蓋：
@@ -49,7 +49,7 @@ import ltdjms.discord.shared.cache.CacheService;
  *
  * <p>注意：由於 LangChain4J 的 ChatMessage 類別無法直接被 Jackson 序列化， Redis 快取功能目前無法正常工作。這是已知的實作限制。
  */
-@DisplayName("T034: RedisPostgresChatMemoryStore 單元測試")
+@DisplayName("T034: Deprecated RedisPostgresChatMemoryStore 兼容測試")
 class RedisPostgresChatMemoryStoreTest {
 
   private static final String TEST_MEMORY_ID = "123:456:789";

@@ -32,12 +32,12 @@ import ltdjms.discord.aiagent.services.TokenEstimator;
 import ltdjms.discord.shared.cache.CacheService;
 
 /**
- * 測試 {@link PersistentChatMemoryProvider} 的會話記憶管理功能。
+ * 測試 {@link PersistentChatMemoryProvider} 的 deprecated legacy 會話記憶兼容行為。
  *
- * <p>測試範圍：
+ * <p>測試範圍（deprecated legacy compatibility）：
  *
  * <ul>
- *   <li>T033: PersistentChatMemoryProvider 單元測試
+ *   <li>T033: PersistentChatMemoryProvider legacy compatibility 單元測試
  * </ul>
  *
  * <p>測試案例涵蓋：
@@ -50,7 +50,7 @@ import ltdjms.discord.shared.cache.CacheService;
  *   <li>Token 限制歷史裁剪
  * </ul>
  */
-@DisplayName("T033: PersistentChatMemoryProvider 單元測試")
+@DisplayName("T033: Deprecated PersistentChatMemoryProvider 兼容測試")
 class PersistentChatMemoryProviderTest {
 
   private static final String TEST_CONVERSATION_ID = "123:456:789";

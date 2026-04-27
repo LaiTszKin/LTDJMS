@@ -16,11 +16,11 @@ import org.slf4j.LoggerFactory;
 import ltdjms.discord.aiagent.domain.AgentConversation;
 
 /**
- * JDBC 實作的會話 Repository。
+ * JDBC 實作的 legacy 會話 Repository。
  *
- * <p>使用 PostgreSQL 儲存 AI Agent 對話會話狀態。
+ * <p>使用 PostgreSQL 儲存 legacy AI Agent 對話會話狀態，僅供 deprecated persistence / audit 兼容用途。
  *
- * @deprecated 已被 {@link SimplifiedChatMemoryProvider} 取代，不再需要持久化會話狀態。
+ * @deprecated 已被 {@link SimplifiedChatMemoryProvider} 取代，不是 runtime canonical path。
  */
 @Deprecated
 public class JdbcConversationRepository implements ConversationRepository {

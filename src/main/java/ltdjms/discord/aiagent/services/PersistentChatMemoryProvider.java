@@ -25,16 +25,16 @@ import ltdjms.discord.aiagent.persistence.ConversationMessageRepository;
 import ltdjms.discord.shared.cache.CacheService;
 
 /**
- * 持久化 ChatMemory 提供器。
+ * legacy ChatMemory 提供器。
  *
- * <p>整合現有的 Redis + PostgreSQL 存儲：
+ * <p>整合 legacy Redis + PostgreSQL 存儲，僅供 deprecated persistence / audit 兼容：
  *
  * <ul>
  *   <li>Redis：活躍會話快取（30 分鐘 TTL）
  *   <li>PostgreSQL：永久存儲
  * </ul>
  *
- * @deprecated 已被 {@link SimplifiedChatMemoryProvider} 取代，使用記憶體存儲和動態 Discord Thread 歷史獲取。
+ * @deprecated 已被 {@link SimplifiedChatMemoryProvider} 取代，不是 runtime canonical path。
  */
 @Deprecated
 public final class PersistentChatMemoryProvider implements ChatMemoryProvider {
