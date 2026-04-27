@@ -46,8 +46,8 @@ public sealed interface DomainEvent permits
 
 | 事件類型 | 發布時機 | 訂閱者 | 用途 |
 |---------|---------|--------|------|
-| `ProductChangedEvent` | 產品建立、更新、刪除 | `AdminPanelUpdateListener` | 通知管理員面板刷新產品列表 |
-| `RedemptionCodesGeneratedEvent` | 兌換碼批量生成 | `AdminPanelUpdateListener` | 通知管理員面板更新代碼統計 |
+| `ProductChangedEvent` | 產品建立、更新、刪除 | `AdminPanelUpdateListener` | 刷新 admin product list / detail / code list |
+| `RedemptionCodesGeneratedEvent` | 兌換碼批量生成 | `AdminPanelUpdateListener` | 刷新 admin product code list |
 | `ProductRedemptionCompletedEvent` | V008 新增：商品兌換完成 | `ProductRedemptionUpdateListener` | 通知使用者面板刷新兌換歷史 |
 
 ## 3. 事件定義
@@ -305,48 +305,31 @@ public interface ProductRedemptionCompletedListener {
 ```java
 // src/main/java/ltdjms/discord/panel/services/AdminPanelUpdateListener.java
 public class AdminPanelUpdateListener
-    implements ProductChangedListener, RedemptionCodesGeneratedListener {
+    implements Consumer<DomainEvent> {
 
-    private final AdminPanelService adminPanelService;
-
-    @Override
-    public void onProductChanged(ProductChangedEvent event) {
-        LOG.info("Received ProductChangedEvent: guildId={}, productId={}, operation={}",
-            event.guildId(), event.productId(), event.operation());
-
-        // 查找所有顯示該產品資訊的面板
-        List<AdminPanelSession> sessions = adminPanelService.findSessionsByGuild(event.guildId());
-
-        for (AdminPanelSession session : sessions) {
-            try {
-                // 刷新面板顯示
-                adminPanelService.refreshProductView(session);
-            } catch (Exception e) {
-                LOG.error("Failed to refresh admin panel for session: " + session.id(), e);
-            }
-        }
-    }
+    private final AdminPanelButtonHandler adminPanelButtonHandler;
+    private final AdminProductPanelHandler adminProductPanelHandler;
 
     @Override
-    public void onRedemptionCodesGenerated(RedemptionCodesGeneratedEvent event) {
-        LOG.info("Received RedemptionCodesGeneratedEvent: guildId={}, productId={}, count={}",
-            event.guildId(), event.productId(), event.count());
-
-        // 更新代碼統計顯示
-        List<AdminPanelSession> sessions = adminPanelService.findSessionsByGuild(event.guildId());
-
-        for (AdminPanelSession session : sessions) {
-            if (session.currentProductId().equals(event.productId())) {
-                try {
-                    adminPanelService.refreshCodeStats(session);
-                } catch (Exception e) {
-                    LOG.error("Failed to refresh code stats for session: " + session.id(), e);
-                }
-            }
+    public void accept(DomainEvent event) {
+        if (event instanceof CurrencyConfigChangedEvent currencyEvent) {
+            adminPanelButtonHandler.refreshMainPanels(currencyEvent.guildId());
+        } else if (event instanceof DiceGameConfigChangedEvent diceEvent) {
+            adminPanelButtonHandler.refreshMainPanels(diceEvent.guildId());
+        } else if (event instanceof ProductChangedEvent productEvent) {
+            adminProductPanelHandler.refreshProductPanels(productEvent.guildId());
+        } else if (event instanceof RedemptionCodesGeneratedEvent codeEvent) {
+            adminProductPanelHandler.refreshProductPanels(codeEvent.guildId());
         }
     }
 }
 ```
+
+實際 runtime 的 refresh 範圍是：
+
+- `MAIN` admin panel 會在貨幣設定與骰子設定變更時重新渲染
+- product list / detail / code list 會在產品或兌換碼變更時重新渲染
+- 其他需要 transient 互動狀態的 admin subview 仍以使用者重新導覽為準，並不屬於這一輪自動 refresh 的保證範圍
 
 ### 5.3 ProductRedemptionUpdateListener（V008 新增）
 

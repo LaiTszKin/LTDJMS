@@ -16,6 +16,8 @@ import org.slf4j.LoggerFactory;
 import ltdjms.discord.discord.domain.EmbedView;
 import ltdjms.discord.panel.components.PanelComponentRenderer;
 import ltdjms.discord.panel.services.AdminPanelSessionManager;
+import ltdjms.discord.panel.services.AdminPanelSessionManager.AdminPanelSessionContext;
+import ltdjms.discord.panel.services.AdminPanelSessionManager.AdminPanelView;
 import ltdjms.discord.product.domain.Product;
 import ltdjms.discord.product.services.ProductService;
 import ltdjms.discord.redemption.domain.RedemptionCode;
@@ -83,8 +85,6 @@ public class AdminProductPanelHandler extends ListenerAdapter {
   private final RedemptionService redemptionService;
   private final AdminPanelSessionManager adminPanelSessionManager;
 
-  // Session state for product selection (keyed by "userId_guildId")
-  private final Map<String, ProductSessionState> productSessions = new ConcurrentHashMap<>();
   private final Map<String, IntegrationConfigSessionState> integrationConfigSessions =
       new ConcurrentHashMap<>();
 
@@ -262,8 +262,10 @@ public class AdminProductPanelHandler extends ListenerAdapter {
 
   private void showProductList(ButtonInteractionEvent event) {
     long guildId = event.getGuild().getIdLong();
-    String sessionKey = getSessionKey(event.getUser().getIdLong(), guildId);
-    productSessions.remove(sessionKey);
+    long adminId = event.getUser().getIdLong();
+    String sessionKey = getSessionKey(adminId, guildId);
+    adminPanelSessionManager.updateSessionView(
+        guildId, adminId, AdminPanelView.PRODUCT_LIST, Map.of());
     integrationConfigSessions.remove(sessionKey);
 
     List<Product> products = productService.getProducts(guildId);
@@ -280,15 +282,16 @@ public class AdminProductPanelHandler extends ListenerAdapter {
 
   private void handleProductSelect(StringSelectInteractionEvent event) {
     long guildId = event.getGuild().getIdLong();
-    String sessionKey = getSessionKey(event.getUser().getIdLong(), guildId);
-
     long productId = Long.parseLong(event.getValues().get(0));
     productService
         .getProduct(productId)
         .ifPresentOrElse(
             product -> {
-              productSessions.put(
-                  sessionKey, new ProductSessionState(productId, ProductView.DETAIL, 1));
+              adminPanelSessionManager.updateSessionView(
+                  guildId,
+                  event.getUser().getIdLong(),
+                  AdminPanelView.PRODUCT_DETAIL,
+                  Map.of("productId", productId, "page", 1));
               showProductDetailEmbed(event, product);
             },
             () -> event.reply("找不到該商品").setEphemeral(true).queue());
@@ -296,18 +299,26 @@ public class AdminProductPanelHandler extends ListenerAdapter {
 
   private void showProductDetail(ButtonInteractionEvent event) {
     long guildId = event.getGuild().getIdLong();
-    String sessionKey = getSessionKey(event.getUser().getIdLong(), guildId);
-
-    ProductSessionState session = productSessions.get(sessionKey);
-    if (session == null) {
+    long adminId = event.getUser().getIdLong();
+    AdminPanelSessionContext session =
+        adminPanelSessionManager.getSessionContext(guildId, adminId).orElse(null);
+    if (session == null
+        || (session.currentView() != AdminPanelView.PRODUCT_DETAIL
+            && session.currentView() != AdminPanelView.PRODUCT_CODE_LIST)) {
       showProductList(event);
       return;
     }
 
-    productSessions.put(sessionKey, session.withView(ProductView.DETAIL, 1));
+    long productId = getLongMetadata(session, "productId", -1L);
+    if (productId < 0) {
+      showProductList(event);
+      return;
+    }
+    adminPanelSessionManager.updateSessionView(
+        guildId, adminId, AdminPanelView.PRODUCT_DETAIL, Map.of("productId", productId, "page", 1));
 
     productService
-        .getProduct(session.productId)
+        .getProduct(productId)
         .ifPresentOrElse(
             product -> {
               MessageEmbed embed = buildProductDetailEmbed(product);
@@ -320,14 +331,18 @@ public class AdminProductPanelHandler extends ListenerAdapter {
                   .queue();
             },
             () -> {
-              productSessions.remove(sessionKey);
+              adminPanelSessionManager.updateSessionView(
+                  guildId, adminId, AdminPanelView.PRODUCT_LIST, Map.of());
               showProductList(event);
             });
   }
 
   private void showProductDetailEmbed(StringSelectInteractionEvent event, Product product) {
-    String sessionKey = getSessionKey(event.getUser().getIdLong(), event.getGuild().getIdLong());
-    productSessions.put(sessionKey, new ProductSessionState(product.id(), ProductView.DETAIL, 1));
+    adminPanelSessionManager.updateSessionView(
+        event.getGuild().getIdLong(),
+        event.getUser().getIdLong(),
+        AdminPanelView.PRODUCT_DETAIL,
+        Map.of("productId", product.id(), "page", 1));
 
     MessageEmbed embed = buildProductDetailEmbed(product);
     RedemptionCodeRepository.CodeStats stats = redemptionService.getCodeStats(product.id());
@@ -803,8 +818,8 @@ public class AdminProductPanelHandler extends ListenerAdapter {
 
     // Clear session and show product list
     long guildId = event.getGuild().getIdLong();
-    String sessionKey = getSessionKey(event.getUser().getIdLong(), guildId);
-    productSessions.remove(sessionKey);
+    adminPanelSessionManager.updateSessionView(
+        guildId, event.getUser().getIdLong(), AdminPanelView.PRODUCT_LIST, Map.of());
 
     event.reply("✅ 商品已刪除").setEphemeral(true).queue();
   }
@@ -813,17 +828,24 @@ public class AdminProductPanelHandler extends ListenerAdapter {
 
   private void openGenerateCodesModal(ButtonInteractionEvent event) {
     long guildId = event.getGuild().getIdLong();
-    String sessionKey = getSessionKey(event.getUser().getIdLong(), guildId);
-
-    ProductSessionState session = productSessions.get(sessionKey);
-    if (session == null) {
+    AdminPanelSessionContext session =
+        adminPanelSessionManager
+            .getSessionContext(guildId, event.getUser().getIdLong())
+            .orElse(null);
+    if (session == null
+        || (session.currentView() != AdminPanelView.PRODUCT_DETAIL
+            && session.currentView() != AdminPanelView.PRODUCT_CODE_LIST)) {
       event.reply("請先選擇商品").setEphemeral(true).queue();
       return;
     }
 
-    event
-        .replyModal(AdminProductPanelModalFactory.createGenerateCodesModal(session.productId))
-        .queue();
+    long productId = getLongMetadata(session, "productId", -1L);
+    if (productId < 0) {
+      event.reply("請先選擇商品").setEphemeral(true).queue();
+      return;
+    }
+
+    event.replyModal(AdminProductPanelModalFactory.createGenerateCodesModal(productId)).queue();
   }
 
   private void handleGenerateCodesModal(ModalInteractionEvent event) {
@@ -900,20 +922,33 @@ public class AdminProductPanelHandler extends ListenerAdapter {
 
   private void showCodeList(ButtonInteractionEvent event, int page) {
     long guildId = event.getGuild().getIdLong();
-    String sessionKey = getSessionKey(event.getUser().getIdLong(), guildId);
-
-    ProductSessionState session = productSessions.get(sessionKey);
-    if (session == null) {
+    long adminId = event.getUser().getIdLong();
+    AdminPanelSessionContext session =
+        adminPanelSessionManager.getSessionContext(guildId, adminId).orElse(null);
+    if (session == null
+        || (session.currentView() != AdminPanelView.PRODUCT_DETAIL
+            && session.currentView() != AdminPanelView.PRODUCT_CODE_LIST)) {
       showProductList(event);
       return;
     }
 
+    long productId = getLongMetadata(session, "productId", -1L);
+    if (productId < 0) {
+      showProductList(event);
+      return;
+    }
+    adminPanelSessionManager.updateSessionView(
+        guildId,
+        adminId,
+        AdminPanelView.PRODUCT_CODE_LIST,
+        Map.of("productId", productId, "page", page));
+
     productService
-        .getProduct(session.productId)
+        .getProduct(productId)
         .ifPresentOrElse(
             product -> {
               RedemptionService.CodePage codePage =
-                  redemptionService.getCodePage(session.productId, page, PAGE_SIZE);
+                  redemptionService.getCodePage(productId, page, PAGE_SIZE);
 
               MessageEmbed embed = buildCodeListEmbed(product, codePage);
               List<ActionRow> components = buildCodeListComponents(codePage);
@@ -921,7 +956,8 @@ public class AdminProductPanelHandler extends ListenerAdapter {
               event.editMessageEmbeds(embed).setComponents(components).queue();
             },
             () -> {
-              productSessions.remove(sessionKey);
+              adminPanelSessionManager.updateSessionView(
+                  guildId, adminId, AdminPanelView.PRODUCT_LIST, Map.of());
               showProductList(event);
             });
   }
@@ -938,6 +974,36 @@ public class AdminProductPanelHandler extends ListenerAdapter {
 
   private String getSessionKey(long userId, long guildId) {
     return userId + "_" + guildId;
+  }
+
+  private long getLongMetadata(AdminPanelSessionContext context, String key, long defaultValue) {
+    Object value = context.metadata().get(key);
+    if (value instanceof Number number) {
+      return number.longValue();
+    }
+    if (value instanceof String stringValue) {
+      try {
+        return Long.parseLong(stringValue);
+      } catch (NumberFormatException ignored) {
+        return defaultValue;
+      }
+    }
+    return defaultValue;
+  }
+
+  private int getIntMetadata(AdminPanelSessionContext context, String key, int defaultValue) {
+    Object value = context.metadata().get(key);
+    if (value instanceof Number number) {
+      return number.intValue();
+    }
+    if (value instanceof String stringValue) {
+      try {
+        return Integer.parseInt(stringValue);
+      } catch (NumberFormatException ignored) {
+        return defaultValue;
+      }
+    }
+    return defaultValue;
   }
 
   private String getModalValueOrNull(ModalInteractionEvent event, String id) {
@@ -968,23 +1034,6 @@ public class AdminProductPanelHandler extends ListenerAdapter {
     CODE_LIST
   }
 
-  /** 用於追蹤管理員在商品面板的狀態，支援即時刷新。 */
-  static class ProductSessionState {
-    final long productId;
-    final ProductView view;
-    final int page;
-
-    ProductSessionState(long productId, ProductView view, int page) {
-      this.productId = productId;
-      this.view = view;
-      this.page = page;
-    }
-
-    ProductSessionState withView(ProductView view, int page) {
-      return new ProductSessionState(this.productId, view, page);
-    }
-  }
-
   static class IntegrationConfigSessionState {
     final long productId;
     final String productName;
@@ -1010,54 +1059,53 @@ public class AdminProductPanelHandler extends ListenerAdapter {
   /** 供測試設定 session 狀態，避免繁瑣事件建構。 */
   void setProductSessionForTest(
       long adminId, long guildId, ProductView view, long productId, int page) {
-    productSessions.put(
-        getSessionKey(adminId, guildId), new ProductSessionState(productId, view, page));
+    AdminPanelView panelView =
+        view == ProductView.CODE_LIST
+            ? AdminPanelView.PRODUCT_CODE_LIST
+            : AdminPanelView.PRODUCT_DETAIL;
+    adminPanelSessionManager.updateSessionView(
+        guildId, adminId, panelView, Map.of("productId", productId, "page", page));
   }
 
   /** 事件發生後刷新目前已開啟商品面板的管理員畫面。 */
   public void refreshProductPanels(long guildId) {
-    String suffix = "_" + guildId;
-    productSessions.forEach(
-        (key, state) -> {
-          if (!key.endsWith(suffix)) {
-            return;
-          }
-          String[] parts = key.split("_", 2);
-          if (parts.length != 2) {
-            return;
-          }
-          long adminId;
+    adminPanelSessionManager.updatePanelsByGuild(
+        guildId,
+        context -> {
           try {
-            adminId = Long.parseLong(parts[0]);
-          } catch (NumberFormatException e) {
-            return;
+            if (context.currentView() == AdminPanelView.PRODUCT_LIST) {
+              refreshProductListView(context.hook(), guildId, context.adminId());
+              return;
+            }
+            if (context.currentView() == AdminPanelView.PRODUCT_DETAIL
+                || context.currentView() == AdminPanelView.PRODUCT_CODE_LIST) {
+              long productId = getLongMetadata(context, "productId", -1L);
+              if (productId < 0) {
+                adminPanelSessionManager.clearSession(guildId, context.adminId());
+                return;
+              }
+              int page = getIntMetadata(context, "page", 1);
+              if (context.currentView() == AdminPanelView.PRODUCT_CODE_LIST) {
+                refreshCodeListView(context.hook(), guildId, context.adminId(), productId, page);
+              } else {
+                refreshProductDetailView(context.hook(), guildId, context.adminId(), productId);
+              }
+            }
+          } catch (Exception e) {
+            LOG.warn(
+                "Failed to refresh product panel for adminId={}, guildId={}",
+                context.adminId(),
+                guildId,
+                e);
+            adminPanelSessionManager.clearSession(guildId, context.adminId());
           }
-
-          adminPanelSessionManager.updatePanel(
-              guildId,
-              adminId,
-              hook -> {
-                try {
-                  if (state.view == ProductView.CODE_LIST) {
-                    refreshCodeListView(hook, guildId, adminId, state);
-                  } else {
-                    refreshProductDetailView(hook, guildId, adminId, state);
-                  }
-                } catch (Exception e) {
-                  LOG.warn(
-                      "Failed to refresh product panel for adminId={}, guildId={}",
-                      adminId,
-                      guildId,
-                      e);
-                }
-              });
         });
   }
 
   private void refreshProductDetailView(
-      InteractionHook hook, long guildId, long adminId, ProductSessionState state) {
+      InteractionHook hook, long guildId, long adminId, long productId) {
     productService
-        .getProduct(state.productId)
+        .getProduct(productId)
         .ifPresentOrElse(
             product -> {
               var stats = redemptionService.getCodeStats(product.id());
@@ -1069,37 +1117,49 @@ public class AdminProductPanelHandler extends ListenerAdapter {
                               "Refreshed product detail for adminId={}, guildId={}",
                               adminId,
                               guildId),
-                      err ->
-                          LOG.warn(
-                              "Failed to edit product detail message for adminId={}, guildId={}",
-                              adminId,
-                              guildId,
-                              err));
+                      err -> {
+                        LOG.warn(
+                            "Failed to edit product detail message for adminId={}, guildId={}",
+                            adminId,
+                            guildId,
+                            err);
+                        adminPanelSessionManager.clearSession(guildId, adminId);
+                      });
             },
-            () -> refreshProductListView(hook, guildId, adminId));
+            () -> {
+              adminPanelSessionManager.updateSessionView(
+                  guildId, adminId, AdminPanelView.PRODUCT_LIST, Map.of());
+              refreshProductListView(hook, guildId, adminId);
+            });
   }
 
   private void refreshCodeListView(
-      InteractionHook hook, long guildId, long adminId, ProductSessionState state) {
+      InteractionHook hook, long guildId, long adminId, long productId, int page) {
     productService
-        .getProduct(state.productId)
+        .getProduct(productId)
         .ifPresentOrElse(
             product -> {
-              var codePage = redemptionService.getCodePage(state.productId, state.page, PAGE_SIZE);
+              var codePage = redemptionService.getCodePage(productId, page, PAGE_SIZE);
               hook.editOriginalEmbeds(buildCodeListEmbed(product, codePage))
                   .setComponents(buildCodeListComponents(codePage))
                   .queue(
                       msg ->
                           LOG.trace(
                               "Refreshed code list for adminId={}, guildId={}", adminId, guildId),
-                      err ->
-                          LOG.warn(
-                              "Failed to edit code list message for adminId={}, guildId={}",
-                              adminId,
-                              guildId,
-                              err));
+                      err -> {
+                        LOG.warn(
+                            "Failed to edit code list message for adminId={}, guildId={}",
+                            adminId,
+                            guildId,
+                            err);
+                        adminPanelSessionManager.clearSession(guildId, adminId);
+                      });
             },
-            () -> refreshProductListView(hook, guildId, adminId));
+            () -> {
+              adminPanelSessionManager.updateSessionView(
+                  guildId, adminId, AdminPanelView.PRODUCT_LIST, Map.of());
+              refreshProductListView(hook, guildId, adminId);
+            });
   }
 
   private void refreshProductListView(InteractionHook hook, long guildId, long adminId) {
@@ -1108,12 +1168,14 @@ public class AdminProductPanelHandler extends ListenerAdapter {
         .setComponents(buildProductListComponents(products))
         .queue(
             msg -> LOG.trace("Refreshed product list for adminId={}, guildId={}", adminId, guildId),
-            err ->
-                LOG.warn(
-                    "Failed to edit product list message for adminId={}, guildId={}",
-                    adminId,
-                    guildId,
-                    err));
+            err -> {
+              LOG.warn(
+                  "Failed to edit product list message for adminId={}, guildId={}",
+                  adminId,
+                  guildId,
+                  err);
+              adminPanelSessionManager.clearSession(guildId, adminId);
+            });
   }
 
   private List<ActionRow> buildProductListComponents(List<Product> products) {

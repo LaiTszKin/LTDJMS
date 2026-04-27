@@ -202,8 +202,9 @@ public class CommandHandlerModule {
   @Provides
   @Singleton
   public AdminPanelUpdateListener provideAdminPanelUpdateListener(
-      AdminPanelSessionManager sessionManager, AdminProductPanelHandler adminProductPanelHandler) {
-    return new AdminPanelUpdateListener(sessionManager, adminProductPanelHandler);
+      AdminPanelButtonHandler adminPanelButtonHandler,
+      AdminProductPanelHandler adminProductPanelHandler) {
+    return new AdminPanelUpdateListener(adminPanelButtonHandler, adminProductPanelHandler);
   }
 
   @Provides
