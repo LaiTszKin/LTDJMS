@@ -18,6 +18,7 @@ import ltdjms.discord.gametoken.domain.DiceGame2Config;
 import ltdjms.discord.panel.components.PanelComponentRenderer;
 import ltdjms.discord.panel.services.AdminPanelService;
 import ltdjms.discord.panel.services.AdminPanelSessionManager;
+import ltdjms.discord.panel.services.AdminPanelSessionManager.AdminPanelView;
 import ltdjms.discord.panel.services.CurrencyManagementFacade;
 import ltdjms.discord.panel.services.GameTokenManagementFacade;
 import ltdjms.discord.shared.DomainError;
@@ -727,18 +728,59 @@ public class AdminPanelButtonHandler extends ListenerAdapter {
 
   // ===== Main Panel =====
 
+  public void refreshMainPanels(long guildId) {
+    adminPanelSessionManager.updatePanelsByGuild(
+        guildId,
+        context -> {
+          if (context.currentView() != AdminPanelView.MAIN) {
+            return;
+          }
+
+          try {
+            refreshMainPanel(context.hook(), guildId, context.adminId());
+          } catch (Exception e) {
+            LOG.warn(
+                "Failed to refresh main admin panel for adminId={}, guildId={}",
+                context.adminId(),
+                guildId,
+                e);
+            adminPanelSessionManager.clearSession(guildId, context.adminId());
+          }
+        });
+  }
+
   private void showMainPanel(ButtonInteractionEvent event) {
     // Clear session state
     long guildId = event.getGuild().getIdLong();
     String sessionKey = getSessionKey(event.getUser().getIdLong(), guildId);
     sessionStates.remove(sessionKey);
     escortPricingPanelStates.remove(sessionKey);
+    adminPanelSessionManager.updateSessionView(
+        guildId, event.getUser().getIdLong(), AdminPanelView.MAIN, Map.of());
 
     String currencyIcon = getCurrencyIcon(guildId);
     MessageEmbed embed = buildMainPanelEmbed(currencyIcon);
     List<ActionRow> components = buildMainPanelComponents(currencyIcon);
 
     event.editMessageEmbeds(embed).setComponents(components).queue();
+  }
+
+  private void refreshMainPanel(InteractionHook hook, long guildId, long adminId) {
+    String currencyIcon = getCurrencyIcon(guildId);
+    hook.editOriginalEmbeds(buildMainPanelEmbed(currencyIcon))
+        .setComponents(buildMainPanelComponents(currencyIcon))
+        .queue(
+            msg ->
+                LOG.trace(
+                    "Refreshed main admin panel for adminId={}, guildId={}", adminId, guildId),
+            err -> {
+              LOG.warn(
+                  "Failed to edit main admin panel for adminId={}, guildId={}",
+                  adminId,
+                  guildId,
+                  err);
+              adminPanelSessionManager.clearSession(guildId, adminId);
+            });
   }
 
   MessageEmbed buildMainPanelEmbed(String currencyIcon) {

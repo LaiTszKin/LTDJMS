@@ -265,6 +265,22 @@
    - 呼叫 `AdminPanelService.updateGameTokenCost`（或等價方法）更新對應設定表。
    - 回覆包含調整前後設定的訊息。
 
+### 4.5 Admin panel session refresh
+
+`/admin-panel` 的 session 目前會額外保存可枚舉的 view 狀態，讓 guild-wide event refresh 能正確區分目前正在顯示的畫面。
+
+- `MAIN`：管理面板首頁
+- `PRODUCT_LIST`：商品與兌換碼列表
+- `PRODUCT_DETAIL`：單一商品詳細頁
+- `PRODUCT_CODE_LIST`：單一商品的兌換碼列表
+
+事件刷新目前只保證以下視圖會被自動更新：
+
+- 貨幣設定與骰子設定變更時，重新渲染 `MAIN`
+- 商品建立、更新、刪除，以及兌換碼生成時，重新渲染 product list / detail / code list
+
+其他需要較多 transient state 的管理頁面仍維持按互動流程重新導覽，不在這次 auto-refresh 的保證範圍內。
+
 ## 5. 權限與安全性
 
 - `/user-panel` 僅顯示「自己」的資訊，且訊息為 ephemeral。
