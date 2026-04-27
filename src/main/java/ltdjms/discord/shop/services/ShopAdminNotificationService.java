@@ -44,50 +44,7 @@ public class ShopAdminNotificationService {
 
     String message =
         buildAdminOrderNotification(guild, buyerUserId, product, orderType, orderReference);
-    Set<Long> notified = new HashSet<>();
-
-    List<Member> members = guild.getMembers();
-    if (members != null) {
-      for (Member member : members) {
-        if (!isAdmin(member, guild)) {
-          continue;
-        }
-        User adminUser = member.getUser();
-        if (adminUser == null || !notified.add(adminUser.getIdLong())) {
-          continue;
-        }
-        sendAdminNotification(adminUser, message);
-      }
-    }
-
-    long ownerId = 0L;
-    try {
-      ownerId = guild.getOwnerIdLong();
-    } catch (Exception e) {
-      LOG.debug(
-          "Unable to resolve guild owner id for order notification: guildId={}",
-          guild.getIdLong(),
-          e);
-    }
-    final long finalOwnerId = ownerId;
-    if (finalOwnerId > 0 && !notified.contains(finalOwnerId)) {
-      guild
-          .retrieveMemberById(finalOwnerId)
-          .queue(
-              ownerMember -> {
-                User owner = ownerMember.getUser();
-                if (owner != null) {
-                  sendAdminNotification(owner, message);
-                }
-              },
-              failure ->
-                  LOG.debug(
-                      "Failed to retrieve guild owner for order notification: guildId={},"
-                          + " ownerId={}",
-                      guild.getIdLong(),
-                      finalOwnerId,
-                      failure));
-    }
+    notifyGuildAdmins(guild, message);
   }
 
   public void notifyAdminsOrderCreated(long guildId, long buyerUserId, EscortDispatchOrder order) {
@@ -102,7 +59,12 @@ public class ShopAdminNotificationService {
     }
 
     String message = buildAdminOrderNotification(guild, buyerUserId, order);
+    notifyGuildAdmins(guild, message);
+  }
+
+  private void notifyGuildAdmins(Guild guild, String message) {
     Set<Long> notified = new HashSet<>();
+    Long selfUserId = resolveSelfUserId(guild.getIdLong());
 
     List<Member> members = guild.getMembers();
     if (members != null) {
@@ -111,7 +73,18 @@ public class ShopAdminNotificationService {
           continue;
         }
         User adminUser = member.getUser();
-        if (adminUser == null || !notified.add(adminUser.getIdLong())) {
+        if (adminUser == null) {
+          continue;
+        }
+        long adminUserId = adminUser.getIdLong();
+        if (selfUserId != null && adminUserId == selfUserId.longValue()) {
+          LOG.debug(
+              "Skipping bot self when notifying admins: guildId={}, selfUserId={}",
+              guild.getIdLong(),
+              selfUserId);
+          continue;
+        }
+        if (!notified.add(adminUserId)) {
           continue;
         }
         sendAdminNotification(adminUser, message);
@@ -128,13 +101,23 @@ public class ShopAdminNotificationService {
           e);
     }
     final long finalOwnerId = ownerId;
-    if (finalOwnerId > 0 && !notified.contains(finalOwnerId)) {
+    if (finalOwnerId > 0
+        && (selfUserId == null || finalOwnerId != selfUserId.longValue())
+        && !notified.contains(finalOwnerId)) {
       guild
           .retrieveMemberById(finalOwnerId)
           .queue(
               ownerMember -> {
                 User owner = ownerMember.getUser();
                 if (owner != null) {
+                  long ownerUserId = owner.getIdLong();
+                  if (selfUserId != null && ownerUserId == selfUserId.longValue()) {
+                    LOG.debug(
+                        "Skipping bot self when notifying guild owner: guildId={}, selfUserId={}",
+                        guild.getIdLong(),
+                        selfUserId);
+                    return;
+                  }
                   sendAdminNotification(owner, message);
                 }
               },
@@ -149,15 +132,41 @@ public class ShopAdminNotificationService {
   }
 
   private void sendAdminNotification(User adminUser, String message) {
-    adminUser
-        .openPrivateChannel()
-        .queue(
-            channel -> channel.sendMessage(message).queue(),
-            failure ->
-                LOG.debug(
-                    "Failed to open admin DM for order notification: adminUserId={}",
-                    adminUser.getIdLong(),
-                    failure));
+    try {
+      adminUser
+          .openPrivateChannel()
+          .queue(
+              channel -> {
+                try {
+                  channel.sendMessage(message).queue();
+                } catch (RuntimeException e) {
+                  LOG.warn(
+                      "Failed to send admin DM for order notification: adminUserId={}",
+                      adminUser.getIdLong(),
+                      e);
+                }
+              },
+              failure ->
+                  LOG.debug(
+                      "Failed to open admin DM for order notification: adminUserId={}",
+                      adminUser.getIdLong(),
+                      failure));
+    } catch (RuntimeException e) {
+      LOG.warn(
+          "Failed to open admin DM for order notification: adminUserId={}",
+          adminUser.getIdLong(),
+          e);
+    }
+  }
+
+  private Long resolveSelfUserId(long guildId) {
+    try {
+      return discordRuntimeGateway.getSelfUserId();
+    } catch (RuntimeException e) {
+      LOG.debug(
+          "Unable to resolve bot self user id for order notification: guildId={}", guildId, e);
+      return null;
+    }
   }
 
   private String buildAdminOrderNotification(

@@ -20,6 +20,7 @@ All notable changes to this project will be documented in this file.
 - **shop/fiat**: post-payment worker 使用訂單建立時的履約快照重播獎勵與護航交接，不再回查 live product 決定已付款訂單履約內容
 
 ### Fixed
+- **shop/admin-notification**: 管理員訂單通知會跳過 bot self 並改為 best-effort，避免單一 DM 失敗或 self DM 例外影響購買成功回覆
 - **ops/make**: `make update` 改為串接現有的 `make update-env`，並維持 `docker compose build` 的部署建置步驟
 - **shared/flyway**: 恢復 `V012__agent_conversation_persistence.sql` 的原始內容，避免既有資料庫在啟動時因 checksum mismatch 而中止
 - **shop/migrations**: 修正 `V024__rework_fiat_order_processing_and_drop_backend_fulfillment.sql` 在既有 `product_auto_escort_requires_option` constraint 已存在時的重跑失敗，讓 Flyway migration 對整合測試與既有 schema 都保持可重入
@@ -34,9 +35,11 @@ All notable changes to this project will be documented in this file.
 - 執行 `mvn -q -Dtest='ltdjms.discord.dispatch.services.EscortDispatchOrderServiceTest,ltdjms.discord.dispatch.commands.DispatchPanelViewTest,ltdjms.discord.dispatch.commands.DispatchPanelMessageFactoryTest,ltdjms.discord.dispatch.commands.DispatchPanelCommandHandlerTest' test`，測試通過
 - 執行 `mvn -q test`，測試通過
 - 執行 `mvn -q -Dtest=FiatOrderPostPaymentWorkerTest test`，測試通過
-- 執行 `make test`，共 `2553` tests（`0` failures / `0` errors，`14` skipped），測試通過
+- 執行 `make test`，共 `2565` tests（`0` failures / `0` errors，`14` skipped），測試通過
 - 執行 `mvn -q -Dtest=DatabaseMigrationRunnerIntegrationTest test`，測試通過
 - 執行 `make -n update`，確認 `make update` 會依序呼叫 `make update-env` 與 `docker compose build`
+- 執行 `mvn -q -Dtest=ShopAdminNotificationServiceTest test`，測試通過
+- 執行 `mvn -q -Dtest=ShopAdminNotificationServiceTest,ShopSelectMenuHandlerTest,FiatOrderPostPaymentWorkerTest test`，測試通過
 
 
 ## [0.35.0] - 2026-04-11
