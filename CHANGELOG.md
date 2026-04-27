@@ -20,6 +20,8 @@ All notable changes to this project will be documented in this file.
 - **shop/fiat**: post-payment worker 使用訂單建立時的履約快照重播獎勵與護航交接，不再回查 live product 決定已付款訂單履約內容
 
 ### Fixed
+- **ops/make**: `make update` 改為串接現有的 `make update-env`，並維持 `docker compose build` 的部署建置步驟
+- **shared/flyway**: 恢復 `V012__agent_conversation_persistence.sql` 的原始內容，避免既有資料庫在啟動時因 checksum mismatch 而中止
 - **shop/migrations**: 修正 `V024__rework_fiat_order_processing_and_drop_backend_fulfillment.sql` 在既有 `product_auto_escort_requires_option` constraint 已存在時的重跑失敗，讓 Flyway migration 對整合測試與既有 schema 都保持可重入
 - **shop/fiat**: 管理員通知 claim 已被佔用時，付款後 worker 會保留 fulfilled 未完成並釋放 fulfillment claim，避免跳過通知後永久停止重試
 
@@ -33,6 +35,8 @@ All notable changes to this project will be documented in this file.
 - 執行 `mvn -q test`，測試通過
 - 執行 `mvn -q -Dtest=FiatOrderPostPaymentWorkerTest test`，測試通過
 - 執行 `make test`，共 `2553` tests（`0` failures / `0` errors，`14` skipped），測試通過
+- 執行 `mvn -q -Dtest=DatabaseMigrationRunnerIntegrationTest test`，測試通過
+- 執行 `make -n update`，確認 `make update` 會依序呼叫 `make update-env` 與 `docker compose build`
 
 
 ## [0.35.0] - 2026-04-11

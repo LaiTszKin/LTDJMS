@@ -32,7 +32,7 @@ coverage:
 # Docker commands
 update:
 	git pull origin main
-	make sync-env
+	make update-env
 	docker compose build
 
 start:
@@ -90,7 +90,7 @@ help:
 	@echo "  clean            - Clean build artifacts"
 	@echo "  setup-env        - Interactive .env setup assistant for deployment values"
 	@echo "  update-env       - Sync .env with .env.example (backup to .env.bak)"
-	@echo "  update           - Build Docker image"
+	@echo "  update           - Pull latest changes, sync env, and build Docker image"
 	@echo "  start            - Start all services with Docker Compose (no rebuild)"
 	@echo "  start-dev        - Build (using layer cache) and start all services"
 	@echo "  restart          - Restart all Docker services"
