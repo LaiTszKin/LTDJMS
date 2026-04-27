@@ -11,6 +11,7 @@ import org.slf4j.LoggerFactory;
 
 import ltdjms.discord.dispatch.domain.EscortDispatchOrder;
 import ltdjms.discord.dispatch.domain.EscortDispatchOrderRepository;
+import ltdjms.discord.product.domain.EscortOrderOptionCatalog;
 import ltdjms.discord.shared.DomainError;
 import ltdjms.discord.shared.Result;
 
@@ -21,6 +22,7 @@ public class EscortDispatchOrderService {
 
   static final int MAX_ORDER_NUMBER_RETRIES = 20;
   static final int DEFAULT_HISTORY_LIMIT = 10;
+  static final int DEFAULT_PENDING_ASSIGNMENT_LIMIT = 5;
   static final int MAX_HISTORY_LIMIT = 20;
 
   private final EscortDispatchOrderRepository repository;
@@ -77,6 +79,95 @@ public class EscortDispatchOrderService {
           customerUserId,
           e);
       return Result.err(DomainError.persistenceFailure("建立派單失敗", e));
+    }
+  }
+
+  /** 手動建立尚未派發給護航者的護航訂單。 */
+  public Result<EscortDispatchOrder, DomainError> createManualOpenOrder(
+      long guildId, long assignedByUserId, long customerUserId, String escortOptionCode) {
+    if (customerUserId <= 0) {
+      return Result.err(DomainError.invalidInput("請選擇客戶"));
+    }
+    Result<String, DomainError> normalizedOptionResult = normalizeEscortOption(escortOptionCode);
+    if (normalizedOptionResult.isErr()) {
+      return Result.err(normalizedOptionResult.getError());
+    }
+
+    try {
+      String orderNumber = generateUniqueOrderNumber();
+      EscortDispatchOrder order =
+          EscortDispatchOrder.createManualOpenOrder(
+              orderNumber,
+              guildId,
+              assignedByUserId,
+              customerUserId,
+              normalizedOptionResult.getValue());
+
+      EscortDispatchOrder saved = repository.save(order);
+      LOG.info(
+          "Created manual open escort dispatch order: orderNumber={}, guildId={},"
+              + " customerUserId={}, escortOptionCode={}",
+          saved.orderNumber(),
+          guildId,
+          customerUserId,
+          normalizedOptionResult.getValue());
+      return Result.ok(saved);
+    } catch (Exception e) {
+      LOG.error(
+          "Failed to create manual open escort dispatch order: guildId={}, customerUserId={},"
+              + " escortOptionCode={}",
+          guildId,
+          customerUserId,
+          normalizedOptionResult.getValue(),
+          e);
+      return Result.err(DomainError.persistenceFailure("建立護航訂單失敗", e));
+    }
+  }
+
+  /** 將既有待派發護航訂單派給指定護航者。 */
+  public Result<EscortDispatchOrder, DomainError> assignPendingOrder(
+      String orderNumber, long assignedByUserId, long escortUserId) {
+    Result<EscortDispatchOrder, DomainError> orderResult = findOrder(orderNumber);
+    if (orderResult.isErr()) {
+      return orderResult;
+    }
+
+    EscortDispatchOrder order = orderResult.getValue();
+    if (!order.isPendingEscortConfirmation()) {
+      return Result.err(DomainError.invalidInput("此訂單目前不可派發"));
+    }
+    if (order.escortUserId() != 0L) {
+      return Result.err(DomainError.invalidInput("此訂單已派發給護航者"));
+    }
+    if (escortUserId <= 0) {
+      return Result.err(DomainError.invalidInput("請選擇護航者"));
+    }
+    if (escortUserId == order.customerUserId()) {
+      return Result.err(DomainError.invalidInput("護航者與客戶不能是同一人"));
+    }
+
+    try {
+      Optional<EscortDispatchOrder> assigned =
+          repository.assignEscort(order.orderNumber(), assignedByUserId, escortUserId, now());
+      if (assigned.isPresent()) {
+        LOG.info(
+            "Assigned escort dispatch order: orderNumber={}, assignedByUserId={},"
+                + " escortUserId={}",
+            order.orderNumber(),
+            assignedByUserId,
+            escortUserId);
+        return Result.ok(assigned.get());
+      }
+      return Result.err(DomainError.invalidInput("此訂單已被派發或目前不可派發"));
+    } catch (Exception e) {
+      LOG.error(
+          "Failed to assign escort dispatch order: orderNumber={}, assignedByUserId={},"
+              + " escortUserId={}",
+          order.orderNumber(),
+          assignedByUserId,
+          escortUserId,
+          e);
+      return Result.err(DomainError.persistenceFailure("派發護航訂單失敗", e));
     }
   }
 
@@ -337,6 +428,24 @@ public class EscortDispatchOrderService {
     }
   }
 
+  /** 查詢尚未指定護航者的自動交接訂單（預設 5 筆）。 */
+  public Result<List<EscortDispatchOrder>, DomainError> findPendingAssignmentOrders(
+      long guildId, Integer limit) {
+    int safeLimit = normalizeLimit(limit, DEFAULT_PENDING_ASSIGNMENT_LIMIT);
+    try {
+      List<EscortDispatchOrder> orders =
+          repository.findPendingAssignmentByGuildId(guildId, safeLimit);
+      return Result.ok(orders);
+    } catch (Exception e) {
+      LOG.error(
+          "Failed to query pending assignment escort dispatch orders: guildId={}, limit={}",
+          guildId,
+          safeLimit,
+          e);
+      return Result.err(DomainError.persistenceFailure("查詢待派單訂單失敗", e));
+    }
+  }
+
   private Result<EscortDispatchOrder, DomainError> findOrder(String orderNumber) {
     if (orderNumber == null || orderNumber.isBlank()) {
       return Result.err(DomainError.invalidInput("訂單編號無效"));
@@ -378,17 +487,34 @@ public class EscortDispatchOrderService {
   }
 
   private int normalizeLimit(Integer limit) {
+    return normalizeLimit(limit, DEFAULT_HISTORY_LIMIT);
+  }
+
+  private int normalizeLimit(Integer limit, int defaultLimit) {
     if (limit == null) {
-      return DEFAULT_HISTORY_LIMIT;
+      return defaultLimit;
     }
     if (limit <= 0) {
-      return DEFAULT_HISTORY_LIMIT;
+      return defaultLimit;
     }
     return Math.min(limit, MAX_HISTORY_LIMIT);
   }
 
   private Instant now() {
     return Instant.now(clock);
+  }
+
+  private Result<String, DomainError> normalizeEscortOption(String escortOptionCode) {
+    if (escortOptionCode == null || escortOptionCode.isBlank()) {
+      return Result.err(DomainError.invalidInput("請選擇護航品類"));
+    }
+    String normalizedCode = escortOptionCode.trim().toUpperCase();
+    if (!EscortOrderOptionCatalog.isSupported(normalizedCode)) {
+      return Result.err(
+          DomainError.invalidInput(
+              "護航品類無效，可用代碼：" + EscortOrderOptionCatalog.supportedCodesForDisplay()));
+    }
+    return Result.ok(normalizedCode);
   }
 
   private String generateUniqueOrderNumber() {

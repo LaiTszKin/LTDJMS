@@ -64,4 +64,17 @@ class DispatchPanelMessageFactoryTest {
     assertThat(embed.getDescription()).contains("NT$1,200");
     assertThat(embed.getDescription()).contains("CONF_DAM_300W");
   }
+
+  @Test
+  @DisplayName("歷史清單應顯示手動開單護航品類")
+  void buildHistoryEmbedShouldRenderManualOpenOrderOption() {
+    EscortDispatchOrder order =
+        EscortDispatchOrder.createManualOpenOrder(
+            "ESC-20260427-OPEN01", 1L, 10L, 30L, "CONF_HOURLY_1H");
+
+    MessageEmbed embed = DispatchPanelMessageFactory.buildHistoryEmbed(List.of(order));
+
+    assertThat(embed.getDescription()).contains("來源：手動派單");
+    assertThat(embed.getDescription()).contains("CONF_HOURLY_1H");
+  }
 }

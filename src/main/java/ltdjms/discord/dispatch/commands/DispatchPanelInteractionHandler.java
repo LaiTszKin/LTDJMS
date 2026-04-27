@@ -27,6 +27,7 @@ import net.dv8tion.jda.api.entities.MessageEmbed;
 import net.dv8tion.jda.api.entities.User;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.component.EntitySelectInteractionEvent;
+import net.dv8tion.jda.api.events.interaction.component.StringSelectInteractionEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import net.dv8tion.jda.api.interactions.InteractionHook;
 import net.dv8tion.jda.api.interactions.components.buttons.ButtonStyle;
@@ -95,11 +96,54 @@ public class DispatchPanelInteractionHandler extends ListenerAdapter {
   }
 
   @Override
+  public void onStringSelectInteraction(StringSelectInteractionEvent event) {
+    String selectId = event.getComponentId();
+
+    if (!isDispatchStringSelect(selectId)) {
+      return;
+    }
+
+    if (!event.isFromGuild() || event.getGuild() == null) {
+      event.reply("此功能只能在伺服器中使用").setEphemeral(true).queue();
+      return;
+    }
+
+    if (!isAdmin(event.getMember(), event.getGuild())) {
+      event.reply("你沒有權限使用派單面板").setEphemeral(true).queue();
+      return;
+    }
+
+    String sessionKey = getSessionKey(event.getUser().getIdLong(), event.getGuild().getIdLong());
+    SessionState state = sessionStates.computeIfAbsent(sessionKey, key -> new SessionState());
+
+    try {
+      switch (selectId) {
+        case DispatchPanelView.SELECT_MODE -> handleModeSelect(event, state);
+        case DispatchPanelView.SELECT_ORDER_OPTION, DispatchPanelView.SELECT_ORDER_OPTION_EXTRA ->
+            handleOrderOptionSelect(event, state);
+        case DispatchPanelView.SELECT_PENDING_ORDER -> handlePendingOrderSelect(event, state);
+        default -> LOG.warn("Unknown dispatch string select menu: {}", selectId);
+      }
+    } catch (Exception e) {
+      LOG.error("Error handling dispatch string select interaction: {}", selectId, e);
+      event.reply("發生錯誤，請稍後再試").setEphemeral(true).queue();
+    }
+  }
+
+  @Override
   public void onButtonInteraction(ButtonInteractionEvent event) {
     String buttonId = event.getComponentId();
 
     if (DispatchPanelView.BUTTON_CREATE_ORDER.equals(buttonId)) {
       handleCreateOrder(event);
+      return;
+    }
+    if (DispatchPanelView.BUTTON_ASSIGN_ORDER.equals(buttonId)) {
+      handleAssignOrder(event);
+      return;
+    }
+    if (DispatchPanelView.BUTTON_BACK_TO_MODE.equals(buttonId)) {
+      handleBackToMode(event);
       return;
     }
     if (DispatchPanelView.BUTTON_HISTORY.equals(buttonId)) {
@@ -136,7 +180,68 @@ public class DispatchPanelInteractionHandler extends ListenerAdapter {
         || DispatchPanelView.SELECT_CUSTOMER_USER.equals(selectId);
   }
 
+  private boolean isDispatchStringSelect(String selectId) {
+    return DispatchPanelView.SELECT_MODE.equals(selectId)
+        || DispatchPanelView.SELECT_ORDER_OPTION.equals(selectId)
+        || DispatchPanelView.SELECT_ORDER_OPTION_EXTRA.equals(selectId)
+        || DispatchPanelView.SELECT_PENDING_ORDER.equals(selectId);
+  }
+
+  private void handleModeSelect(StringSelectInteractionEvent event, SessionState state) {
+    if (event.getValues().isEmpty()) {
+      event.reply("請選擇操作").setEphemeral(true).queue();
+      return;
+    }
+
+    String selectedMode = event.getValues().get(0);
+    state.resetForMode(selectedMode);
+    if (state.isCreateMode()) {
+      refreshCreatePanel(event, state);
+      return;
+    }
+    if (state.isAssignMode()) {
+      refreshAssignPanel(event, state, null);
+      return;
+    }
+    state.mode = null;
+    event.reply("未知的派單操作").setEphemeral(true).queue();
+  }
+
+  private void handleOrderOptionSelect(StringSelectInteractionEvent event, SessionState state) {
+    if (!state.isCreateMode()) {
+      event.reply("請先選擇開單流程").setEphemeral(true).queue();
+      return;
+    }
+    if (event.getValues().isEmpty()) {
+      event.reply("請選擇護航品類").setEphemeral(true).queue();
+      return;
+    }
+
+    state.escortOptionCode = event.getValues().get(0);
+    state.statusMessage = "✅ 已選擇護航品類（尚未建立訂單）";
+    refreshCreatePanel(event, state);
+  }
+
+  private void handlePendingOrderSelect(StringSelectInteractionEvent event, SessionState state) {
+    if (!state.isAssignMode()) {
+      event.reply("請先選擇派單流程").setEphemeral(true).queue();
+      return;
+    }
+    if (event.getValues().isEmpty()) {
+      event.reply("請選擇待派單訂單").setEphemeral(true).queue();
+      return;
+    }
+
+    state.selectedOrderNumber = event.getValues().get(0);
+    state.statusMessage = "✅ 已選擇待派單訂單";
+    refreshAssignPanel(event, state, null);
+  }
+
   private void handleEscortUserSelect(EntitySelectInteractionEvent event, SessionState state) {
+    if (!state.isAssignMode()) {
+      event.reply("請先選擇派單流程").setEphemeral(true).queue();
+      return;
+    }
     List<User> users = event.getMentions().getUsers();
     if (users.isEmpty()) {
       event.reply("請選擇護航者").setEphemeral(true).queue();
@@ -146,11 +251,16 @@ public class DispatchPanelInteractionHandler extends ListenerAdapter {
     User user = users.get(0);
     state.escortUserId = user.getIdLong();
     state.escortUserMention = user.getAsMention();
+    state.statusMessage = "✅ 已選擇護航者";
 
-    refreshPanel(event, state);
+    refreshAssignPanel(event, state, null);
   }
 
   private void handleCustomerUserSelect(EntitySelectInteractionEvent event, SessionState state) {
+    if (!state.isCreateMode()) {
+      event.reply("請先選擇開單流程").setEphemeral(true).queue();
+      return;
+    }
     List<User> users = event.getMentions().getUsers();
     if (users.isEmpty()) {
       event.reply("請選擇客戶").setEphemeral(true).queue();
@@ -160,16 +270,60 @@ public class DispatchPanelInteractionHandler extends ListenerAdapter {
     User user = users.get(0);
     state.customerUserId = user.getIdLong();
     state.customerUserMention = user.getAsMention();
+    state.statusMessage = "✅ 已選擇客戶（尚未建立訂單）";
 
-    refreshPanel(event, state);
+    refreshCreatePanel(event, state);
   }
 
-  private void refreshPanel(EntitySelectInteractionEvent event, SessionState state) {
+  private void refreshCreatePanel(
+      net.dv8tion.jda.api.events.interaction.component.GenericComponentInteractionCreateEvent event,
+      SessionState state) {
     event
         .editMessageEmbeds(
-            DispatchPanelView.buildPanelEmbed(
-                state.escortUserMention, state.customerUserMention, state.getStatusMessage()))
-        .setComponents(DispatchPanelView.buildPanelComponents(state.canCreateOrder()))
+            DispatchPanelView.buildCreateOrderEmbed(
+                state.customerUserMention, state.escortOptionCode, state.getCreateStatusMessage()))
+        .setComponents(
+            DispatchPanelView.buildCreateOrderComponents(
+                state.canCreateOpenOrder(), state.escortOptionCode))
+        .queue();
+  }
+
+  private PendingAssignmentLoadResult loadPendingAssignmentOrders(long guildId) {
+    Result<List<EscortDispatchOrder>, DomainError> result =
+        orderService.findPendingAssignmentOrders(guildId, 25);
+    if (result.isOk()) {
+      return new PendingAssignmentLoadResult(result.getValue(), null);
+    }
+
+    LOG.warn(
+        "Failed to load pending assignment dispatch orders: guildId={}, reason={}",
+        guildId,
+        result.getError().message());
+    return new PendingAssignmentLoadResult(
+        List.of(), "⚠️ 無法載入待派單訂單：" + result.getError().message());
+  }
+
+  private void refreshAssignPanel(
+      net.dv8tion.jda.api.events.interaction.component.GenericComponentInteractionCreateEvent event,
+      SessionState state,
+      String statusOverride) {
+    PendingAssignmentLoadResult loadResult =
+        loadPendingAssignmentOrders(event.getGuild().getIdLong());
+    state.pendingOrders = loadResult.orders();
+    String status =
+        statusOverride != null && !statusOverride.isBlank()
+            ? statusOverride
+            : loadResult.statusMessage() != null
+                ? loadResult.statusMessage()
+                : state.getAssignStatusMessage();
+
+    event
+        .editMessageEmbeds(
+            DispatchPanelView.buildAssignOrderEmbed(
+                state.pendingOrders, state.selectedOrderNumber, state.escortUserMention, status))
+        .setComponents(
+            DispatchPanelView.buildAssignOrderComponents(
+                state.pendingOrders, state.selectedOrderNumber, state.canAssignOrder()))
         .queue();
   }
 
@@ -189,13 +343,8 @@ public class DispatchPanelInteractionHandler extends ListenerAdapter {
     String sessionKey = getSessionKey(adminUserId, guildId);
 
     SessionState state = sessionStates.get(sessionKey);
-    if (state == null || !state.hasCompleteSelection()) {
-      event.reply("請先完整選擇護航者與客戶").setEphemeral(true).queue();
-      return;
-    }
-
-    if (state.isSameUser()) {
-      event.reply("護航者與客戶不能是同一人").setEphemeral(true).queue();
+    if (state == null || !state.isCreateMode() || !state.canCreateOpenOrder()) {
+      event.reply("請先完整選擇客戶與護航品類").setEphemeral(true).queue();
       return;
     }
 
@@ -203,8 +352,55 @@ public class DispatchPanelInteractionHandler extends ListenerAdapter {
         .deferReply(true)
         .queue(
             hook ->
-                validateMembersAndCreateOrder(event, hook, sessionKey, guildId, adminUserId, state),
+                validateCustomerMemberAndCreateOpenOrder(
+                    event, hook, sessionKey, guildId, adminUserId, state),
             failure -> LOG.warn("Failed to defer dispatch order creation interaction", failure));
+  }
+
+  private void handleAssignOrder(ButtonInteractionEvent event) {
+    if (!event.isFromGuild() || event.getGuild() == null) {
+      event.reply("此功能只能在伺服器中使用").setEphemeral(true).queue();
+      return;
+    }
+
+    if (!isAdmin(event.getMember(), event.getGuild())) {
+      event.reply("你沒有權限使用派單面板").setEphemeral(true).queue();
+      return;
+    }
+
+    long guildId = event.getGuild().getIdLong();
+    long adminUserId = event.getUser().getIdLong();
+    String sessionKey = getSessionKey(adminUserId, guildId);
+
+    SessionState state = sessionStates.get(sessionKey);
+    if (state == null || !state.isAssignMode() || !state.canAssignOrder()) {
+      event.reply("請先完整選擇待派單訂單與護航者").setEphemeral(true).queue();
+      return;
+    }
+
+    event
+        .deferReply(true)
+        .queue(
+            hook -> validateEscortMemberAndAssignOrder(event, hook, sessionKey, adminUserId, state),
+            failure -> LOG.warn("Failed to defer dispatch order assignment interaction", failure));
+  }
+
+  private void handleBackToMode(ButtonInteractionEvent event) {
+    if (!event.isFromGuild() || event.getGuild() == null) {
+      event.reply("此功能只能在伺服器中使用").setEphemeral(true).queue();
+      return;
+    }
+
+    if (!isAdmin(event.getMember(), event.getGuild())) {
+      event.reply("你沒有權限使用派單面板").setEphemeral(true).queue();
+      return;
+    }
+
+    sessionStates.remove(getSessionKey(event.getUser().getIdLong(), event.getGuild().getIdLong()));
+    event
+        .editMessageEmbeds(DispatchPanelView.buildModeEmbed(null))
+        .setComponents(DispatchPanelView.buildModeComponents())
+        .queue();
   }
 
   private void handleHistory(ButtonInteractionEvent event) {
@@ -230,7 +426,7 @@ public class DispatchPanelInteractionHandler extends ListenerAdapter {
     event.replyEmbeds(buildHistoryEmbed(result.getValue())).setEphemeral(true).queue();
   }
 
-  private void validateMembersAndCreateOrder(
+  private void validateCustomerMemberAndCreateOpenOrder(
       ButtonInteractionEvent event,
       InteractionHook hook,
       String sessionKey,
@@ -240,57 +436,64 @@ public class DispatchPanelInteractionHandler extends ListenerAdapter {
 
     event
         .getGuild()
-        .retrieveMemberById(state.escortUserId)
-        .queue(
-            escortMember ->
-                validateCustomerMember(
-                    event, hook, sessionKey, guildId, adminUserId, state, escortMember),
-            failure -> hook.sendMessage("找不到被派單的護航者，請確認該成員仍在伺服器中").setEphemeral(true).queue());
-  }
-
-  private void validateCustomerMember(
-      ButtonInteractionEvent event,
-      InteractionHook hook,
-      String sessionKey,
-      long guildId,
-      long adminUserId,
-      SessionState state,
-      Member escortMember) {
-    event
-        .getGuild()
         .retrieveMemberById(state.customerUserId)
         .queue(
-            customerMember ->
-                createOrderAndNotifyEscort(
-                    hook,
-                    sessionKey,
-                    guildId,
-                    adminUserId,
-                    state,
-                    escortMember.getUser(),
-                    customerMember.getUser()),
+            customerMember -> createOpenOrder(hook, sessionKey, guildId, adminUserId, state),
             failure -> hook.sendMessage("找不到指定客戶，請確認該成員仍在伺服器中").setEphemeral(true).queue());
   }
 
-  private void createOrderAndNotifyEscort(
-      InteractionHook hook,
-      String sessionKey,
-      long guildId,
-      long adminUserId,
-      SessionState state,
-      User escortUser,
-      User customerUser) {
+  private void createOpenOrder(
+      InteractionHook hook, String sessionKey, long guildId, long adminUserId, SessionState state) {
 
     Result<EscortDispatchOrder, DomainError> result =
-        orderService.createOrder(guildId, adminUserId, state.escortUserId, state.customerUserId);
+        orderService.createManualOpenOrder(
+            guildId, adminUserId, state.customerUserId, state.escortOptionCode);
 
     if (result.isErr()) {
-      hook.sendMessage("建立派單失敗：" + result.getError().message()).setEphemeral(true).queue();
+      hook.sendMessage("建立護航訂單失敗：" + result.getError().message()).setEphemeral(true).queue();
       return;
     }
 
     EscortDispatchOrder order = result.getValue();
-    sendPendingOrderDm(hook, sessionKey, order, escortUser, customerUser);
+    sessionStates.remove(sessionKey);
+    hook.sendMessage("✅ 護航訂單已建立：`" + order.orderNumber() + "`，可至「派單」流程指派護航者。")
+        .setEphemeral(true)
+        .queue();
+  }
+
+  private void validateEscortMemberAndAssignOrder(
+      ButtonInteractionEvent event,
+      InteractionHook hook,
+      String sessionKey,
+      long adminUserId,
+      SessionState state) {
+    event
+        .getGuild()
+        .retrieveMemberById(state.escortUserId)
+        .queue(
+            escortMember ->
+                assignOrderAndNotifyEscort(
+                    hook, sessionKey, adminUserId, state, escortMember.getUser()),
+            failure -> hook.sendMessage("找不到被派單的護航者，請確認該成員仍在伺服器中").setEphemeral(true).queue());
+  }
+
+  private void assignOrderAndNotifyEscort(
+      InteractionHook hook,
+      String sessionKey,
+      long adminUserId,
+      SessionState state,
+      User escortUser) {
+    Result<EscortDispatchOrder, DomainError> result =
+        orderService.assignPendingOrder(state.selectedOrderNumber, adminUserId, state.escortUserId);
+
+    if (result.isErr()) {
+      hook.sendMessage("派發護航訂單失敗：" + result.getError().message()).setEphemeral(true).queue();
+      return;
+    }
+
+    EscortDispatchOrder order = result.getValue();
+    sendPendingOrderDm(
+        hook, sessionKey, order, escortUser, formatUserMention(order.customerUserId()));
   }
 
   private void sendPendingOrderDm(
@@ -298,9 +501,9 @@ public class DispatchPanelInteractionHandler extends ListenerAdapter {
       String sessionKey,
       EscortDispatchOrder order,
       User escortUser,
-      User customerUser) {
+      String customerMention) {
     String confirmButtonId = DispatchPanelView.BUTTON_CONFIRM_ORDER_PREFIX + order.orderNumber();
-    MessageEmbed dmEmbed = buildEscortPendingEmbed(order, customerUser.getAsMention());
+    MessageEmbed dmEmbed = buildEscortPendingEmbed(order, customerMention);
 
     escortUser
         .openPrivateChannel()
@@ -943,6 +1146,10 @@ public class DispatchPanelInteractionHandler extends ListenerAdapter {
     return guildId + ":" + userId;
   }
 
+  private String formatUserMention(long userId) {
+    return userId <= 0 ? "待指定" : "<@" + userId + ">";
+  }
+
   private boolean isAdmin(Member member, Guild guild) {
     if (member == null || guild == null) {
       return false;
@@ -959,33 +1166,67 @@ public class DispatchPanelInteractionHandler extends ListenerAdapter {
 
   private record AfterSalesNotifyResult(String message) {}
 
+  private record PendingAssignmentLoadResult(
+      List<EscortDispatchOrder> orders, String statusMessage) {}
+
   private static final class SessionState {
+    private String mode;
+
     private Long escortUserId;
     private String escortUserMention;
 
     private Long customerUserId;
     private String customerUserMention;
 
-    boolean hasCompleteSelection() {
-      return escortUserId != null && customerUserId != null;
+    private String escortOptionCode;
+    private String selectedOrderNumber;
+    private List<EscortDispatchOrder> pendingOrders = List.of();
+    private String statusMessage;
+
+    void resetForMode(String mode) {
+      this.mode = mode;
+      this.escortUserId = null;
+      this.escortUserMention = null;
+      this.customerUserId = null;
+      this.customerUserMention = null;
+      this.escortOptionCode = null;
+      this.selectedOrderNumber = null;
+      this.pendingOrders = List.of();
+      this.statusMessage = null;
     }
 
-    boolean isSameUser() {
-      return escortUserId != null && customerUserId != null && escortUserId.equals(customerUserId);
+    boolean isCreateMode() {
+      return DispatchPanelView.MODE_CREATE.equals(mode);
     }
 
-    boolean canCreateOrder() {
-      return hasCompleteSelection() && !isSameUser();
+    boolean isAssignMode() {
+      return DispatchPanelView.MODE_ASSIGN.equals(mode);
     }
 
-    String getStatusMessage() {
-      if (isSameUser()) {
-        return "⚠️ 護航者與客戶不能是同一人";
+    boolean canCreateOpenOrder() {
+      return customerUserId != null && escortOptionCode != null && !escortOptionCode.isBlank();
+    }
+
+    boolean canAssignOrder() {
+      return selectedOrderNumber != null
+          && !selectedOrderNumber.isBlank()
+          && escortUserId != null
+          && pendingOrders.stream()
+              .anyMatch(order -> order.orderNumber().equals(selectedOrderNumber));
+    }
+
+    String getCreateStatusMessage() {
+      if (canCreateOpenOrder()) {
+        return "✅ 已完成選擇，可建立護航訂單";
       }
-      if (canCreateOrder()) {
-        return "✅ 已完成選擇，可建立派單";
+      return statusMessage;
+    }
+
+    String getAssignStatusMessage() {
+      if (canAssignOrder()) {
+        return "✅ 已完成選擇，可派發護航訂單";
       }
-      return null;
+      return statusMessage;
     }
   }
 }

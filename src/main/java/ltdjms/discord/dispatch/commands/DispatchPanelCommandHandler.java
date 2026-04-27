@@ -32,8 +32,8 @@ public class DispatchPanelCommandHandler implements SlashCommandListener.Command
     LOG.debug("Opening dispatch panel: guildId={}, adminUserId={}", guildId, adminUserId);
 
     event
-        .replyEmbeds(DispatchPanelView.buildPanelEmbed(null, null, null))
-        .addComponents(DispatchPanelView.buildPanelComponents(false))
+        .replyEmbeds(DispatchPanelView.buildModeEmbed(null))
+        .addComponents(DispatchPanelView.buildModeComponents())
         .setEphemeral(true)
         .queue();
   }

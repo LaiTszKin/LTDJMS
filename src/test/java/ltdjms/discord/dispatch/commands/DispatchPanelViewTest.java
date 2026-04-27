@@ -7,9 +7,11 @@ import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import ltdjms.discord.dispatch.domain.EscortDispatchOrder;
 import net.dv8tion.jda.api.entities.MessageEmbed;
 import net.dv8tion.jda.api.interactions.components.ActionRow;
 import net.dv8tion.jda.api.interactions.components.selections.EntitySelectMenu;
+import net.dv8tion.jda.api.interactions.components.selections.StringSelectMenu;
 
 @DisplayName("DispatchPanelView 測試")
 class DispatchPanelViewTest {
@@ -21,9 +23,10 @@ class DispatchPanelViewTest {
 
     assertThat(embed.getTitle()).isEqualTo("🛡️ 護航派單面板");
     assertThat(embed.getDescription()).contains("請選擇護航者與客戶");
-    assertThat(embed.getFields()).hasSize(2);
+    assertThat(embed.getFields()).hasSize(3);
     assertThat(embed.getFields().get(0).getValue()).isEqualTo("尚未選擇");
     assertThat(embed.getFields().get(1).getValue()).isEqualTo("尚未選擇");
+    assertThat(embed.getFields().get(2).getValue()).contains("目前沒有待派單");
     assertThat(embed.getFooter()).isNotNull();
     assertThat(embed.getFooter().getText()).isEqualTo("限制：護航者與客戶不可為同一人");
   }
@@ -33,9 +36,52 @@ class DispatchPanelViewTest {
   void buildPanelEmbedShouldIncludeStatusField() {
     MessageEmbed embed = DispatchPanelView.buildPanelEmbed("<@1>", "<@2>", "可建立派單");
 
-    assertThat(embed.getFields()).hasSize(3);
-    assertThat(embed.getFields().get(2).getName()).isEqualTo("狀態");
-    assertThat(embed.getFields().get(2).getValue()).isEqualTo("可建立派單");
+    assertThat(embed.getFields()).hasSize(4);
+    assertThat(embed.getFields().get(3).getName()).isEqualTo("狀態");
+    assertThat(embed.getFields().get(3).getValue()).isEqualTo("可建立派單");
+  }
+
+  @Test
+  @DisplayName("模式面板應提供開單與派單選擇")
+  void buildModeComponentsShouldProvideCreateAndAssignModes() {
+    List<ActionRow> rows = DispatchPanelView.buildModeComponents();
+
+    assertThat(rows).hasSize(2);
+    assertThat(rows.get(0).getComponents().get(0)).isInstanceOf(StringSelectMenu.class);
+    StringSelectMenu select = (StringSelectMenu) rows.get(0).getComponents().get(0);
+    assertThat(select.getOptions())
+        .extracting(option -> option.getValue())
+        .containsExactly(DispatchPanelView.MODE_CREATE, DispatchPanelView.MODE_ASSIGN);
+  }
+
+  @Test
+  @DisplayName("開單面板應提供客戶選擇與護航品類")
+  void buildCreateOrderComponentsShouldProvideCustomerAndOptionSelectors() {
+    List<ActionRow> rows = DispatchPanelView.buildCreateOrderComponents(false, null);
+
+    assertThat(rows.get(0).getComponents().get(0)).isInstanceOf(EntitySelectMenu.class);
+    assertThat(rows.get(1).getComponents().get(0)).isInstanceOf(StringSelectMenu.class);
+    assertThat(rows.get(rows.size() - 1).getButtons().get(0).getId())
+        .isEqualTo(DispatchPanelView.BUTTON_CREATE_ORDER);
+    assertThat(rows.get(rows.size() - 1).getButtons().get(0).isDisabled()).isTrue();
+  }
+
+  @Test
+  @DisplayName("派單面板應顯示待派單訂單並可選擇護航者")
+  void buildAssignOrderEmbedShouldRenderPendingOrders() {
+    EscortDispatchOrder order =
+        EscortDispatchOrder.createManualOpenOrder(
+            "ESC-20260427-OPEN01", 1L, 10L, 30L, "CONF_HOURLY_1H");
+
+    MessageEmbed embed = DispatchPanelView.buildAssignOrderEmbed(List.of(order), null, null, null);
+    List<ActionRow> rows =
+        DispatchPanelView.buildAssignOrderComponents(List.of(order), order.orderNumber(), true);
+
+    assertThat(embed.getFields().get(0).getValue()).contains("ESC-20260427-OPEN01");
+    assertThat(embed.getFields().get(0).getValue()).contains("CONF_HOURLY_1H");
+    assertThat(rows.get(0).getComponents().get(0)).isInstanceOf(StringSelectMenu.class);
+    assertThat(rows.get(1).getComponents().get(0)).isInstanceOf(EntitySelectMenu.class);
+    assertThat(rows.get(2).getButtons().get(0).isDisabled()).isFalse();
   }
 
   @Test

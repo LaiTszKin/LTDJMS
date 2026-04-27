@@ -23,6 +23,17 @@ public interface EscortDispatchOrderRepository {
   /** 取得 guild 最近建立的訂單（依建立時間遞減）。 */
   List<EscortDispatchOrder> findRecentByGuildId(long guildId, int limit);
 
+  /** 取得 guild 尚未指定護航者的自動交接訂單（依建立時間遞增）。 */
+  List<EscortDispatchOrder> findPendingAssignmentByGuildId(long guildId, int limit);
+
+  /**
+   * 原子派發待指定護航者的訂單。
+   *
+   * <p>僅在訂單狀態為 PENDING_CONFIRMATION 且 escort_user_id = 0 時成功。
+   */
+  Optional<EscortDispatchOrder> assignEscort(
+      String orderNumber, long assignedByUserId, long escortUserId, Instant assignedAt);
+
   /**
    * 原子接手售後案件。
    *

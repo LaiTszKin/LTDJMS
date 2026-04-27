@@ -207,7 +207,11 @@ final class DispatchPanelMessageFactory {
   }
 
   private static String formatSourceSummary(EscortDispatchOrder order) {
-    if (order == null || order.isManualSource()) {
+    if (order == null) {
+      return "來源：未知";
+    }
+    if (order.isManualSource()
+        && (order.sourceEscortOptionCode() == null || order.sourceEscortOptionCode().isBlank())) {
       return "來源：手動派單";
     }
 

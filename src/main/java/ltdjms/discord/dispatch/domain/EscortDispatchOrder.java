@@ -85,8 +85,7 @@ public record EscortDispatchOrder(
           || sourceProductId != null
           || sourceProductName != null
           || sourceCurrencyPrice != null
-          || sourceFiatPriceTwd != null
-          || sourceEscortOptionCode != null) {
+          || sourceFiatPriceTwd != null) {
         throw new IllegalArgumentException("manual dispatch order must not carry source snapshot");
       }
     } else {
@@ -157,6 +156,27 @@ public record EscortDispatchOrder(
         null,
         null,
         null);
+  }
+
+  public static EscortDispatchOrder createManualOpenOrder(
+      String orderNumber,
+      long guildId,
+      long assignedByUserId,
+      long customerUserId,
+      String sourceEscortOptionCode) {
+    return createPending(
+        orderNumber,
+        guildId,
+        assignedByUserId,
+        0L,
+        customerUserId,
+        SourceType.MANUAL,
+        null,
+        null,
+        null,
+        null,
+        null,
+        sourceEscortOptionCode);
   }
 
   public static EscortDispatchOrder createPending(
@@ -237,6 +257,36 @@ public record EscortDispatchOrder(
         sourceFiatPriceTwd,
         sourceEscortOptionCode,
         Status.PENDING_CONFIRMATION);
+  }
+
+  /** 指定待派發訂單的護航者後回傳新狀態實體。 */
+  public EscortDispatchOrder withAssignedEscort(
+      long assignedByUserId, long escortUserId, Instant assignedAt) {
+    Objects.requireNonNull(assignedAt, "assignedAt must not be null");
+    return new EscortDispatchOrder(
+        id,
+        orderNumber,
+        guildId,
+        assignedByUserId,
+        escortUserId,
+        customerUserId,
+        createdAt,
+        confirmedAt,
+        completionRequestedAt,
+        completedAt,
+        afterSalesRequestedAt,
+        afterSalesAssigneeUserId,
+        afterSalesAssignedAt,
+        afterSalesClosedAt,
+        assignedAt,
+        sourceType,
+        sourceReference,
+        sourceProductId,
+        sourceProductName,
+        sourceCurrencyPrice,
+        sourceFiatPriceTwd,
+        sourceEscortOptionCode,
+        status);
   }
 
   /** 由指定護航者確認後回傳新狀態實體。 */

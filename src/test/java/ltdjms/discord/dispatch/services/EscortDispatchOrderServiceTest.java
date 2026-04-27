@@ -3,6 +3,7 @@ package ltdjms.discord.dispatch.services;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -89,6 +90,116 @@ class EscortDispatchOrderServiceTest {
 
       assertThat(result.isOk()).isTrue();
       assertThat(result.getValue().orderNumber()).isEqualTo("ESC-20260214-ABC123");
+    }
+  }
+
+  @Nested
+  @DisplayName("manual open order")
+  class ManualOpenOrderTests {
+
+    @Test
+    @DisplayName("should create pending assignment order with selected escort option")
+    void shouldCreatePendingAssignmentOrderWithSelectedEscortOption() {
+      when(orderNumberGenerator.generate()).thenReturn("ESC-20260214-OPEN01");
+      when(repository.existsByOrderNumber("ESC-20260214-OPEN01")).thenReturn(false);
+      when(repository.save(any(EscortDispatchOrder.class)))
+          .thenAnswer(invocation -> invocation.getArgument(0));
+
+      Result<EscortDispatchOrder, DomainError> result =
+          service.createManualOpenOrder(
+              TEST_GUILD_ID, TEST_ADMIN_ID, TEST_CUSTOMER_USER_ID, "conf_hourly_1h");
+
+      assertThat(result.isOk()).isTrue();
+      EscortDispatchOrder order = result.getValue();
+      assertThat(order.escortUserId()).isZero();
+      assertThat(order.customerUserId()).isEqualTo(TEST_CUSTOMER_USER_ID);
+      assertThat(order.sourceType()).isEqualTo(EscortDispatchOrder.SourceType.MANUAL);
+      assertThat(order.sourceEscortOptionCode()).isEqualTo("CONF_HOURLY_1H");
+      assertThat(order.status()).isEqualTo(EscortDispatchOrder.Status.PENDING_CONFIRMATION);
+    }
+
+    @Test
+    @DisplayName("should reject unsupported escort option")
+    void shouldRejectUnsupportedEscortOption() {
+      Result<EscortDispatchOrder, DomainError> result =
+          service.createManualOpenOrder(
+              TEST_GUILD_ID, TEST_ADMIN_ID, TEST_CUSTOMER_USER_ID, "UNKNOWN_OPTION");
+
+      assertThat(result.isErr()).isTrue();
+      assertThat(result.getError().category()).isEqualTo(DomainError.Category.INVALID_INPUT);
+      verify(repository, never()).save(any());
+    }
+  }
+
+  @Nested
+  @DisplayName("assign pending order")
+  class AssignPendingOrderTests {
+
+    @Test
+    @DisplayName("should assign pending order to escort user")
+    void shouldAssignPendingOrderToEscortUser() {
+      EscortDispatchOrder pendingOrder =
+          buildPendingAssignmentOrder("ESC-20260214-OPEN01", TEST_CUSTOMER_USER_ID);
+      EscortDispatchOrder assignedOrder =
+          pendingOrder.withAssignedEscort(TEST_ADMIN_ID, TEST_ESCORT_USER_ID, FIXED_NOW);
+
+      when(repository.findByOrderNumber("ESC-20260214-OPEN01"))
+          .thenReturn(Optional.of(pendingOrder));
+      when(repository.assignEscort(
+              eq("ESC-20260214-OPEN01"), eq(TEST_ADMIN_ID), eq(TEST_ESCORT_USER_ID), eq(FIXED_NOW)))
+          .thenReturn(Optional.of(assignedOrder));
+
+      Result<EscortDispatchOrder, DomainError> result =
+          service.assignPendingOrder("ESC-20260214-OPEN01", TEST_ADMIN_ID, TEST_ESCORT_USER_ID);
+
+      assertThat(result.isOk()).isTrue();
+      assertThat(result.getValue().escortUserId()).isEqualTo(TEST_ESCORT_USER_ID);
+      assertThat(result.getValue().assignedByUserId()).isEqualTo(TEST_ADMIN_ID);
+      assertThat(result.getValue().status())
+          .isEqualTo(EscortDispatchOrder.Status.PENDING_CONFIRMATION);
+    }
+
+    @Test
+    @DisplayName("should reject assigning customer as escort")
+    void shouldRejectAssigningCustomerAsEscort() {
+      EscortDispatchOrder pendingOrder =
+          buildPendingAssignmentOrder("ESC-20260214-OPEN01", TEST_CUSTOMER_USER_ID);
+      when(repository.findByOrderNumber("ESC-20260214-OPEN01"))
+          .thenReturn(Optional.of(pendingOrder));
+
+      Result<EscortDispatchOrder, DomainError> result =
+          service.assignPendingOrder("ESC-20260214-OPEN01", TEST_ADMIN_ID, TEST_CUSTOMER_USER_ID);
+
+      assertThat(result.isErr()).isTrue();
+      assertThat(result.getError().message()).contains("護航者與客戶不能是同一人");
+      verify(repository, never()).assignEscort(any(), anyLong(), anyLong(), any());
+    }
+
+    @Test
+    @DisplayName("should reject already assigned order")
+    void shouldRejectAlreadyAssignedOrder() {
+      EscortDispatchOrder assignedOrder =
+          buildOrder(
+              EscortDispatchOrder.Status.PENDING_CONFIRMATION,
+              "ESC-20260214-OPEN01",
+              Instant.parse("2026-02-14T09:00:00Z"),
+              null,
+              null,
+              null,
+              null,
+              null,
+              null,
+              null,
+              Instant.parse("2026-02-14T09:00:00Z"));
+      when(repository.findByOrderNumber("ESC-20260214-OPEN01"))
+          .thenReturn(Optional.of(assignedOrder));
+
+      Result<EscortDispatchOrder, DomainError> result =
+          service.assignPendingOrder("ESC-20260214-OPEN01", TEST_ADMIN_ID, TEST_ESCORT_USER_ID);
+
+      assertThat(result.isErr()).isTrue();
+      assertThat(result.getError().message()).contains("已派發");
+      verify(repository, never()).assignEscort(any(), anyLong(), anyLong(), any());
     }
   }
 
@@ -395,6 +506,48 @@ class EscortDispatchOrderServiceTest {
       assertThat(result.getValue()).hasSize(1);
       assertThat(result.getValue().get(0).orderNumber()).isEqualTo("ESC-20260214-ABC123");
     }
+
+    @Test
+    @DisplayName("should query pending assignment orders")
+    void shouldQueryPendingAssignmentOrders() {
+      EscortDispatchOrder order =
+          buildPendingAssignmentOrder("ESC-20260214-OPEN01", TEST_CUSTOMER_USER_ID);
+      when(repository.findPendingAssignmentByGuildId(TEST_GUILD_ID, 5)).thenReturn(List.of(order));
+
+      Result<List<EscortDispatchOrder>, DomainError> result =
+          service.findPendingAssignmentOrders(TEST_GUILD_ID, 5);
+
+      assertThat(result.isOk()).isTrue();
+      assertThat(result.getValue()).hasSize(1);
+      assertThat(result.getValue().get(0).escortUserId()).isZero();
+    }
+  }
+
+  private EscortDispatchOrder buildPendingAssignmentOrder(String orderNumber, long customerUserId) {
+    return new EscortDispatchOrder(
+        1L,
+        orderNumber,
+        TEST_GUILD_ID,
+        TEST_ADMIN_ID,
+        0L,
+        customerUserId,
+        Instant.parse("2026-02-14T09:00:00Z"),
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        Instant.parse("2026-02-14T09:00:00Z"),
+        EscortDispatchOrder.SourceType.MANUAL,
+        null,
+        null,
+        null,
+        null,
+        null,
+        "CONF_HOURLY_1H",
+        EscortDispatchOrder.Status.PENDING_CONFIRMATION);
   }
 
   private EscortDispatchOrder buildOrder(

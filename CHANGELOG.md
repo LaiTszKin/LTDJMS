@@ -8,11 +8,13 @@ All notable changes to this project will be documented in this file.
 - **discord/runtime**: 新增注入式 `DiscordRuntimeGateway` 作為 Discord runtime access 的正式邊界，並保留 `JDAProvider` 作為短期 bootstrap compatibility bridge
 - **shop/fiat**: 法幣訂單新增履約快照、到期 terminal state、付款後重試 claim、買家 / 管理員通知與獎勵發放的冪等狀態欄位
 - **dispatch/handoff**: 付款後護航商品會建立 durable `EscortDispatchOrder` handoff，並以來源類型與來源訂單編號保持冪等
+- **dispatch/panel**: `/dispatch-panel` 新增「開單 / 派單」模式，支援手動建立待派發護航訂單並將既有待派單訂單指派給護航者
 
 ### Changed
 - **aichat/aiagent**: mention routing 改為先判斷 AI Agent 啟用，再回落一般 AI allowlist，讓 Agent 頻道可獨立於 AI Chat 白名單運作
 - **aiagent/memory**: AI Agent runtime memory 明確收斂到 `SimplifiedChatMemoryProvider`，legacy conversation persistence 降為 audit / diagnostic 兼容用途
 - **panel/admin**: admin panel session refresh 改為可枚舉 guild session 並在 guild-wide 事件後實際刷新面板
+- **dispatch/orders**: 護航訂單以 `escort_user_id = 0` 表示待派發狀態，商品交接與手動開單共用同一派發流程
 - **shop/fiat**: post-payment worker 使用訂單建立時的履約快照重播獎勵與護航交接，不再回查 live product 決定已付款訂單履約內容
 
 ### Fixed
@@ -25,6 +27,8 @@ All notable changes to this project will be documented in this file.
 
 ### Tests
 - 執行 `make format-check`，檢查通過
+- 執行 `mvn -q -Dtest='ltdjms.discord.dispatch.services.EscortDispatchOrderServiceTest,ltdjms.discord.dispatch.commands.DispatchPanelViewTest,ltdjms.discord.dispatch.commands.DispatchPanelMessageFactoryTest,ltdjms.discord.dispatch.commands.DispatchPanelCommandHandlerTest' test`，測試通過
+- 執行 `mvn -q test`，測試通過
 - 執行 `mvn -q -Dtest=FiatOrderPostPaymentWorkerTest test`，測試通過
 - 執行 `make test`，共 `2553` tests（`0` failures / `0` errors，`14` skipped），測試通過
 

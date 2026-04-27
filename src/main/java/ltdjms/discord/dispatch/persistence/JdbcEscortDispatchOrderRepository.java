@@ -239,6 +239,77 @@ public class JdbcEscortDispatchOrderRepository implements EscortDispatchOrderRep
   }
 
   @Override
+  public List<EscortDispatchOrder> findPendingAssignmentByGuildId(long guildId, int limit) {
+    String sql =
+        "SELECT "
+            + SELECT_COLUMNS
+            + " FROM escort_dispatch_order"
+            + " WHERE guild_id = ? AND status = ? AND escort_user_id = 0"
+            + " ORDER BY created_at ASC LIMIT ?";
+
+    try (Connection conn = dataSource.getConnection();
+        PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+      stmt.setLong(1, guildId);
+      stmt.setString(2, EscortDispatchOrder.Status.PENDING_CONFIRMATION.name());
+      stmt.setInt(3, limit);
+
+      List<EscortDispatchOrder> orders = new ArrayList<>();
+      try (ResultSet rs = stmt.executeQuery()) {
+        while (rs.next()) {
+          orders.add(mapRow(rs));
+        }
+      }
+      return orders;
+    } catch (SQLException e) {
+      LOG.error(
+          "Failed to query pending assignment escort dispatch orders: guildId={}, limit={}",
+          guildId,
+          limit,
+          e);
+      throw new RepositoryException("Failed to query pending assignment escort dispatch orders", e);
+    }
+  }
+
+  @Override
+  public Optional<EscortDispatchOrder> assignEscort(
+      String orderNumber, long assignedByUserId, long escortUserId, Instant assignedAt) {
+    String sql =
+        "UPDATE escort_dispatch_order"
+            + " SET assigned_by_user_id = ?, escort_user_id = ?, updated_at = ?"
+            + " WHERE order_number = ? AND status = ? AND escort_user_id = 0"
+            + " AND customer_user_id <> ?"
+            + " RETURNING "
+            + SELECT_COLUMNS;
+
+    try (Connection conn = dataSource.getConnection();
+        PreparedStatement stmt = conn.prepareStatement(sql)) {
+      stmt.setLong(1, assignedByUserId);
+      stmt.setLong(2, escortUserId);
+      stmt.setTimestamp(3, Timestamp.from(assignedAt));
+      stmt.setString(4, orderNumber);
+      stmt.setString(5, EscortDispatchOrder.Status.PENDING_CONFIRMATION.name());
+      stmt.setLong(6, escortUserId);
+
+      try (ResultSet rs = stmt.executeQuery()) {
+        if (rs.next()) {
+          return Optional.of(mapRow(rs));
+        }
+        return Optional.empty();
+      }
+    } catch (SQLException e) {
+      LOG.error(
+          "Failed to assign escort dispatch order: orderNumber={}, assignedByUserId={},"
+              + " escortUserId={}",
+          orderNumber,
+          assignedByUserId,
+          escortUserId,
+          e);
+      throw new RepositoryException("Failed to assign escort dispatch order", e);
+    }
+  }
+
+  @Override
   public Optional<EscortDispatchOrder> claimAfterSales(
       String orderNumber, long assigneeUserId, Instant assignedAt) {
     String sql =
