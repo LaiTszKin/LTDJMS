@@ -367,6 +367,7 @@ mvn test -Dtest='ltdjms.discord.aichat.integration.*'
 ### 概述
 
 AI 頻道限制功能允許管理員控制 AI 功能可以在哪些頻道中使用。
+若頻道同時啟用 AI Agent，mention 會先走 Agent 路徑，不需要先通過一般 AI allowlist。
 
 **核心特性**：
 - **預設拒絕**：未設定任何允許頻道或類別時，AI 不會在任何頻道回應
@@ -468,6 +469,8 @@ CREATE INDEX idx_ai_channel_restriction_guild_id
 | 新增多個頻道 | 這些頻道都可使用 AI |
 | 移除所有頻道 | 恢復空 allowlist，AI 不再回應 |
 | 移除頻道時進行中的對話 | 正在進行的對話繼續完成，新設定僅對後續請求生效 |
+
+上述 allowlist 語意只針對一般 AI Chat。Agent 啟用頻道可獨立於白名單直接進入 Agent routing。
 
 ### 錯誤處理
 

@@ -25,8 +25,10 @@
 
 ## Proposed Architecture
 - 在 mention 入口建立一個明確的 decision matrix：`AGENT_ROUTE`、`AI_CHAT_ROUTE`、`DENY`
+- `AIChatMentionRoutingDecision` 負責讀取 agent 狀態與 allowlist 狀態，回傳帶 source 的 routing decision
 - `agentEnabled` 成為 Agent 路徑的獨立 gate；只有在未啟用 Agent 時，才評估一般 AI Chat allowlist
-- log / metrics / test fixtures 都以 decision matrix 為核心，而不是散落在多個 if-return 分支
+- 若 agent config 無法讀取，routing 會 fail closed 為 `DENY`，避免誤放行到一般 AI Chat
+- log / test fixtures 都以 decision matrix 為核心，而不是散落在多個 if-return 分支
 
 ## Component Changes
 
@@ -63,9 +65,9 @@
 - Operational constraints: 若增加 logging，需避免在高頻 mention channel 產生過量噪音
 
 ## Validation Plan
-- Tests: `UT` routing matrix、回歸測試、必要的 interaction-level integration test
+- Tests: `UT` routing matrix、listener regression tests、panel facade smoke coverage
 - Contract checks: `N/A`
-- Rollback / fallback: 若實作出現問題，可暫時保留舊路徑 behind feature flag，但最終不可雙軌長存
+- Rollback / fallback: 若實作出現問題，可直接回退 listener routing helper 與 log 調整；此次變更未引入 feature flag
 
 ## Open Questions
 None

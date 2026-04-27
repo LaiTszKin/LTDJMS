@@ -102,8 +102,7 @@ public class AIChatMentionListener extends ListenerAdapter {
   }
 
   private final AIChatService aiChatService;
-  private final AIChannelRestrictionService channelRestrictionService;
-  private final AIAgentChannelConfigService agentConfigService;
+  private final AIChatMentionRoutingDecision routingDecision;
   private final boolean showReasoning;
   private final boolean enableMarkdownValidation;
   private final boolean streamingBypassValidation;
@@ -123,8 +122,8 @@ public class AIChatMentionListener extends ListenerAdapter {
       boolean enableMarkdownValidation,
       boolean streamingBypassValidation) {
     this.aiChatService = aiChatService;
-    this.channelRestrictionService = channelRestrictionService;
-    this.agentConfigService = agentConfigService;
+    this.routingDecision =
+        new AIChatMentionRoutingDecision(channelRestrictionService, agentConfigService);
     this.showReasoning = showReasoning;
     this.enableMarkdownValidation = enableMarkdownValidation;
     this.streamingBypassValidation = streamingBypassValidation;
@@ -142,22 +141,11 @@ public class AIChatMentionListener extends ListenerAdapter {
       return;
     }
 
-    // Early channel check: silently ignore if channel not allowed
     long guildId = event.getGuild().getIdLong();
     MessageChannelUnion channel = event.getChannel();
     long channelId = channel.getIdLong();
     long restrictionChannelId = resolveRestrictionChannelId(channel);
     long categoryId = resolveCategoryId(channel);
-    if (!channelRestrictionService.isChannelAllowed(guildId, restrictionChannelId, categoryId)) {
-      LOGGER.debug(
-          "Channel {} (restriction check {}, category {}) not in allowed list for guild {},"
-              + " ignoring mention",
-          channelId,
-          restrictionChannelId,
-          categoryId,
-          guildId);
-      return;
-    }
 
     String message = event.getMessage().getContentRaw();
     String botId = event.getJDA().getSelfUser().getId();
@@ -179,8 +167,13 @@ public class AIChatMentionListener extends ListenerAdapter {
     String channelIdStr = event.getChannel().getId();
     String userId = event.getAuthor().getId();
     long userIdLong = event.getAuthor().getIdLong();
-    boolean agentEnabled =
-        agentConfigService != null && agentConfigService.isAgentEnabled(guildId, channelId);
+    AIChatMentionRoutingDecision.Decision decision =
+        routingDecision.decide(guildId, channelId, restrictionChannelId, categoryId);
+    logRoutingDecision(guildId, channelIdStr, restrictionChannelId, categoryId, decision);
+
+    if (decision.route() == AIChatMentionRoutingDecision.Route.DENY) {
+      return;
+    }
 
     LOGGER.info(
         "Bot mentioned by user {} in channel {} (messageLength={})",
@@ -199,7 +192,7 @@ public class AIChatMentionListener extends ListenerAdapter {
               StringBuilder contentBuffer = streamProcessed ? null : new StringBuilder();
               AtomicBoolean completed = new AtomicBoolean(false);
 
-              if (agentEnabled) {
+              if (decision.route() == AIChatMentionRoutingDecision.Route.AGENT_ROUTE) {
                 handleAgentStreamingResponse(
                     guildId,
                     channelIdStr,
@@ -301,6 +294,62 @@ public class AIChatMentionListener extends ListenerAdapter {
                     LOGGER.info("AI streaming completed");
                   });
             });
+  }
+
+  private void logRoutingDecision(
+      long guildId,
+      String channelIdStr,
+      long restrictionChannelId,
+      long categoryId,
+      AIChatMentionRoutingDecision.Decision decision) {
+    if (decision.route() == AIChatMentionRoutingDecision.Route.AGENT_ROUTE) {
+      LOGGER.info(
+          "Bot mention routing decision: guildId={}, channelId={}, restrictionChannelId={},"
+              + " categoryId={}, route={}, source={}",
+          guildId,
+          channelIdStr,
+          restrictionChannelId,
+          categoryId,
+          decision.route(),
+          decision.source());
+      return;
+    }
+
+    if (decision.route() == AIChatMentionRoutingDecision.Route.AI_CHAT_ROUTE) {
+      LOGGER.info(
+          "Bot mention routing decision: guildId={}, channelId={}, restrictionChannelId={},"
+              + " categoryId={}, route={}, source={}",
+          guildId,
+          channelIdStr,
+          restrictionChannelId,
+          categoryId,
+          decision.route(),
+          decision.source());
+      return;
+    }
+
+    if (decision.source() == AIChatMentionRoutingDecision.Source.AGENT_CONFIG_UNAVAILABLE) {
+      LOGGER.warn(
+          "Bot mention denied: guildId={}, channelId={}, restrictionChannelId={}, categoryId={},"
+              + " source={}, detail={}",
+          guildId,
+          channelIdStr,
+          restrictionChannelId,
+          categoryId,
+          decision.source(),
+          decision.detail().orElse("unknown"));
+      return;
+    }
+
+    LOGGER.debug(
+        "Bot mention denied: guildId={}, channelId={}, restrictionChannelId={}, categoryId={},"
+            + " source={}, detail={}",
+        guildId,
+        channelIdStr,
+        restrictionChannelId,
+        categoryId,
+        decision.source(),
+        decision.detail().orElse("unknown"));
   }
 
   private void handleAgentStreamingResponse(
