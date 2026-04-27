@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.35.1] - 2026-04-27
+
 ### Added
 - **discord/runtime**: 新增注入式 `DiscordRuntimeGateway` 作為 Discord runtime access 的正式邊界，並保留 `JDAProvider` 作為短期 bootstrap compatibility bridge
 - **shop/fiat**: 法幣訂單新增履約快照、到期 terminal state、付款後重試 claim、買家 / 管理員通知與獎勵發放的冪等狀態欄位
@@ -31,6 +33,7 @@ All notable changes to this project will be documented in this file.
 - 執行 `mvn -q test`，測試通過
 - 執行 `mvn -q -Dtest=FiatOrderPostPaymentWorkerTest test`，測試通過
 - 執行 `make test`，共 `2553` tests（`0` failures / `0` errors，`14` skipped），測試通過
+
 
 ## [0.35.0] - 2026-04-11
 
