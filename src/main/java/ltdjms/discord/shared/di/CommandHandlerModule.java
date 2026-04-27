@@ -373,13 +373,11 @@ public class CommandHandlerModule {
   @Singleton
   public FiatOrderPostPaymentWorker provideFiatOrderPostPaymentWorker(
       FiatOrderRepository fiatOrderRepository,
-      ProductService productService,
       ProductRewardService productRewardService,
       ShopAdminNotificationService shopAdminNotificationService,
       FiatOrderBuyerNotificationService fiatOrderBuyerNotificationService) {
     return new FiatOrderPostPaymentWorker(
         fiatOrderRepository,
-        productService,
         productRewardService,
         shopAdminNotificationService,
         fiatOrderBuyerNotificationService);

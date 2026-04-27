@@ -61,7 +61,7 @@
 ## Data / State Impact
 - Created or updated data: `fiat_order` 新增 reward / escort / display snapshot 欄位；可能需要 value object 或欄位群
 - Consistency rules: snapshot 是履約真相；`product_id` 只作追溯輔助，不得再作為 paid replay 的唯一輸入
-- Migration / rollout needs: additive migration + 舊資料處理策略；不能讓無 snapshot 的舊 pending order 靜默落入新 worker
+- Migration / rollout needs: additive migration + 舊資料處理策略；不能讓無 snapshot 的舊 pending order 靜默落入新 worker。已採用新增欄位與預設值的 additive rollout，歷史資料不做自動回填，需人工檢視。
 
 ## Risk and Tradeoffs
 - Key risks: 快照欄位設計過度耦合現行 reward 類型、舊資料 backfill 不完整、worker 與 escort handoff spec 欄位重疊

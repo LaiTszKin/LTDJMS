@@ -103,6 +103,8 @@ class FiatOrderServiceTest {
                     "ABC123456789",
                     "2026/02/26 23:59:59",
                     "https://example.com")));
+    when(fiatOrderRepository.save(any(FiatOrder.class)))
+        .thenAnswer(invocation -> invocation.getArgument(0));
 
     Result<FiatOrderService.FiatOrderResult, DomainError> result =
         service.createFiatOnlyOrder(TEST_GUILD_ID, TEST_USER_ID, TEST_PRODUCT_ID);
@@ -126,10 +128,12 @@ class FiatOrderServiceTest {
             TEST_GUILD_ID,
             "VIP",
             "desc",
-            null,
-            null,
+            Product.RewardType.CURRENCY,
+            50L,
             null,
             1200L,
+            true,
+            "ESCORT-A",
             Instant.now(),
             Instant.now());
     when(productService.getProduct(TEST_PRODUCT_ID)).thenReturn(Optional.of(product));
@@ -141,6 +145,8 @@ class FiatOrderServiceTest {
                     "ABC123456789",
                     "2026/02/26 23:59:59",
                     "https://example.com")));
+    org.mockito.ArgumentCaptor<FiatOrder> orderCaptor =
+        org.mockito.ArgumentCaptor.forClass(FiatOrder.class);
     when(fiatOrderRepository.save(any(FiatOrder.class)))
         .thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -149,6 +155,14 @@ class FiatOrderServiceTest {
 
     assertThat(result.isOk()).isTrue();
     assertThat(result.getValue().fulfillmentWarning()).isNull();
-    verify(fiatOrderRepository).save(any(FiatOrder.class));
+    verify(fiatOrderRepository).save(orderCaptor.capture());
+    assertThat(orderCaptor.getValue().productName()).isEqualTo("VIP");
+    assertThat(orderCaptor.getValue().fulfillmentRewardType())
+        .isEqualTo(Product.RewardType.CURRENCY);
+    assertThat(orderCaptor.getValue().fulfillmentRewardAmount()).isEqualTo(50L);
+    assertThat(orderCaptor.getValue().fulfillmentAutoCreateEscortOrder()).isTrue();
+    assertThat(orderCaptor.getValue().fulfillmentEscortOptionCode()).isEqualTo("ESCORT-A");
+    assertThat(result.getValue().product().name()).isEqualTo("VIP");
+    assertThat(result.getValue().product().formatFiatPriceTwd()).isEqualTo("NT$1,200");
   }
 }

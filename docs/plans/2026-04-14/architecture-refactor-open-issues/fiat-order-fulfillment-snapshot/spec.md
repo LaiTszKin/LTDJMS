@@ -29,9 +29,9 @@
 **AND** 付款完成後不得再需要回讀 mutable `product` 主檔才能知道要履約什麼
 
 **Requirements**:
-- [ ] R1.1 `fiat_order` 必須保存 reward type / amount、auto escort flag、escort option code 與必要顯示快照
-- [ ] R1.2 建單時若缺少履約必要欄位，應在建單當下失敗，而不是延後到 paid worker 才爆炸
-- [ ] R1.3 快照欄位語意必須明確區分「顯示用 product name」與「履約用 contract fields」
+- [x] R1.1 `fiat_order` 必須保存 reward type / amount、auto escort flag、escort option code 與必要顯示快照
+- [x] R1.2 建單時若缺少履約必要欄位，應在建單當下失敗，而不是延後到 paid worker 才爆炸
+- [x] R1.3 快照欄位語意必須明確區分「顯示用 product name」與「履約用 contract fields」
 
 ### Requirement 2: Post-payment worker 必須只 replay order snapshot
 **GIVEN** 某筆法幣訂單已轉成 `PAID`  
@@ -40,9 +40,9 @@
 **AND** 商品主檔被編輯或刪除不得改寫既有訂單的履約結果
 
 **Requirements**:
-- [ ] R2.1 worker 不可再以 `productService.getProduct(order.productId())` 作為履約真相來源
-- [ ] R2.2 商品已刪除時，只要訂單快照完整，既有已付款訂單仍必須可完成履約
-- [ ] R2.3 snapshot replay 與 buyer/admin/reward/escort side effect 的完成標記必須保持冪等
+- [x] R2.1 worker 不可再以 `productService.getProduct(order.productId())` 作為履約真相來源
+- [x] R2.2 商品已刪除時，只要訂單快照完整，既有已付款訂單仍必須可完成履約
+- [x] R2.3 snapshot replay 與 buyer/admin/reward/escort side effect 的完成標記必須保持冪等
 
 ### Requirement 3: 文件與測試必須反映「契約快照」語意
 **GIVEN** 此次重構改變了法幣訂單與商品主檔的責任邊界  
@@ -51,16 +51,16 @@
 **AND** 不可再保留「付款後讀 live product」的假設
 
 **Requirements**:
-- [ ] R3.1 單元 / 整合測試必須覆蓋商品編輯與刪除後付款的 replay case
-- [ ] R3.2 文件必須說明法幣建單後的履約快照不可被商品後續修改覆寫
-- [ ] R3.3 schema / repository / domain model 命名必須讓維護者可直接辨識哪些欄位是 contract snapshot
+- [x] R3.1 單元 / 整合測試必須覆蓋商品編輯與刪除後付款的 replay case
+- [x] R3.2 文件必須說明法幣建單後的履約快照不可被商品後續修改覆寫
+- [x] R3.3 schema / repository / domain model 命名必須讓維護者可直接辨識哪些欄位是 contract snapshot
 
 ## Error and Edge Cases
-- [ ] 商品在建單與付款之間被刪除時，已付款訂單仍需可完成履約
-- [ ] reward 與 escort 同時存在時，snapshot 欄位必須能完整表示兩者，而不是只支援其一
-- [ ] callback 重送或 worker 重跑時，snapshot replay 不得重複發獎或重複交接 dispatch
-- [ ] 舊資料的 migration/backfill 需定義清楚：不可默默以 null snapshot 進入 paid worker
-- [ ] 顯示名稱更新不應改寫已建立訂單的履約結果，但仍可考慮是否保留原商品名稱作為 buyer-facing snapshot
+- [x] 商品在建單與付款之間被刪除時，已付款訂單仍需可完成履約
+- [x] reward 與 escort 同時存在時，snapshot 欄位必須能完整表示兩者，而不是只支援其一
+- [x] callback 重送或 worker 重跑時，snapshot replay 不得重複發獎或重複交接 dispatch
+- [x] 舊資料的 migration/backfill 需定義清楚：採 additive migration，不做自動回填；歷史 legacy rows 需人工檢視，避免把未被新流程重建的資料誤當成完整 snapshot
+- [x] 顯示名稱更新不應改寫已建立訂單的履約結果，但仍可考慮是否保留原商品名稱作為 buyer-facing snapshot
 
 ## Clarification Questions
 None
