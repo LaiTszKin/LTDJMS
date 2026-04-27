@@ -28,6 +28,7 @@ import ltdjms.discord.shop.domain.FiatOrderRepository;
 class FiatOrderPostPaymentWorkerTest {
 
   private static final Instant NOW = Instant.parse("2026-04-11T10:00:00Z");
+  private static final Instant EXPIRE_AT = NOW.plusSeconds(600);
 
   @Mock private FiatOrderRepository fiatOrderRepository;
   @Mock private ProductRewardService productRewardService;
@@ -137,6 +138,9 @@ class FiatOrderPostPaymentWorkerTest {
         "1",
         "付款成功",
         NOW,
+        EXPIRE_AT,
+        null,
+        null,
         null,
         null,
         null,

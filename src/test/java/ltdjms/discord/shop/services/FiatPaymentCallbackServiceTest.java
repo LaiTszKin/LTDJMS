@@ -40,6 +40,7 @@ class FiatPaymentCallbackServiceTest {
   private static final String MERCHANT_ID = "2000132";
   private static final String HASH_KEY = "1234567890123456";
   private static final String HASH_IV = "6543210987654321";
+  private static final Instant EXPIRE_AT = Instant.parse("2026-03-04T13:00:00Z");
 
   @Mock private EnvironmentConfig config;
   @Mock private FiatOrderRepository fiatOrderRepository;
@@ -126,7 +127,7 @@ class FiatPaymentCallbackServiceTest {
 
   private FiatOrder pendingOrder() {
     return FiatOrder.createPending(
-        123L, 456L, 789L, "護航商品", null, null, false, null, ORDER_NUMBER, "ABC123456789", 1200L);
+        123L, 456L, 789L, "護航商品", ORDER_NUMBER, "ABC123456789", 1200L, EXPIRE_AT);
   }
 
   private FiatOrder paidOrder() {
@@ -147,6 +148,9 @@ class FiatPaymentCallbackServiceTest {
         "1",
         "付款成功",
         Instant.now(fixedClock),
+        EXPIRE_AT,
+        null,
+        null,
         null,
         null,
         null,

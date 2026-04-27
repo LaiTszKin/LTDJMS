@@ -104,7 +104,11 @@ public class FiatPaymentCallbackService {
       if (paidOrder == null) {
         fiatOrderRepository.updateCallbackStatus(
             orderNumber, tradeStatus, paymentMessage, callbackPayload);
-        LOG.info("ECPay callback duplicated paid notification: orderNumber={}", orderNumber);
+        if (order.isExpired()) {
+          LOG.info("ECPay callback arrived after fiat order expiry: orderNumber={}", orderNumber);
+        } else {
+          LOG.info("ECPay callback duplicated paid notification: orderNumber={}", orderNumber);
+        }
         return CallbackResult.ok();
       }
 

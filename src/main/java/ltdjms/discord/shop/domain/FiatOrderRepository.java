@@ -29,10 +29,15 @@ public interface FiatOrderRepository {
 
   Optional<FiatOrder> markAdminNotifiedIfNeeded(String orderNumber, Instant notifiedAt);
 
+  List<FiatOrder> findOrdersPendingExpiry(Instant notAfter, int limit);
+
   List<FiatOrder> findOrdersPendingPostPayment(int limit);
 
   List<FiatOrder> findOrdersPendingReconciliation(
       Instant notBefore, Instant createdAfter, int limit);
+
+  Optional<FiatOrder> markExpiredIfPending(
+      String orderNumber, Instant expiredAt, String terminalReason);
 
   boolean claimFulfillmentProcessing(String orderNumber, Instant claimedAt);
 

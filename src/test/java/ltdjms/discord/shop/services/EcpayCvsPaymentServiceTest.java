@@ -10,14 +10,21 @@ import java.net.http.HttpClient;
 import java.net.http.HttpHeaders;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.time.ZoneOffset;
+import java.util.Base64;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
+import javax.crypto.Cipher;
+import javax.crypto.spec.IvParameterSpec;
+import javax.crypto.spec.SecretKeySpec;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLParameters;
 import javax.net.ssl.SSLSession;
@@ -123,6 +130,77 @@ class EcpayCvsPaymentServiceTest {
     assertThat(result.isErr()).isTrue();
     assertThat(result.getError().message()).contains("ECPAY_STAGE_MODE");
     assertThat(result.getError().message()).contains("HashKey");
+  }
+
+  @Test
+  @DisplayName("取號成功應保存並解析到期時間")
+  void shouldParseExpireAtWhenPaymentCodeSucceeded() {
+    when(config.getEcpayMerchantId()).thenReturn("merchant");
+    when(config.getEcpayHashKey()).thenReturn("1234567890123456");
+    when(config.getEcpayHashIv()).thenReturn("6543210987654321");
+    when(config.getEcpayReturnUrl()).thenReturn("https://example.com/ecpay/callback");
+    when(config.getEcpayStageMode()).thenReturn(true);
+    when(config.getEcpayCvsExpireMinutes()).thenReturn(60);
+
+    service =
+        new EcpayCvsPaymentService(
+            config,
+            new FakeHttpClient(
+                buildGenPaymentCodeResponse(
+                    "merchant",
+                    "FD260409000001",
+                    "ABC123456789",
+                    "2026/04/10 23:59:59",
+                    "https://example.com/pay")),
+            new com.fasterxml.jackson.databind.ObjectMapper(),
+            Clock.fixed(Instant.parse("2026-04-09T00:00:00Z"), ZoneOffset.UTC));
+
+    Result<EcpayCvsPaymentService.CvsPaymentCode, DomainError> result =
+        service.generateCvsPaymentCode(100, "商品", "測試");
+
+    assertThat(result.isOk()).isTrue();
+    assertThat(result.getValue().orderNumber()).isEqualTo("FD260409000001");
+    assertThat(result.getValue().paymentNo()).isEqualTo("ABC123456789");
+    assertThat(result.getValue().expireDate()).isEqualTo("2026/04/10 23:59:59");
+    assertThat(result.getValue().expireAt())
+        .isEqualTo(
+            LocalDateTime.parse(
+                    "2026/04/10 23:59:59",
+                    java.time.format.DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm:ss"))
+                .atZone(ZoneId.of("Asia/Taipei"))
+                .toInstant());
+    assertThat(result.getValue().paymentUrl()).isEqualTo("https://example.com/pay");
+  }
+
+  private String buildGenPaymentCodeResponse(
+      String merchantId,
+      String orderNumber,
+      String paymentNo,
+      String expireDate,
+      String paymentUrl) {
+    try {
+      com.fasterxml.jackson.databind.ObjectMapper mapper =
+          new com.fasterxml.jackson.databind.ObjectMapper();
+      String decrypted =
+          """
+          {"RtnCode":1,"RtnMsg":"成功","OrderInfo":{"MerchantTradeNo":"%s"},"CVSInfo":{"PaymentNo":"%s","ExpireDate":"%s","PaymentURL":"%s"}}
+          """
+              .formatted(orderNumber, paymentNo, expireDate, paymentUrl);
+      Cipher cipher = Cipher.getInstance("AES/CBC/PKCS5Padding");
+      SecretKeySpec keySpec =
+          new SecretKeySpec("1234567890123456".getBytes(StandardCharsets.UTF_8), "AES");
+      IvParameterSpec ivSpec =
+          new IvParameterSpec("6543210987654321".getBytes(StandardCharsets.UTF_8));
+      cipher.init(Cipher.ENCRYPT_MODE, keySpec, ivSpec);
+      byte[] encrypted =
+          cipher.doFinal(
+              java.net.URLEncoder.encode(decrypted, StandardCharsets.UTF_8)
+                  .getBytes(StandardCharsets.UTF_8));
+      return mapper.writeValueAsString(
+          Map.of("TransCode", 1, "Data", Base64.getEncoder().encodeToString(encrypted)));
+    } catch (Exception e) {
+      throw new IllegalStateException(e);
+    }
   }
 
   private static final class FakeHttpClient extends HttpClient {

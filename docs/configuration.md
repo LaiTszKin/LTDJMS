@@ -143,7 +143,7 @@
   - `ECPAY_CALLBACK_PATH`：綠界付款回推
 - Docker Compose 現在會帶出 repo 內管理的 `Caddy` ingress，對外代理請求到 bot 內嵌 HTTP server，並嘗試為 `APP_PUBLIC_DOMAIN` 自動簽發/續期 HTTPS 憑證
 - `ECPAY_STAGE_MODE=true` 時，callback server 只能綁定 `127.0.0.1` / `localhost` / `::1`
-- 建單成功後，系統會把 ECPay 回傳的 `ExpireDate` 與訂單編號一起私訊給買家，並提醒逾期會自動取消訂單
+- 建單成功後，系統會把 ECPay 回傳的 `ExpireDate` 與訂單編號一起私訊給買家，並提醒逾期會自動轉為逾期取消狀態
 - 首次付款成功 callback 完成後，系統會再私訊買家付款成功通知；若私訊失敗，只記錄日誌，不會回滾付款狀態
 - 若 Caddy 無法啟動 HTTPS，優先檢查 DNS 是否已指向主機、主機是否開放 `80/443`，再查看 `docker compose logs caddy`
 - 取號若回傳 `The parameter [Data] decrypt fail`，優先檢查 `ECPAY_STAGE_MODE` 是否和 `MerchantID` / `HashKey` / `HashIV` 對應同一環境

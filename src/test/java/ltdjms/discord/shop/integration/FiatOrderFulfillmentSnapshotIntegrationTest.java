@@ -220,6 +220,7 @@ class FiatOrderFulfillmentSnapshotIntegrationTest {
                     "FD260411000001",
                     "CVS123456789",
                     "2026/04/12 23:59:59",
+                    Instant.parse("2026-04-12T15:59:59Z"),
                     "https://example.com/pay")));
   }
 
