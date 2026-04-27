@@ -37,4 +37,31 @@ class DispatchPanelMessageFactoryTest {
     assertThat(embed.getDescription()).contains("<@20>");
     assertThat(embed.getDescription()).contains("<@30>");
   }
+
+  @Test
+  @DisplayName("歷史清單應顯示自動交接來源摘要")
+  void buildHistoryEmbedShouldRenderAutoHandoffSourceSummary() {
+    EscortDispatchOrder order =
+        EscortDispatchOrder.createAutoHandoff(
+            "ESC-20260411-ABC123",
+            1L,
+            0L,
+            0L,
+            30L,
+            EscortDispatchOrder.SourceType.FIAT_PAYMENT,
+            "FD260411000001",
+            99L,
+            "護航商品",
+            null,
+            1200L,
+            "CONF_DAM_300W");
+
+    MessageEmbed embed = DispatchPanelMessageFactory.buildHistoryEmbed(List.of(order));
+
+    assertThat(embed.getDescription()).contains("來源：法幣付款");
+    assertThat(embed.getDescription()).contains("FD260411000001");
+    assertThat(embed.getDescription()).contains("護航商品");
+    assertThat(embed.getDescription()).contains("NT$1,200");
+    assertThat(embed.getDescription()).contains("CONF_DAM_300W");
+  }
 }

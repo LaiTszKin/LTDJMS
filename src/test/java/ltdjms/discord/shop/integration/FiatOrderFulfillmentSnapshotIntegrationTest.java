@@ -28,6 +28,8 @@ import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 
 import ltdjms.discord.currency.domain.CurrencyTransaction;
+import ltdjms.discord.dispatch.domain.EscortDispatchOrder;
+import ltdjms.discord.dispatch.services.EscortDispatchHandoffService;
 import ltdjms.discord.gametoken.domain.GameTokenTransaction;
 import ltdjms.discord.product.domain.Product;
 import ltdjms.discord.product.persistence.JdbcProductRepository;
@@ -65,6 +67,7 @@ class FiatOrderFulfillmentSnapshotIntegrationTest {
 
   @Mock private EcpayCvsPaymentService ecpayCvsPaymentService;
   @Mock private ProductRewardService productRewardService;
+  @Mock private EscortDispatchHandoffService escortDispatchHandoffService;
   @Mock private ShopAdminNotificationService adminNotificationService;
   @Mock private FiatOrderBuyerNotificationService buyerNotificationService;
 
@@ -92,6 +95,7 @@ class FiatOrderFulfillmentSnapshotIntegrationTest {
         new FiatOrderPostPaymentWorker(
             fiatOrderRepository,
             productRewardService,
+            escortDispatchHandoffService,
             adminNotificationService,
             buyerNotificationService);
   }
@@ -159,12 +163,29 @@ class FiatOrderFulfillmentSnapshotIntegrationTest {
 
     when(productRewardService.grantReward(any()))
         .thenReturn(Result.ok(new ProductRewardService.RewardGrantResult(50L, 150L, null)));
+    EscortDispatchOrder dispatchOrder =
+        EscortDispatchOrder.createAutoHandoff(
+            "ESC-20260411-ABC123",
+            TEST_GUILD_ID,
+            0L,
+            0L,
+            TEST_USER_ID,
+            EscortDispatchOrder.SourceType.FIAT_PAYMENT,
+            orderNumber,
+            expectedSnapshot.id(),
+            expectedSnapshot.name(),
+            expectedSnapshot.currencyPrice(),
+            expectedSnapshot.fiatPriceTwd(),
+            expectedSnapshot.escortOptionCode());
+    when(escortDispatchHandoffService.handoffFromFiatPayment(
+            eq(TEST_GUILD_ID), eq(TEST_USER_ID), any(Product.class), eq(orderNumber)))
+        .thenReturn(Result.ok(dispatchOrder));
 
     worker.processPendingOrders();
 
     ArgumentCaptor<ProductRewardService.RewardGrantRequest> rewardCaptor =
         ArgumentCaptor.forClass(ProductRewardService.RewardGrantRequest.class);
-    ArgumentCaptor<Product> adminProductCaptor = ArgumentCaptor.forClass(Product.class);
+    ArgumentCaptor<Product> handoffProductCaptor = ArgumentCaptor.forClass(Product.class);
     verify(productRewardService).grantReward(rewardCaptor.capture());
     assertThat(rewardCaptor.getValue().product())
         .usingRecursiveComparison()
@@ -176,17 +197,15 @@ class FiatOrderFulfillmentSnapshotIntegrationTest {
     assertThat(rewardCaptor.getValue().tokenSource())
         .isEqualTo(GameTokenTransaction.Source.PRODUCT_REWARD);
 
-    verify(adminNotificationService)
-        .notifyAdminsOrderCreated(
-            eq(TEST_GUILD_ID),
-            eq(TEST_USER_ID),
-            adminProductCaptor.capture(),
-            eq("法幣付款完成"),
-            eq(orderNumber));
-    assertThat(adminProductCaptor.getValue())
+    verify(escortDispatchHandoffService)
+        .handoffFromFiatPayment(
+            eq(TEST_GUILD_ID), eq(TEST_USER_ID), handoffProductCaptor.capture(), eq(orderNumber));
+    assertThat(handoffProductCaptor.getValue())
         .usingRecursiveComparison()
         .ignoringFields("updatedAt")
         .isEqualTo(expectedSnapshot);
+    verify(adminNotificationService)
+        .notifyAdminsOrderCreated(eq(TEST_GUILD_ID), eq(TEST_USER_ID), eq(dispatchOrder));
     verify(buyerNotificationService).notifyPaymentSucceeded(any());
 
     FiatOrder fulfilled = fiatOrderRepository.findByOrderNumber(orderNumber).orElseThrow();

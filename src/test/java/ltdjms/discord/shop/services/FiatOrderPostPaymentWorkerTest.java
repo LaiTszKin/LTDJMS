@@ -3,6 +3,7 @@ package ltdjms.discord.shop.services;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -18,6 +19,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import ltdjms.discord.dispatch.domain.EscortDispatchOrder;
+import ltdjms.discord.dispatch.services.EscortDispatchHandoffService;
+import ltdjms.discord.product.domain.Product;
 import ltdjms.discord.product.services.ProductRewardService;
 import ltdjms.discord.shared.Result;
 import ltdjms.discord.shop.domain.FiatOrder;
@@ -32,6 +36,7 @@ class FiatOrderPostPaymentWorkerTest {
 
   @Mock private FiatOrderRepository fiatOrderRepository;
   @Mock private ProductRewardService productRewardService;
+  @Mock private EscortDispatchHandoffService escortDispatchHandoffService;
   @Mock private ShopAdminNotificationService adminNotificationService;
   @Mock private FiatOrderBuyerNotificationService buyerNotificationService;
 
@@ -43,17 +48,23 @@ class FiatOrderPostPaymentWorkerTest {
         new FiatOrderPostPaymentWorker(
             fiatOrderRepository,
             productRewardService,
+            escortDispatchHandoffService,
             adminNotificationService,
             buyerNotificationService,
             Clock.fixed(NOW, ZoneOffset.UTC));
   }
 
   @Test
-  @DisplayName("應完成已付款訂單的通知、獎勵與 fulfilled 標記")
+  @DisplayName("應完成已付款訂單的通知、護航交接、獎勵與 fulfilled 標記")
   void shouldProcessPaidOrderSuccessfully() {
     FiatOrder order = paidOrder();
+    Product product = order.toFulfillmentProduct();
+    EscortDispatchOrder dispatchOrder = autoDispatchOrder(order, product);
     when(fiatOrderRepository.claimFulfillmentProcessing(eq(order.orderNumber()), any()))
         .thenReturn(true);
+    when(escortDispatchHandoffService.handoffFromFiatPayment(
+            eq(order.guildId()), eq(order.buyerUserId()), eq(product), eq(order.orderNumber())))
+        .thenReturn(Result.ok(dispatchOrder));
     when(fiatOrderRepository.claimAdminNotificationProcessing(eq(order.orderNumber()), any()))
         .thenReturn(true);
     when(productRewardService.grantReward(any()))
@@ -61,15 +72,16 @@ class FiatOrderPostPaymentWorkerTest {
 
     worker.processSingleOrder(order);
 
-    verify(buyerNotificationService).notifyPaymentSucceeded(order);
+    var callOrder =
+        inOrder(buyerNotificationService, escortDispatchHandoffService, adminNotificationService);
+    callOrder.verify(buyerNotificationService).notifyPaymentSucceeded(order);
+    callOrder
+        .verify(escortDispatchHandoffService)
+        .handoffFromFiatPayment(order.guildId(), order.buyerUserId(), product, order.orderNumber());
+    callOrder
+        .verify(adminNotificationService)
+        .notifyAdminsOrderCreated(eq(order.guildId()), eq(order.buyerUserId()), eq(dispatchOrder));
     verify(fiatOrderRepository).markBuyerNotifiedIfNeeded(eq(order.orderNumber()), any());
-    verify(adminNotificationService)
-        .notifyAdminsOrderCreated(
-            eq(order.guildId()),
-            eq(order.buyerUserId()),
-            eq(order.toFulfillmentProduct()),
-            eq("法幣付款完成"),
-            eq(order.orderNumber()));
     verify(fiatOrderRepository).markAdminNotifiedIfNeeded(eq(order.orderNumber()), any());
     verify(productRewardService)
         .grantReward(
@@ -77,9 +89,9 @@ class FiatOrderPostPaymentWorkerTest {
                 new ProductRewardService.RewardGrantRequest(
                     order.guildId(),
                     order.buyerUserId(),
-                    order.toFulfillmentProduct(),
-                    order.toFulfillmentProduct().rewardAmount(),
-                    "法幣商品獎勵: " + order.toFulfillmentProduct().name(),
+                    product,
+                    product.rewardAmount(),
+                    "法幣商品獎勵: " + product.name(),
                     ltdjms.discord.currency.domain.CurrencyTransaction.Source.PRODUCT_REWARD,
                     ltdjms.discord.gametoken.domain.GameTokenTransaction.Source.PRODUCT_REWARD)));
     verify(fiatOrderRepository).markRewardGrantedIfNeeded(eq(order.orderNumber()), any());
@@ -104,20 +116,25 @@ class FiatOrderPostPaymentWorkerTest {
   @DisplayName("管理員通知失敗時應釋放 claim 並保留 fulfilled 未完成")
   void shouldReleaseClaimsWhenAdminNotificationFails() {
     FiatOrder order = paidOrder();
+    Product product = order.toFulfillmentProduct();
     when(fiatOrderRepository.claimFulfillmentProcessing(eq(order.orderNumber()), any()))
         .thenReturn(true);
+    when(escortDispatchHandoffService.handoffFromFiatPayment(
+            eq(order.guildId()), eq(order.buyerUserId()), eq(product), eq(order.orderNumber())))
+        .thenReturn(Result.ok(autoDispatchOrder(order, product)));
     when(fiatOrderRepository.claimAdminNotificationProcessing(eq(order.orderNumber()), any()))
         .thenReturn(true);
     org.mockito.Mockito.doThrow(new IllegalStateException("boom"))
         .when(adminNotificationService)
-        .notifyAdminsOrderCreated(
-            anyLong(), anyLong(), eq(order.toFulfillmentProduct()), any(), any());
+        .notifyAdminsOrderCreated(anyLong(), anyLong(), any(EscortDispatchOrder.class));
 
     worker.processSingleOrder(order);
 
     verify(fiatOrderRepository).releaseAdminNotificationProcessing(order.orderNumber());
     verify(fiatOrderRepository).releaseFulfillmentProcessing(order.orderNumber());
     verify(fiatOrderRepository, never()).markFulfilledIfNeeded(any(), any());
+    verify(escortDispatchHandoffService)
+        .handoffFromFiatPayment(order.guildId(), order.buyerUserId(), product, order.orderNumber());
   }
 
   private FiatOrder paidOrder() {
@@ -127,7 +144,7 @@ class FiatOrderPostPaymentWorkerTest {
         456L,
         789L,
         "護航商品",
-        ltdjms.discord.product.domain.Product.RewardType.CURRENCY,
+        Product.RewardType.CURRENCY,
         50L,
         true,
         "ESCORT-A",
@@ -150,5 +167,21 @@ class FiatOrderPostPaymentWorkerTest {
         null,
         NOW,
         NOW);
+  }
+
+  private EscortDispatchOrder autoDispatchOrder(FiatOrder order, Product product) {
+    return EscortDispatchOrder.createAutoHandoff(
+        "ESC-20260411-ABC123",
+        order.guildId(),
+        0L,
+        0L,
+        order.buyerUserId(),
+        EscortDispatchOrder.SourceType.FIAT_PAYMENT,
+        order.orderNumber(),
+        product.id(),
+        product.name(),
+        product.currencyPrice(),
+        product.fiatPriceTwd(),
+        product.escortOptionCode());
   }
 }

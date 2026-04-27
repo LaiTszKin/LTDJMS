@@ -22,7 +22,6 @@ public record EscortDispatchOrder(
     long assignedByUserId,
     long escortUserId,
     long customerUserId,
-    Status status,
     Instant createdAt,
     Instant confirmedAt,
     Instant completionRequestedAt,
@@ -31,7 +30,15 @@ public record EscortDispatchOrder(
     Long afterSalesAssigneeUserId,
     Instant afterSalesAssignedAt,
     Instant afterSalesClosedAt,
-    Instant updatedAt) {
+    Instant updatedAt,
+    SourceType sourceType,
+    String sourceReference,
+    Long sourceProductId,
+    String sourceProductName,
+    Long sourceCurrencyPrice,
+    Long sourceFiatPriceTwd,
+    String sourceEscortOptionCode,
+    Status status) {
 
   public static final Duration CUSTOMER_CONFIRM_TIMEOUT = Duration.ofHours(24);
 
@@ -53,8 +60,16 @@ public record EscortDispatchOrder(
     AFTER_SALES_CLOSED
   }
 
+  /** 護航訂單來源類型。 */
+  public enum SourceType {
+    MANUAL,
+    CURRENCY_PURCHASE,
+    FIAT_PAYMENT
+  }
+
   public EscortDispatchOrder {
     Objects.requireNonNull(orderNumber, "orderNumber must not be null");
+    Objects.requireNonNull(sourceType, "sourceType must not be null");
     Objects.requireNonNull(status, "status must not be null");
     Objects.requireNonNull(createdAt, "createdAt must not be null");
     Objects.requireNonNull(updatedAt, "updatedAt must not be null");
@@ -64,6 +79,32 @@ public record EscortDispatchOrder(
     }
     if (orderNumber.length() > 32) {
       throw new IllegalArgumentException("orderNumber must not exceed 32 characters");
+    }
+    if (sourceType == SourceType.MANUAL) {
+      if (sourceReference != null
+          || sourceProductId != null
+          || sourceProductName != null
+          || sourceCurrencyPrice != null
+          || sourceFiatPriceTwd != null
+          || sourceEscortOptionCode != null) {
+        throw new IllegalArgumentException("manual dispatch order must not carry source snapshot");
+      }
+    } else {
+      if (sourceReference == null || sourceReference.isBlank()) {
+        throw new IllegalArgumentException("sourceReference must not be blank");
+      }
+      if (sourceProductId == null) {
+        throw new IllegalArgumentException("sourceProductId must not be null");
+      }
+      if (sourceProductName == null || sourceProductName.isBlank()) {
+        throw new IllegalArgumentException("sourceProductName must not be blank");
+      }
+      if (sourceEscortOptionCode == null || sourceEscortOptionCode.isBlank()) {
+        throw new IllegalArgumentException("sourceEscortOptionCode must not be blank");
+      }
+      if (sourceCurrencyPrice == null && sourceFiatPriceTwd == null) {
+        throw new IllegalArgumentException("source price snapshot must not be empty");
+      }
     }
     if (escortUserId == customerUserId) {
       throw new IllegalArgumentException("escortUserId and customerUserId must be different");
@@ -103,6 +144,34 @@ public record EscortDispatchOrder(
       long assignedByUserId,
       long escortUserId,
       long customerUserId) {
+    return createPending(
+        orderNumber,
+        guildId,
+        assignedByUserId,
+        escortUserId,
+        customerUserId,
+        SourceType.MANUAL,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null);
+  }
+
+  public static EscortDispatchOrder createPending(
+      String orderNumber,
+      long guildId,
+      long assignedByUserId,
+      long escortUserId,
+      long customerUserId,
+      SourceType sourceType,
+      String sourceReference,
+      Long sourceProductId,
+      String sourceProductName,
+      Long sourceCurrencyPrice,
+      Long sourceFiatPriceTwd,
+      String sourceEscortOptionCode) {
     Instant now = Instant.now();
     return new EscortDispatchOrder(
         null,
@@ -111,7 +180,6 @@ public record EscortDispatchOrder(
         assignedByUserId,
         escortUserId,
         customerUserId,
-        Status.PENDING_CONFIRMATION,
         now,
         null,
         null,
@@ -120,7 +188,55 @@ public record EscortDispatchOrder(
         null,
         null,
         null,
-        now);
+        now,
+        sourceType,
+        sourceReference,
+        sourceProductId,
+        sourceProductName,
+        sourceCurrencyPrice,
+        sourceFiatPriceTwd,
+        sourceEscortOptionCode,
+        Status.PENDING_CONFIRMATION);
+  }
+
+  public static EscortDispatchOrder createAutoHandoff(
+      String orderNumber,
+      long guildId,
+      long assignedByUserId,
+      long escortUserId,
+      long customerUserId,
+      SourceType sourceType,
+      String sourceReference,
+      Long sourceProductId,
+      String sourceProductName,
+      Long sourceCurrencyPrice,
+      Long sourceFiatPriceTwd,
+      String sourceEscortOptionCode) {
+    Instant now = Instant.now();
+    return new EscortDispatchOrder(
+        null,
+        orderNumber,
+        guildId,
+        assignedByUserId,
+        escortUserId,
+        customerUserId,
+        now,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        now,
+        sourceType,
+        sourceReference,
+        sourceProductId,
+        sourceProductName,
+        sourceCurrencyPrice,
+        sourceFiatPriceTwd,
+        sourceEscortOptionCode,
+        Status.PENDING_CONFIRMATION);
   }
 
   /** 由指定護航者確認後回傳新狀態實體。 */
@@ -133,7 +249,6 @@ public record EscortDispatchOrder(
         assignedByUserId,
         escortUserId,
         customerUserId,
-        Status.CONFIRMED,
         createdAt,
         confirmedAt,
         null,
@@ -142,7 +257,15 @@ public record EscortDispatchOrder(
         null,
         null,
         null,
-        Instant.now());
+        Instant.now(),
+        sourceType,
+        sourceReference,
+        sourceProductId,
+        sourceProductName,
+        sourceCurrencyPrice,
+        sourceFiatPriceTwd,
+        sourceEscortOptionCode,
+        Status.CONFIRMED);
   }
 
   /** 護航者送出完單，等待客戶確認。 */
@@ -155,7 +278,6 @@ public record EscortDispatchOrder(
         assignedByUserId,
         escortUserId,
         customerUserId,
-        Status.PENDING_CUSTOMER_CONFIRMATION,
         createdAt,
         confirmedAt,
         requestedAt,
@@ -164,7 +286,15 @@ public record EscortDispatchOrder(
         null,
         null,
         null,
-        Instant.now());
+        Instant.now(),
+        sourceType,
+        sourceReference,
+        sourceProductId,
+        sourceProductName,
+        sourceCurrencyPrice,
+        sourceFiatPriceTwd,
+        sourceEscortOptionCode,
+        Status.PENDING_CUSTOMER_CONFIRMATION);
   }
 
   public EscortDispatchOrder withCompleted(Instant completedAt) {
@@ -176,7 +306,6 @@ public record EscortDispatchOrder(
         assignedByUserId,
         escortUserId,
         customerUserId,
-        Status.COMPLETED,
         createdAt,
         confirmedAt,
         completionRequestedAt,
@@ -185,7 +314,15 @@ public record EscortDispatchOrder(
         afterSalesAssigneeUserId,
         afterSalesAssignedAt,
         afterSalesClosedAt,
-        Instant.now());
+        Instant.now(),
+        sourceType,
+        sourceReference,
+        sourceProductId,
+        sourceProductName,
+        sourceCurrencyPrice,
+        sourceFiatPriceTwd,
+        sourceEscortOptionCode,
+        Status.COMPLETED);
   }
 
   public EscortDispatchOrder withAfterSalesRequested(Instant requestedAt) {
@@ -197,7 +334,6 @@ public record EscortDispatchOrder(
         assignedByUserId,
         escortUserId,
         customerUserId,
-        Status.AFTER_SALES_REQUESTED,
         createdAt,
         confirmedAt,
         completionRequestedAt,
@@ -206,7 +342,15 @@ public record EscortDispatchOrder(
         null,
         null,
         null,
-        Instant.now());
+        Instant.now(),
+        sourceType,
+        sourceReference,
+        sourceProductId,
+        sourceProductName,
+        sourceCurrencyPrice,
+        sourceFiatPriceTwd,
+        sourceEscortOptionCode,
+        Status.AFTER_SALES_REQUESTED);
   }
 
   public EscortDispatchOrder withAfterSalesInProgress(long assigneeUserId, Instant assignedAt) {
@@ -218,7 +362,6 @@ public record EscortDispatchOrder(
         assignedByUserId,
         escortUserId,
         customerUserId,
-        Status.AFTER_SALES_IN_PROGRESS,
         createdAt,
         confirmedAt,
         completionRequestedAt,
@@ -227,7 +370,15 @@ public record EscortDispatchOrder(
         assigneeUserId,
         assignedAt,
         null,
-        Instant.now());
+        Instant.now(),
+        sourceType,
+        sourceReference,
+        sourceProductId,
+        sourceProductName,
+        sourceCurrencyPrice,
+        sourceFiatPriceTwd,
+        sourceEscortOptionCode,
+        Status.AFTER_SALES_IN_PROGRESS);
   }
 
   public EscortDispatchOrder withAfterSalesClosed(Instant closedAt) {
@@ -239,7 +390,6 @@ public record EscortDispatchOrder(
         assignedByUserId,
         escortUserId,
         customerUserId,
-        Status.AFTER_SALES_CLOSED,
         createdAt,
         confirmedAt,
         completionRequestedAt,
@@ -248,7 +398,15 @@ public record EscortDispatchOrder(
         afterSalesAssigneeUserId,
         afterSalesAssignedAt,
         closedAt,
-        Instant.now());
+        Instant.now(),
+        sourceType,
+        sourceReference,
+        sourceProductId,
+        sourceProductName,
+        sourceCurrencyPrice,
+        sourceFiatPriceTwd,
+        sourceEscortOptionCode,
+        Status.AFTER_SALES_CLOSED);
   }
 
   public boolean isPendingEscortConfirmation() {
@@ -289,6 +447,14 @@ public record EscortDispatchOrder(
 
   public boolean isAfterSalesAssignee(long userId) {
     return afterSalesAssigneeUserId != null && afterSalesAssigneeUserId == userId;
+  }
+
+  public boolean isManualSource() {
+    return sourceType == SourceType.MANUAL;
+  }
+
+  public boolean isAutoSource() {
+    return sourceType != SourceType.MANUAL;
   }
 
   public boolean hasCustomerConfirmationTimedOut(Instant now) {

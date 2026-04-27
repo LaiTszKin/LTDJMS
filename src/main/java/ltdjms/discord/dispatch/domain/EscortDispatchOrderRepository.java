@@ -16,6 +16,10 @@ public interface EscortDispatchOrderRepository {
   /** 依訂單編號查詢。 */
   Optional<EscortDispatchOrder> findByOrderNumber(String orderNumber);
 
+  /** 依來源型別與來源參考查詢。 */
+  Optional<EscortDispatchOrder> findBySourceIdentity(
+      EscortDispatchOrder.SourceType sourceType, String sourceReference);
+
   /** 取得 guild 最近建立的訂單（依建立時間遞減）。 */
   List<EscortDispatchOrder> findRecentByGuildId(long guildId, int limit);
 

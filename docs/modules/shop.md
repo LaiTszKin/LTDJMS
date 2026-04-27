@@ -1,6 +1,6 @@
 # 商店模組設計與實作
 
-本文件說明 LTDJMS Discord Bot 的商店模組，包含商品瀏覽、貨幣購買、法幣訂單、綠界付款回推，以及付款完成後由背景 worker 補做通知 / 發獎的流程。
+本文件說明 LTDJMS Discord Bot 的商店模組，包含商品瀏覽、貨幣購買、法幣訂單、綠界付款回推，以及付款完成後由背景 worker 先交接 dispatch durable record、再補做通知 / 發獎的流程。
 
 ## 1. 概述
 
@@ -17,7 +17,7 @@
 - 使用貨幣直接購買商品
 - 建立綠界超商代碼法幣訂單
 - 接收 ECPay callback 並把付款真相冪等落庫
-- 由背景 worker 補做買家通知、管理員通知、商品獎勵與 fulfilled 標記
+- 由背景 worker 先寫入 dispatch handoff，再補做買家通知、管理員通知、商品獎勵與 fulfilled 標記
 - 對遺失 callback 的待付款訂單做官方查單補償
 - 分頁導航支援
 - 與產品管理面板的整合
@@ -184,6 +184,23 @@ public class ShopService {
 - 商品價格
 - 購買前 / 後餘額
 - 自動獎勵資訊（若有）
+
+### 3.3 EscortDispatchHandoffService
+
+負責把貨幣購買與法幣付款完成後的護航需求交給 `dispatch` 模組的 durable aggregate。
+
+目前實作依賴以下元件：
+
+- `EscortDispatchOrderRepository`: 以 `sourceType + sourceReference` 落庫與查重
+- `ShopAdminNotificationService`: 在 handoff 成功後，從 `EscortDispatchOrder` 產生管理員提醒
+- `FiatOrderPostPaymentWorker`: 付款確認後先 handoff，再繼續 buyer / admin / reward 流程
+
+handoff 流程：
+1. 驗證商品已啟用 `autoCreateEscortOrder` 且具備 `escortOptionCode`
+2. 以來源訂單參考建立或查回既有 dispatch order
+3. 保存來源商品、來源訂單、escort option 與價格快照
+4. handoff 成功後才送出 admin notification
+5. 後續 UI / 審計資訊直接讀取 dispatch record，不再重建一次性文案
 ## 4. 指令與介面
 
 ### 4.1 ShopCommandHandler

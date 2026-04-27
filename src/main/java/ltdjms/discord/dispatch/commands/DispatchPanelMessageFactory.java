@@ -33,11 +33,13 @@ final class DispatchPanelMessageFactory {
           .append("` | ")
           .append(toStatusText(order.status()))
           .append("\n")
-          .append("護航：<@")
-          .append(order.escortUserId())
-          .append(">　客戶：<@")
-          .append(order.customerUserId())
-          .append(">\n")
+          .append("護航：")
+          .append(formatUserMention(order.escortUserId()))
+          .append("　客戶：")
+          .append(formatUserMention(order.customerUserId()))
+          .append("\n")
+          .append(formatSourceSummary(order))
+          .append("\n")
           .append("建立：<t:")
           .append(order.createdAt().getEpochSecond())
           .append(":R>\n\n");
@@ -54,6 +56,7 @@ final class DispatchPanelMessageFactory {
         List.of(
             new EmbedView.FieldView("訂單編號", "`" + order.orderNumber() + "`", false),
             new EmbedView.FieldView("客戶", customerMention, false),
+            new EmbedView.FieldView("來源", formatSourceSummary(order), false),
             new EmbedView.FieldView(
                 "建立時間", "<t:" + order.createdAt().getEpochSecond() + ":F>", false)));
   }
@@ -194,6 +197,60 @@ final class DispatchPanelMessageFactory {
       case AFTER_SALES_IN_PROGRESS -> "售後處理中";
       case AFTER_SALES_CLOSED -> "售後已結案";
     };
+  }
+
+  private static String formatUserMention(long userId) {
+    if (userId <= 0) {
+      return "待指定";
+    }
+    return "<@" + userId + ">";
+  }
+
+  private static String formatSourceSummary(EscortDispatchOrder order) {
+    if (order == null || order.isManualSource()) {
+      return "來源：手動派單";
+    }
+
+    StringBuilder builder = new StringBuilder();
+    builder.append("來源：").append(toSourceTypeText(order.sourceType()));
+    if (order.sourceReference() != null && !order.sourceReference().isBlank()) {
+      builder.append(" | `").append(order.sourceReference()).append("`");
+    }
+    if (order.sourceProductName() != null && !order.sourceProductName().isBlank()) {
+      builder.append(" | ").append(order.sourceProductName());
+    }
+    String priceText = formatSourcePrice(order);
+    if (!priceText.isBlank()) {
+      builder.append(" | ").append(priceText);
+    }
+    if (order.sourceEscortOptionCode() != null && !order.sourceEscortOptionCode().isBlank()) {
+      builder.append(" | ").append(order.sourceEscortOptionCode());
+    }
+    return builder.toString();
+  }
+
+  private static String toSourceTypeText(EscortDispatchOrder.SourceType sourceType) {
+    if (sourceType == null) {
+      return "未知";
+    }
+    return switch (sourceType) {
+      case MANUAL -> "手動派單";
+      case CURRENCY_PURCHASE -> "貨幣購買";
+      case FIAT_PAYMENT -> "法幣付款";
+    };
+  }
+
+  private static String formatSourcePrice(EscortDispatchOrder order) {
+    if (order == null) {
+      return "";
+    }
+    if (order.sourceCurrencyPrice() != null && order.sourceCurrencyPrice() > 0) {
+      return String.format("%,d 貨幣", order.sourceCurrencyPrice());
+    }
+    if (order.sourceFiatPriceTwd() != null && order.sourceFiatPriceTwd() > 0) {
+      return String.format("NT$%,d", order.sourceFiatPriceTwd());
+    }
+    return "";
   }
 
   private static MessageEmbed buildDispatchEmbed(

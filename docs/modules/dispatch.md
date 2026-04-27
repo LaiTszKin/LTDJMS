@@ -8,7 +8,7 @@
 
 ## 1. 功能概觀
 
-派單護航系統提供一條「管理員建立派單 → 護航者私訊確認 → 客戶收到確認通知」的流程。
+派單護航系統提供一條「管理員建立派單 → 護航者私訊確認 → 客戶收到確認通知」的流程，並同時作為商品/付款完成後自動護航交接的唯一 durable aggregate。
 
 主要能力：
 
@@ -42,7 +42,7 @@
   - 專注於流程協調、狀態流轉與通知送出，不再直接負責各類 embed 文案組裝
 
 - `DispatchPanelMessageFactory`
-  - 組裝歷史訂單、護航者 DM、客戶確認、售後通知等訊息 embed
+  - 組裝歷史訂單、護航者 DM、客戶確認、售後通知與來源摘要等訊息 embed
   - 將顯示文案與狀態對應集中管理，降低 handler 的責任範圍
 
 - `DispatchPanelView`
@@ -60,6 +60,7 @@
     - `orderNumber` 不可空白、長度不可超過 32
     - `escortUserId` 與 `customerUserId` 不可相同
     - `CONFIRMED` 狀態必須有 `confirmedAt`
+  - 自動護航單另保存 `sourceType`、`sourceReference`、`sourceProductId`、`sourceProductName`、`sourceCurrencyPrice`、`sourceFiatPriceTwd`、`sourceEscortOptionCode`
 
 - `EscortDispatchOrderRepository`
   - 訂單儲存介面，提供 `save`、`update`、`findByOrderNumber`、`existsByOrderNumber`
@@ -70,6 +71,11 @@
   - 建立訂單：`createOrder(...)`
   - 確認訂單：`confirmOrder(orderNumber, confirmerUserId)`
   - 訂單編號唯一性保證：最多重試 20 次
+
+- `EscortDispatchHandoffService`
+  - 把貨幣購買或法幣付款完成的護航需求寫入 dispatch durable state
+  - 以 `sourceType + sourceReference` 做冪等查重
+  - handoff 成功後才交由通知服務發送 admin DM / panel 提醒
 
 - `EscortDispatchOrderNumberGenerator`
   - 訂單編號格式：`ESC-YYYYMMDD-XXXXXX`
@@ -149,6 +155,11 @@ Migration：`src/main/resources/db/migration/V014__create_escort_dispatch_order.
   - 非指定護航者確認失敗
   - 重複確認失敗
   - 成功確認流程
+- `EscortDispatchHandoffServiceTest`
+  - 自動 handoff 的 snapshot 與冪等查重
+- `EscortDispatchHandoffServiceIntegrationTest`
+  - 商品刪除後仍可查回來源快照
+  - 重複來源參考不會產生重複 dispatch record
 
 ## 7. 已知範圍
 
