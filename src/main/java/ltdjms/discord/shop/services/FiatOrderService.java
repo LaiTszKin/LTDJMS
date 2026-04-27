@@ -71,10 +71,25 @@ public class FiatOrderService {
               userId,
               product.id().longValue(),
               product.name(),
+              product.rewardType(),
+              product.rewardAmount(),
+              product.autoCreateEscortOrder(),
+              product.escortOptionCode(),
               paymentCode.orderNumber(),
               paymentCode.paymentNo(),
               product.fiatPriceTwd());
-      fiatOrderRepository.save(order);
+      FiatOrder savedOrder = fiatOrderRepository.save(order);
+      Product fulfillmentSnapshot = savedOrder.toFulfillmentProduct();
+      return Result.ok(
+          new FiatOrderResult(
+              fulfillmentSnapshot,
+              paymentCode.orderNumber(),
+              paymentCode.paymentNo(),
+              paymentCode.expireDate(),
+              paymentCode.paymentUrl(),
+              null));
+    } catch (IllegalArgumentException e) {
+      return Result.err(DomainError.invalidInput(e.getMessage()));
     } catch (Exception e) {
       LOG.error(
           "Failed to persist fiat order: guildId={}, userId={}, productId={}, orderNumber={}",
@@ -85,15 +100,6 @@ public class FiatOrderService {
           e);
       return Result.err(DomainError.persistenceFailure("建立法幣訂單失敗，請稍後再試", e));
     }
-
-    return Result.ok(
-        new FiatOrderResult(
-            product,
-            paymentCode.orderNumber(),
-            paymentCode.paymentNo(),
-            paymentCode.expireDate(),
-            paymentCode.paymentUrl(),
-            null));
   }
 
   /** Result of fiat-only order creation. */

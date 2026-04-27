@@ -5,6 +5,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
+import java.sql.Types;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -14,6 +15,7 @@ import javax.sql.DataSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import ltdjms.discord.product.domain.Product;
 import ltdjms.discord.shop.domain.FiatOrder;
 import ltdjms.discord.shop.domain.FiatOrderRepository;
 
@@ -24,6 +26,8 @@ public class JdbcFiatOrderRepository implements FiatOrderRepository {
 
   private static final String SELECT_COLUMNS =
       "id, guild_id, buyer_user_id, product_id, product_name, order_number, payment_no,"
+          + " fulfillment_reward_type, fulfillment_reward_amount,"
+          + " fulfillment_auto_create_escort_order, fulfillment_escort_option_code,"
           + " amount_twd, status, trade_status, payment_message, paid_at, buyer_notified_at,"
           + " reward_granted_at, fulfilled_at, admin_notified_at, last_callback_payload,"
           + " fulfillment_processing_at, admin_notification_processing_at,"
@@ -39,11 +43,13 @@ public class JdbcFiatOrderRepository implements FiatOrderRepository {
   @Override
   public FiatOrder save(FiatOrder order) {
     String sql =
-        "INSERT INTO fiat_order (guild_id, buyer_user_id, product_id, product_name, order_number,"
+        "INSERT INTO fiat_order (guild_id, buyer_user_id, product_id, product_name,"
+            + " fulfillment_reward_type, fulfillment_reward_amount,"
+            + " fulfillment_auto_create_escort_order, fulfillment_escort_option_code, order_number,"
             + " payment_no, amount_twd, status, trade_status, payment_message, paid_at,"
             + " buyer_notified_at, reward_granted_at, fulfilled_at, admin_notified_at,"
             + " last_callback_payload, reconciliation_attempt_count, created_at, updated_at)"
-            + " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+            + " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
             + " RETURNING id";
 
     try (Connection conn = dataSource.getConnection();
@@ -52,21 +58,30 @@ public class JdbcFiatOrderRepository implements FiatOrderRepository {
       stmt.setLong(2, order.buyerUserId());
       stmt.setLong(3, order.productId());
       stmt.setString(4, order.productName());
-      stmt.setString(5, order.orderNumber());
-      stmt.setString(6, order.paymentNo());
-      stmt.setLong(7, order.amountTwd());
-      stmt.setString(8, order.status().name());
-      stmt.setString(9, order.tradeStatus());
-      stmt.setString(10, order.paymentMessage());
-      stmt.setTimestamp(11, toTimestamp(order.paidAt()));
-      stmt.setTimestamp(12, toTimestamp(order.buyerNotifiedAt()));
-      stmt.setTimestamp(13, toTimestamp(order.rewardGrantedAt()));
-      stmt.setTimestamp(14, toTimestamp(order.fulfilledAt()));
-      stmt.setTimestamp(15, toTimestamp(order.adminNotifiedAt()));
-      stmt.setString(16, order.lastCallbackPayload());
-      stmt.setInt(17, 0);
-      stmt.setTimestamp(18, Timestamp.from(order.createdAt()));
-      stmt.setTimestamp(19, Timestamp.from(order.updatedAt()));
+      stmt.setString(
+          5, order.fulfillmentRewardType() == null ? null : order.fulfillmentRewardType().name());
+      if (order.fulfillmentRewardAmount() == null) {
+        stmt.setNull(6, Types.BIGINT);
+      } else {
+        stmt.setLong(6, order.fulfillmentRewardAmount());
+      }
+      stmt.setBoolean(7, order.fulfillmentAutoCreateEscortOrder());
+      stmt.setString(8, order.fulfillmentEscortOptionCode());
+      stmt.setString(9, order.orderNumber());
+      stmt.setString(10, order.paymentNo());
+      stmt.setLong(11, order.amountTwd());
+      stmt.setString(12, order.status().name());
+      stmt.setString(13, order.tradeStatus());
+      stmt.setString(14, order.paymentMessage());
+      stmt.setTimestamp(15, toTimestamp(order.paidAt()));
+      stmt.setTimestamp(16, toTimestamp(order.buyerNotifiedAt()));
+      stmt.setTimestamp(17, toTimestamp(order.rewardGrantedAt()));
+      stmt.setTimestamp(18, toTimestamp(order.fulfilledAt()));
+      stmt.setTimestamp(19, toTimestamp(order.adminNotifiedAt()));
+      stmt.setString(20, order.lastCallbackPayload());
+      stmt.setInt(21, 0);
+      stmt.setTimestamp(22, Timestamp.from(order.createdAt()));
+      stmt.setTimestamp(23, Timestamp.from(order.updatedAt()));
 
       try (ResultSet rs = stmt.executeQuery()) {
         if (!rs.next()) {
@@ -78,6 +93,10 @@ public class JdbcFiatOrderRepository implements FiatOrderRepository {
             order.buyerUserId(),
             order.productId(),
             order.productName(),
+            order.fulfillmentRewardType(),
+            order.fulfillmentRewardAmount(),
+            order.fulfillmentAutoCreateEscortOrder(),
+            order.fulfillmentEscortOptionCode(),
             order.orderNumber(),
             order.paymentNo(),
             order.amountTwd(),
@@ -446,12 +465,27 @@ public class JdbcFiatOrderRepository implements FiatOrderRepository {
   }
 
   private FiatOrder mapRow(ResultSet rs) throws SQLException {
+    String rewardTypeValue = rs.getString("fulfillment_reward_type");
+    Product.RewardType fulfillmentRewardType = null;
+    if (rewardTypeValue != null) {
+      fulfillmentRewardType = Product.RewardType.valueOf(rewardTypeValue);
+    }
+    Long fulfillmentRewardAmount = rs.getObject("fulfillment_reward_amount", Long.class);
+    boolean fulfillmentAutoCreateEscortOrder =
+        rs.getBoolean("fulfillment_auto_create_escort_order");
+    if (rs.wasNull()) {
+      fulfillmentAutoCreateEscortOrder = false;
+    }
     return new FiatOrder(
         rs.getLong("id"),
         rs.getLong("guild_id"),
         rs.getLong("buyer_user_id"),
         rs.getLong("product_id"),
         rs.getString("product_name"),
+        fulfillmentRewardType,
+        fulfillmentRewardAmount,
+        fulfillmentAutoCreateEscortOrder,
+        rs.getString("fulfillment_escort_option_code"),
         rs.getString("order_number"),
         rs.getString("payment_no"),
         rs.getLong("amount_twd"),

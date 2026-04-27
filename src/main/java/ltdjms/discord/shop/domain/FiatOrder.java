@@ -3,6 +3,8 @@ package ltdjms.discord.shop.domain;
 import java.time.Instant;
 import java.util.Objects;
 
+import ltdjms.discord.product.domain.Product;
+
 /** Fiat order tracked until payment callback marks it as paid. */
 public record FiatOrder(
     Long id,
@@ -10,6 +12,10 @@ public record FiatOrder(
     long buyerUserId,
     long productId,
     String productName,
+    Product.RewardType fulfillmentRewardType,
+    Long fulfillmentRewardAmount,
+    boolean fulfillmentAutoCreateEscortOrder,
+    String fulfillmentEscortOptionCode,
     String orderNumber,
     String paymentNo,
     long amountTwd,
@@ -52,6 +58,28 @@ public record FiatOrder(
     if (productName.length() > 100) {
       throw new IllegalArgumentException("productName must not exceed 100 characters");
     }
+    if ((fulfillmentRewardType == null) != (fulfillmentRewardAmount == null)) {
+      throw new IllegalArgumentException(
+          "fulfillmentRewardType and fulfillmentRewardAmount must both be specified or both be"
+              + " null");
+    }
+    if (fulfillmentRewardAmount != null && fulfillmentRewardAmount <= 0) {
+      throw new IllegalArgumentException("fulfillmentRewardAmount must be positive");
+    }
+    if (fulfillmentEscortOptionCode != null && fulfillmentEscortOptionCode.length() > 120) {
+      throw new IllegalArgumentException(
+          "fulfillmentEscortOptionCode must not exceed 120 characters");
+    }
+    if (fulfillmentAutoCreateEscortOrder) {
+      if (fulfillmentEscortOptionCode == null || fulfillmentEscortOptionCode.isBlank()) {
+        throw new IllegalArgumentException(
+            "fulfillmentEscortOptionCode is required when fulfillmentAutoCreateEscortOrder is"
+                + " enabled");
+      }
+    } else if (fulfillmentEscortOptionCode != null && !fulfillmentEscortOptionCode.isBlank()) {
+      throw new IllegalArgumentException(
+          "fulfillmentEscortOptionCode requires fulfillmentAutoCreateEscortOrder to be enabled");
+    }
     if (orderNumber.length() > 32) {
       throw new IllegalArgumentException("orderNumber must not exceed 32 characters");
     }
@@ -71,6 +99,10 @@ public record FiatOrder(
       long buyerUserId,
       long productId,
       String productName,
+      Product.RewardType fulfillmentRewardType,
+      Long fulfillmentRewardAmount,
+      boolean fulfillmentAutoCreateEscortOrder,
+      String fulfillmentEscortOptionCode,
       String orderNumber,
       String paymentNo,
       long amountTwd) {
@@ -81,6 +113,10 @@ public record FiatOrder(
         buyerUserId,
         productId,
         productName,
+        fulfillmentRewardType,
+        fulfillmentRewardAmount,
+        fulfillmentAutoCreateEscortOrder,
+        fulfillmentEscortOptionCode,
         orderNumber,
         paymentNo,
         amountTwd,
@@ -97,6 +133,32 @@ public record FiatOrder(
         null,
         now,
         now);
+  }
+
+  public boolean hasFulfillmentReward() {
+    return fulfillmentRewardType != null && fulfillmentRewardAmount != null;
+  }
+
+  public boolean shouldAutoCreateEscortOrder() {
+    return fulfillmentAutoCreateEscortOrder
+        && fulfillmentEscortOptionCode != null
+        && !fulfillmentEscortOptionCode.isBlank();
+  }
+
+  public Product toFulfillmentProduct() {
+    return new Product(
+        productId,
+        guildId,
+        productName,
+        null,
+        fulfillmentRewardType,
+        fulfillmentRewardAmount,
+        null,
+        amountTwd,
+        fulfillmentAutoCreateEscortOrder,
+        fulfillmentEscortOptionCode,
+        createdAt,
+        updatedAt);
   }
 
   public boolean isPaid() {

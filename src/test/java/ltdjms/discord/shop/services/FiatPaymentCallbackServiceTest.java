@@ -125,7 +125,8 @@ class FiatPaymentCallbackServiceTest {
   }
 
   private FiatOrder pendingOrder() {
-    return FiatOrder.createPending(123L, 456L, 789L, "護航商品", ORDER_NUMBER, "ABC123456789", 1200L);
+    return FiatOrder.createPending(
+        123L, 456L, 789L, "護航商品", null, null, false, null, ORDER_NUMBER, "ABC123456789", 1200L);
   }
 
   private FiatOrder paidOrder() {
@@ -135,6 +136,10 @@ class FiatPaymentCallbackServiceTest {
         456L,
         789L,
         "護航商品",
+        null,
+        null,
+        false,
+        null,
         ORDER_NUMBER,
         "ABC123456789",
         1200L,

@@ -8,11 +8,7 @@ import java.util.Objects;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import ltdjms.discord.currency.domain.CurrencyTransaction;
-import ltdjms.discord.gametoken.domain.GameTokenTransaction;
-import ltdjms.discord.product.domain.Product;
 import ltdjms.discord.product.services.ProductRewardService;
-import ltdjms.discord.product.services.ProductService;
 import ltdjms.discord.shared.DomainError;
 import ltdjms.discord.shared.Result;
 import ltdjms.discord.shop.domain.FiatOrder;
@@ -25,7 +21,6 @@ public class FiatOrderPostPaymentWorker {
   private static final int DEFAULT_BATCH_SIZE = 20;
 
   private final FiatOrderRepository fiatOrderRepository;
-  private final ProductService productService;
   private final ProductRewardService productRewardService;
   private final ShopAdminNotificationService adminNotificationService;
   private final FiatOrderBuyerNotificationService buyerNotificationService;
@@ -33,13 +28,11 @@ public class FiatOrderPostPaymentWorker {
 
   public FiatOrderPostPaymentWorker(
       FiatOrderRepository fiatOrderRepository,
-      ProductService productService,
       ProductRewardService productRewardService,
       ShopAdminNotificationService adminNotificationService,
       FiatOrderBuyerNotificationService buyerNotificationService) {
     this(
         fiatOrderRepository,
-        productService,
         productRewardService,
         adminNotificationService,
         buyerNotificationService,
@@ -48,13 +41,11 @@ public class FiatOrderPostPaymentWorker {
 
   FiatOrderPostPaymentWorker(
       FiatOrderRepository fiatOrderRepository,
-      ProductService productService,
       ProductRewardService productRewardService,
       ShopAdminNotificationService adminNotificationService,
       FiatOrderBuyerNotificationService buyerNotificationService,
       Clock clock) {
     this.fiatOrderRepository = Objects.requireNonNull(fiatOrderRepository);
-    this.productService = Objects.requireNonNull(productService);
     this.productRewardService = Objects.requireNonNull(productRewardService);
     this.adminNotificationService = Objects.requireNonNull(adminNotificationService);
     this.buyerNotificationService = Objects.requireNonNull(buyerNotificationService);
@@ -75,23 +66,24 @@ public class FiatOrderPostPaymentWorker {
     }
 
     try {
-      Product product = productService.getProduct(order.productId()).orElse(null);
-      if (product == null) {
-        throw new IllegalStateException("找不到已付款訂單對應商品");
-      }
+      var fulfillmentProduct = order.toFulfillmentProduct();
 
       if (!order.isBuyerNotified()) {
         buyerNotificationService.notifyPaymentSucceeded(order);
         fiatOrderRepository.markBuyerNotifiedIfNeeded(order.orderNumber(), Instant.now(clock));
       }
 
-      if (product.shouldAutoCreateEscortOrder() && !order.isAdminNotified()) {
+      if (order.shouldAutoCreateEscortOrder() && !order.isAdminNotified()) {
         Instant adminClaimTime = Instant.now(clock);
         if (fiatOrderRepository.claimAdminNotificationProcessing(
             order.orderNumber(), adminClaimTime)) {
           try {
             adminNotificationService.notifyAdminsOrderCreated(
-                order.guildId(), order.buyerUserId(), product, "法幣付款完成", order.orderNumber());
+                order.guildId(),
+                order.buyerUserId(),
+                fulfillmentProduct,
+                "法幣付款完成",
+                order.orderNumber());
             fiatOrderRepository.markAdminNotifiedIfNeeded(order.orderNumber(), adminClaimTime);
           } catch (Exception e) {
             fiatOrderRepository.releaseAdminNotificationProcessing(order.orderNumber());
@@ -100,17 +92,17 @@ public class FiatOrderPostPaymentWorker {
         }
       }
 
-      if (product.hasReward() && !order.isRewardGranted()) {
+      if (order.hasFulfillmentReward() && !order.isRewardGranted()) {
         Result<ProductRewardService.RewardGrantResult, DomainError> rewardResult =
             productRewardService.grantReward(
                 new ProductRewardService.RewardGrantRequest(
                     order.guildId(),
                     order.buyerUserId(),
-                    product,
-                    product.rewardAmount(),
-                    String.format("法幣商品獎勵: %s", product.name()),
-                    CurrencyTransaction.Source.PRODUCT_REWARD,
-                    GameTokenTransaction.Source.PRODUCT_REWARD));
+                    fulfillmentProduct,
+                    fulfillmentProduct.rewardAmount(),
+                    String.format("法幣商品獎勵: %s", fulfillmentProduct.name()),
+                    ltdjms.discord.currency.domain.CurrencyTransaction.Source.PRODUCT_REWARD,
+                    ltdjms.discord.gametoken.domain.GameTokenTransaction.Source.PRODUCT_REWARD));
         if (rewardResult.isErr()) {
           throw new IllegalStateException(rewardResult.getError().message());
         }
