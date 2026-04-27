@@ -11,7 +11,8 @@ import org.slf4j.LoggerFactory;
 
 import dev.langchain4j.agent.tool.Tool;
 import dev.langchain4j.invocation.InvocationParameters;
-import ltdjms.discord.shared.di.JDAProvider;
+import ltdjms.discord.shared.runtime.DiscordRuntimeGateway;
+import ltdjms.discord.shared.runtime.JdaDiscordRuntimeGateway;
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.Role;
 
@@ -23,10 +24,15 @@ import net.dv8tion.jda.api.entities.Role;
 public final class LangChain4jListRolesTool {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(LangChain4jListRolesTool.class);
+  private final DiscordRuntimeGateway discordRuntimeGateway;
 
   @Inject
+  public LangChain4jListRolesTool(DiscordRuntimeGateway discordRuntimeGateway) {
+    this.discordRuntimeGateway = discordRuntimeGateway;
+  }
+
   public LangChain4jListRolesTool() {
-    // JDA 將從 JDAProvider 延遲獲取
+    this(new JdaDiscordRuntimeGateway());
   }
 
   /**
@@ -66,7 +72,7 @@ public final class LangChain4jListRolesTool {
     }
 
     // 2. 獲取 Guild
-    Guild guild = JDAProvider.getJda().getGuildById(guildId);
+    Guild guild = discordRuntimeGateway.getGuildById(guildId);
     if (guild == null) {
       String errorMsg = String.format("找不到指定的伺服器: %d", guildId);
       LOGGER.warn("LangChain4jListRolesTool: {}", errorMsg);

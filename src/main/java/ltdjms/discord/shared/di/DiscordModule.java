@@ -6,6 +6,8 @@ import dagger.Module;
 import dagger.Provides;
 import ltdjms.discord.discord.domain.DiscordEmbedBuilder;
 import ltdjms.discord.discord.services.JdaDiscordEmbedBuilder;
+import ltdjms.discord.shared.runtime.DiscordRuntimeGateway;
+import ltdjms.discord.shared.runtime.JdaDiscordRuntimeGateway;
 
 /**
  * Dagger module providing Discord API abstraction layer dependencies.
@@ -13,6 +15,7 @@ import ltdjms.discord.discord.services.JdaDiscordEmbedBuilder;
  * <p>This module provides:
  *
  * <ul>
+ *   <li>DiscordRuntimeGateway - Discord runtime access boundary
  *   <li>DiscordInteraction - unified Discord interaction interface
  *   <li>DiscordContext - Discord event context extraction interface
  *   <li>DiscordEmbedBuilder - Discord view component builder interface
@@ -33,6 +36,13 @@ public class DiscordModule {
   @Singleton
   public DiscordEmbedBuilder provideDiscordEmbedBuilder() {
     return new JdaDiscordEmbedBuilder();
+  }
+
+  /** Provides the runtime gateway used by aiagent, aichat, and shop modules. */
+  @Provides
+  @Singleton
+  public DiscordRuntimeGateway provideDiscordRuntimeGateway() {
+    return new JdaDiscordRuntimeGateway();
   }
 
   // 註冊的抽象層元件：

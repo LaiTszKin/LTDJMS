@@ -11,6 +11,15 @@ Discord API 抽象層（`discord` 模組）是 LTDJMS 系統中用於解除與 J
 3. **統一介面**：標準化 Discord 互動操作（回應、編輯、Context 提取、Embed 建構）
 4. **簡化遷移**：未來如需更換 Discord 函式庫，只需更換實作層
 
+### Runtime Access
+
+Discord runtime access 另外由正式注入的 `DiscordRuntimeGateway` 擔任唯一 canonical owner。
+
+- 位置：`src/main/java/ltdjms/discord/shared/di/DiscordModule.java`
+- 介面：`ltdjms.discord.shared.runtime.DiscordRuntimeGateway`
+- 實作：`ltdjms.discord.shared.runtime.JdaDiscordRuntimeGateway`
+- 狀態：`JDAProvider` 仍可暫時作為 transitional bridge，但不再是正式 owner
+
 ### 模組位置
 
 ```
@@ -205,6 +214,7 @@ stateDiagram-v2
 
 | 介面 | JDA 實作 | 說明 |
 |------|----------|------|
+| `DiscordRuntimeGateway` | `JdaDiscordRuntimeGateway` | 由 DI 提供的正式 runtime 邊界，讓業務模組只依賴窄介面 |
 | `DiscordInteraction` | `JdaDiscordInteraction` | 包裝 `GenericInteractionCreateEvent` |
 | `DiscordContext` | `JdaDiscordContext` | 從 JDA 事件提取上下文 |
 | `DiscordEmbedBuilder` | `JdaDiscordEmbedBuilder` | 使用 `EmbedBuilder` 建構 Embed |

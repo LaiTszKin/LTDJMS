@@ -15,7 +15,8 @@ import dev.langchain4j.invocation.InvocationParameters;
 import ltdjms.discord.aiagent.domain.ChannelPermission;
 import ltdjms.discord.aiagent.domain.PermissionSetting;
 import ltdjms.discord.aiagent.services.PermissionParser;
-import ltdjms.discord.shared.di.JDAProvider;
+import ltdjms.discord.shared.runtime.DiscordRuntimeGateway;
+import ltdjms.discord.shared.runtime.JdaDiscordRuntimeGateway;
 import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.Role;
@@ -44,9 +45,15 @@ public final class LangChain4jCreateChannelTool {
   /** 類別查找重試間隔（毫秒） */
   private static final long CATEGORY_LOOKUP_RETRY_DELAY_MS = 1000;
 
+  private final DiscordRuntimeGateway discordRuntimeGateway;
+
   @Inject
+  public LangChain4jCreateChannelTool(DiscordRuntimeGateway discordRuntimeGateway) {
+    this.discordRuntimeGateway = discordRuntimeGateway;
+  }
+
   public LangChain4jCreateChannelTool() {
-    // JDA 將從 JDAProvider 延遲獲取
+    this(new JdaDiscordRuntimeGateway());
   }
 
   /**
@@ -132,7 +139,7 @@ public final class LangChain4jCreateChannelTool {
     }
 
     // 3. 獲取 Guild
-    Guild guild = JDAProvider.getJda().getGuildById(guildId);
+    Guild guild = discordRuntimeGateway.getGuildById(guildId);
     if (guild == null) {
       String errorMsg = String.format("找不到指定的伺服器: %d", guildId);
       LOGGER.warn("LangChain4jCreateChannelTool: {}", errorMsg);
@@ -226,7 +233,7 @@ public final class LangChain4jCreateChannelTool {
       }
 
       // 嘗試從 JDA 實例獲取
-      category = JDAProvider.getJda().getCategoryById(categoryId);
+      category = discordRuntimeGateway.getCategoryById(categoryId);
       if (category != null) {
         if (attempt > 0) {
           LOGGER.info(

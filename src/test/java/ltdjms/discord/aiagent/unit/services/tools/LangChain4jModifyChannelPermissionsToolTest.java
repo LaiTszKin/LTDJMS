@@ -17,7 +17,7 @@ import org.junit.jupiter.api.Test;
 
 import dev.langchain4j.invocation.InvocationParameters;
 import ltdjms.discord.aiagent.services.tools.LangChain4jModifyChannelPermissionsTool;
-import ltdjms.discord.shared.di.JDAProvider;
+import ltdjms.discord.shared.runtime.DiscordRuntimeGateway;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.entities.Guild;
@@ -40,13 +40,15 @@ class LangChain4jModifyChannelPermissionsToolTest {
   private GuildChannel mockChannel;
   private IPermissionContainer mockPermissionContainer;
   private JDA mockJda;
+  private DiscordRuntimeGateway discordRuntimeGateway;
   private InvocationParameters parameters;
 
   @BeforeEach
   void setUp() {
     mockGuild = mock(Guild.class);
     mockJda = mock(JDA.class);
-    tool = new LangChain4jModifyChannelPermissionsTool();
+    discordRuntimeGateway = mock(DiscordRuntimeGateway.class);
+    tool = new LangChain4jModifyChannelPermissionsTool(discordRuntimeGateway);
     parameters = new InvocationParameters();
 
     // 設置測試參數
@@ -54,8 +56,7 @@ class LangChain4jModifyChannelPermissionsToolTest {
     parameters.put("channelId", TEST_CHANNEL_ID);
     parameters.put("userId", TEST_CALLER_ID);
 
-    JDAProvider.setJda(mockJda);
-    when(mockJda.getGuildById(TEST_GUILD_ID)).thenReturn(mockGuild);
+    when(discordRuntimeGateway.getGuildById(TEST_GUILD_ID)).thenReturn(mockGuild);
     Member mockCaller = mock(Member.class);
     when(mockGuild.getMemberById(TEST_CALLER_ID)).thenReturn(mockCaller);
     when(mockCaller.hasPermission(Permission.ADMINISTRATOR)).thenReturn(true);
@@ -73,9 +74,7 @@ class LangChain4jModifyChannelPermissionsToolTest {
   }
 
   @AfterEach
-  void tearDown() {
-    JDAProvider.clear();
-  }
+  void tearDown() {}
 
   @Nested
   @DisplayName("參數驗證測試")

@@ -8,7 +8,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import ltdjms.discord.product.domain.Product;
-import ltdjms.discord.shared.di.JDAProvider;
+import ltdjms.discord.shared.runtime.DiscordRuntimeGateway;
+import ltdjms.discord.shared.runtime.JdaDiscordRuntimeGateway;
 import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.Member;
@@ -18,6 +19,15 @@ import net.dv8tion.jda.api.entities.User;
 public class ShopAdminNotificationService {
 
   private static final Logger LOG = LoggerFactory.getLogger(ShopAdminNotificationService.class);
+  private final DiscordRuntimeGateway discordRuntimeGateway;
+
+  public ShopAdminNotificationService() {
+    this(new JdaDiscordRuntimeGateway());
+  }
+
+  public ShopAdminNotificationService(DiscordRuntimeGateway discordRuntimeGateway) {
+    this.discordRuntimeGateway = discordRuntimeGateway;
+  }
 
   public void notifyAdminsOrderCreated(
       long guildId, long buyerUserId, Product product, String orderType, String orderReference) {
@@ -25,7 +35,7 @@ public class ShopAdminNotificationService {
       return;
     }
 
-    Guild guild = JDAProvider.getJda().getGuildById(guildId);
+    Guild guild = discordRuntimeGateway.getGuildById(guildId);
     if (guild == null) {
       LOG.warn("Guild not found when notifying admins: guildId={}", guildId);
       return;

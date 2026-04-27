@@ -16,10 +16,9 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
-import ltdjms.discord.shared.di.JDAProvider;
 import ltdjms.discord.shared.events.AgentCompletedEvent;
 import ltdjms.discord.shared.events.AgentFailedEvent;
-import net.dv8tion.jda.api.JDA;
+import ltdjms.discord.shared.runtime.DiscordRuntimeGateway;
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.channel.concrete.ThreadChannel;
 import net.dv8tion.jda.api.requests.restaction.MessageCreateAction;
@@ -29,22 +28,19 @@ import net.dv8tion.jda.api.requests.restaction.MessageCreateAction;
 class AgentCompletionListenerTest {
 
   private AgentCompletionListener listener;
-  private JDA jda;
+  private DiscordRuntimeGateway discordRuntimeGateway;
   private Guild guild;
   private ThreadChannel threadChannel;
   private MessageCreateAction messageCreateAction;
 
   @BeforeEach
   void setUp() {
-    listener = new AgentCompletionListener();
+    discordRuntimeGateway = mock(DiscordRuntimeGateway.class);
+    listener = new AgentCompletionListener(discordRuntimeGateway);
 
-    jda = mock(JDA.class);
     guild = mock(Guild.class);
     threadChannel = mock(ThreadChannel.class);
     messageCreateAction = mock(MessageCreateAction.class);
-
-    // Setup JDAProvider mock
-    JDAProvider.setJda(jda);
 
     // Mock sendMessage behavior
     when(threadChannel.sendMessage(any(CharSequence.class))).thenReturn(messageCreateAction);
@@ -59,7 +55,7 @@ class AgentCompletionListenerTest {
     @DisplayName("should handle AgentCompletedEvent")
     void shouldHandleAgentCompletedEvent() {
       // Given
-      when(jda.getGuildById(anyLong())).thenReturn(guild);
+      when(discordRuntimeGateway.getGuildById(anyLong())).thenReturn(guild);
       when(guild.getThreadChannelById(anyLong())).thenReturn(threadChannel);
 
       AgentCompletedEvent event =
@@ -77,7 +73,7 @@ class AgentCompletionListenerTest {
     @DisplayName("should handle AgentFailedEvent")
     void shouldHandleAgentFailedEvent() {
       // Given
-      when(jda.getGuildById(anyLong())).thenReturn(guild);
+      when(discordRuntimeGateway.getGuildById(anyLong())).thenReturn(guild);
       when(guild.getThreadChannelById(anyLong())).thenReturn(threadChannel);
 
       AgentFailedEvent event =
@@ -110,7 +106,7 @@ class AgentCompletionListenerTest {
     @DisplayName("should send message when thread channel is resolved")
     void shouldSendMessageWhenThreadChannelResolved() {
       // Given
-      when(jda.getGuildById(123L)).thenReturn(guild);
+      when(discordRuntimeGateway.getGuildById(123L)).thenReturn(guild);
       when(guild.getThreadChannelById(456L)).thenReturn(threadChannel);
 
       AgentCompletedEvent event =
@@ -128,7 +124,7 @@ class AgentCompletionListenerTest {
     @DisplayName("should not send message when guild is not found")
     void shouldNotSendMessageWhenGuildNotFound() {
       // Given
-      when(jda.getGuildById(123L)).thenReturn(null);
+      when(discordRuntimeGateway.getGuildById(123L)).thenReturn(null);
 
       AgentCompletedEvent event =
           new AgentCompletedEvent(
@@ -145,7 +141,7 @@ class AgentCompletionListenerTest {
     @DisplayName("should not send message when channel is not found")
     void shouldNotSendMessageWhenChannelNotFound() {
       // Given
-      when(jda.getGuildById(123L)).thenReturn(guild);
+      when(discordRuntimeGateway.getGuildById(123L)).thenReturn(guild);
       when(guild.getThreadChannelById(456L)).thenReturn(null);
 
       AgentCompletedEvent event =
@@ -163,7 +159,7 @@ class AgentCompletionListenerTest {
     @DisplayName("should not send message when channelId is invalid")
     void shouldNotSendMessageWhenChannelIdInvalid() {
       // Given
-      when(jda.getGuildById(123L)).thenReturn(guild);
+      when(discordRuntimeGateway.getGuildById(123L)).thenReturn(guild);
 
       AgentCompletedEvent event =
           new AgentCompletedEvent(
@@ -180,7 +176,7 @@ class AgentCompletionListenerTest {
     @DisplayName("should send fallback when final response is blank")
     void shouldSendFallbackWhenFinalResponseIsBlank() {
       // Given
-      when(jda.getGuildById(123L)).thenReturn(guild);
+      when(discordRuntimeGateway.getGuildById(123L)).thenReturn(guild);
       when(guild.getThreadChannelById(456L)).thenReturn(threadChannel);
 
       AgentCompletedEvent event =
@@ -204,7 +200,7 @@ class AgentCompletionListenerTest {
     @DisplayName("should send error message when thread channel is resolved")
     void shouldSendErrorMessageWhenThreadChannelResolved() {
       // Given
-      when(jda.getGuildById(123L)).thenReturn(guild);
+      when(discordRuntimeGateway.getGuildById(123L)).thenReturn(guild);
       when(guild.getThreadChannelById(456L)).thenReturn(threadChannel);
 
       AgentFailedEvent event =
@@ -221,7 +217,7 @@ class AgentCompletionListenerTest {
     @DisplayName("should not send message when guild is not found")
     void shouldNotSendMessageWhenGuildNotFound() {
       // Given
-      when(jda.getGuildById(123L)).thenReturn(null);
+      when(discordRuntimeGateway.getGuildById(123L)).thenReturn(null);
 
       AgentFailedEvent event =
           new AgentFailedEvent(123L, "456", "789", "conv-123", "API error", Instant.now());

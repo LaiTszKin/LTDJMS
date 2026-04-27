@@ -36,6 +36,7 @@ import ltdjms.discord.shared.EnvironmentConfig;
 import ltdjms.discord.shared.cache.CacheKeyGenerator;
 import ltdjms.discord.shared.cache.CacheService;
 import ltdjms.discord.shared.events.DomainEventPublisher;
+import ltdjms.discord.shared.runtime.DiscordRuntimeGateway;
 import ltdjms.discord.shop.commands.ShopButtonHandler;
 import ltdjms.discord.shop.commands.ShopSelectMenuHandler;
 import ltdjms.discord.shop.services.CurrencyPurchaseService;
@@ -62,6 +63,7 @@ import ltdjms.discord.shop.services.FiatOrderProcessingScheduler;
       ProductRepositoryModule.class,
       ProductServiceModule.class,
       DispatchModule.class,
+      DiscordModule.class,
       CommandHandlerModule.class,
       EventModule.class,
       AIChatModule.class,
@@ -79,6 +81,9 @@ public interface AppComponent {
   CacheService cacheService();
 
   CacheKeyGenerator cacheKeyGenerator();
+
+  // Discord runtime access
+  DiscordRuntimeGateway discordRuntimeGateway();
 
   // Events
   DomainEventPublisher domainEventPublisher();

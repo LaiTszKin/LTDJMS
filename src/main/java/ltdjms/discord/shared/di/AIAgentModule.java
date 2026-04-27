@@ -57,6 +57,7 @@ import ltdjms.discord.shared.EnvironmentConfig;
 import ltdjms.discord.shared.cache.CacheService;
 import ltdjms.discord.shared.events.DomainEvent;
 import ltdjms.discord.shared.events.DomainEventPublisher;
+import ltdjms.discord.shared.runtime.DiscordRuntimeGateway;
 
 /**
  * Dagger 模組，提供 AI Agent Tools 相關的依賴注入。
@@ -100,8 +101,10 @@ public class AIAgentModule {
   public AIAgentChannelConfigService provideAIAgentChannelConfigService(
       AIAgentChannelConfigRepository repository,
       CacheService cacheService,
-      DomainEventPublisher eventPublisher) {
-    return new DefaultAIAgentChannelConfigService(repository, cacheService, eventPublisher);
+      DomainEventPublisher eventPublisher,
+      DiscordRuntimeGateway discordRuntimeGateway) {
+    return new DefaultAIAgentChannelConfigService(
+        repository, cacheService, eventPublisher, discordRuntimeGateway);
   }
 
   /**
@@ -143,8 +146,9 @@ public class AIAgentModule {
    */
   @Provides
   @Singleton
-  public LangChain4jCreateChannelTool provideLangChain4jCreateChannelTool() {
-    return new LangChain4jCreateChannelTool();
+  public LangChain4jCreateChannelTool provideLangChain4jCreateChannelTool(
+      DiscordRuntimeGateway discordRuntimeGateway) {
+    return new LangChain4jCreateChannelTool(discordRuntimeGateway);
   }
 
   /**
@@ -154,8 +158,9 @@ public class AIAgentModule {
    */
   @Provides
   @Singleton
-  public LangChain4jCreateCategoryTool provideLangChain4jCreateCategoryTool() {
-    return new LangChain4jCreateCategoryTool();
+  public LangChain4jCreateCategoryTool provideLangChain4jCreateCategoryTool(
+      DiscordRuntimeGateway discordRuntimeGateway) {
+    return new LangChain4jCreateCategoryTool(discordRuntimeGateway);
   }
 
   /**
@@ -165,8 +170,9 @@ public class AIAgentModule {
    */
   @Provides
   @Singleton
-  public LangChain4jListChannelsTool provideLangChain4jListChannelsTool() {
-    return new LangChain4jListChannelsTool();
+  public LangChain4jListChannelsTool provideLangChain4jListChannelsTool(
+      DiscordRuntimeGateway discordRuntimeGateway) {
+    return new LangChain4jListChannelsTool(discordRuntimeGateway);
   }
 
   /**
@@ -176,8 +182,9 @@ public class AIAgentModule {
    */
   @Provides
   @Singleton
-  public LangChain4jSendMessagesTool provideLangChain4jSendMessagesTool() {
-    return new LangChain4jSendMessagesTool();
+  public LangChain4jSendMessagesTool provideLangChain4jSendMessagesTool(
+      DiscordRuntimeGateway discordRuntimeGateway) {
+    return new LangChain4jSendMessagesTool(discordRuntimeGateway);
   }
 
   /**
@@ -187,8 +194,9 @@ public class AIAgentModule {
    */
   @Provides
   @Singleton
-  public LangChain4jSearchMessagesTool provideLangChain4jSearchMessagesTool() {
-    return new LangChain4jSearchMessagesTool();
+  public LangChain4jSearchMessagesTool provideLangChain4jSearchMessagesTool(
+      DiscordRuntimeGateway discordRuntimeGateway) {
+    return new LangChain4jSearchMessagesTool(discordRuntimeGateway);
   }
 
   /**
@@ -198,8 +206,9 @@ public class AIAgentModule {
    */
   @Provides
   @Singleton
-  public LangChain4jManageMessageTool provideLangChain4jManageMessageTool() {
-    return new LangChain4jManageMessageTool();
+  public LangChain4jManageMessageTool provideLangChain4jManageMessageTool(
+      DiscordRuntimeGateway discordRuntimeGateway) {
+    return new LangChain4jManageMessageTool(discordRuntimeGateway);
   }
 
   /**
@@ -209,8 +218,9 @@ public class AIAgentModule {
    */
   @Provides
   @Singleton
-  public LangChain4jMoveChannelTool provideLangChain4jMoveChannelTool() {
-    return new LangChain4jMoveChannelTool();
+  public LangChain4jMoveChannelTool provideLangChain4jMoveChannelTool(
+      DiscordRuntimeGateway discordRuntimeGateway) {
+    return new LangChain4jMoveChannelTool(discordRuntimeGateway);
   }
 
   /**
@@ -220,8 +230,9 @@ public class AIAgentModule {
    */
   @Provides
   @Singleton
-  public LangChain4jDeleteDiscordResourceTool provideLangChain4jDeleteDiscordResourceTool() {
-    return new LangChain4jDeleteDiscordResourceTool();
+  public LangChain4jDeleteDiscordResourceTool provideLangChain4jDeleteDiscordResourceTool(
+      DiscordRuntimeGateway discordRuntimeGateway) {
+    return new LangChain4jDeleteDiscordResourceTool(discordRuntimeGateway);
   }
 
   /**
@@ -231,8 +242,9 @@ public class AIAgentModule {
    */
   @Provides
   @Singleton
-  public LangChain4jListRolesTool provideLangChain4jListRolesTool() {
-    return new LangChain4jListRolesTool();
+  public LangChain4jListRolesTool provideLangChain4jListRolesTool(
+      DiscordRuntimeGateway discordRuntimeGateway) {
+    return new LangChain4jListRolesTool(discordRuntimeGateway);
   }
 
   /**
@@ -242,8 +254,9 @@ public class AIAgentModule {
    */
   @Provides
   @Singleton
-  public LangChain4jListCategoriesTool provideLangChain4jListCategoriesTool() {
-    return new LangChain4jListCategoriesTool();
+  public LangChain4jListCategoriesTool provideLangChain4jListCategoriesTool(
+      DiscordRuntimeGateway discordRuntimeGateway) {
+    return new LangChain4jListCategoriesTool(discordRuntimeGateway);
   }
 
   /**
@@ -253,8 +266,9 @@ public class AIAgentModule {
    */
   @Provides
   @Singleton
-  public LangChain4jGetChannelPermissionsTool provideLangChain4jGetChannelPermissionsTool() {
-    return new LangChain4jGetChannelPermissionsTool();
+  public LangChain4jGetChannelPermissionsTool provideLangChain4jGetChannelPermissionsTool(
+      DiscordRuntimeGateway discordRuntimeGateway) {
+    return new LangChain4jGetChannelPermissionsTool(discordRuntimeGateway);
   }
 
   /**
@@ -264,8 +278,9 @@ public class AIAgentModule {
    */
   @Provides
   @Singleton
-  public LangChain4jGetCategoryPermissionsTool provideLangChain4jGetCategoryPermissionsTool() {
-    return new LangChain4jGetCategoryPermissionsTool();
+  public LangChain4jGetCategoryPermissionsTool provideLangChain4jGetCategoryPermissionsTool(
+      DiscordRuntimeGateway discordRuntimeGateway) {
+    return new LangChain4jGetCategoryPermissionsTool(discordRuntimeGateway);
   }
 
   /**
@@ -275,8 +290,9 @@ public class AIAgentModule {
    */
   @Provides
   @Singleton
-  public LangChain4jModifyChannelPermissionsTool provideLangChain4jModifyChannelPermissionsTool() {
-    return new LangChain4jModifyChannelPermissionsTool();
+  public LangChain4jModifyChannelPermissionsTool provideLangChain4jModifyChannelPermissionsTool(
+      DiscordRuntimeGateway discordRuntimeGateway) {
+    return new LangChain4jModifyChannelPermissionsTool(discordRuntimeGateway);
   }
 
   /**
@@ -286,9 +302,9 @@ public class AIAgentModule {
    */
   @Provides
   @Singleton
-  public LangChain4jModifyCategoryPermissionsTool
-      provideLangChain4jModifyCategoryPermissionsTool() {
-    return new LangChain4jModifyCategoryPermissionsTool();
+  public LangChain4jModifyCategoryPermissionsTool provideLangChain4jModifyCategoryPermissionsTool(
+      DiscordRuntimeGateway discordRuntimeGateway) {
+    return new LangChain4jModifyCategoryPermissionsTool(discordRuntimeGateway);
   }
 
   /**
@@ -298,8 +314,9 @@ public class AIAgentModule {
    */
   @Provides
   @Singleton
-  public LangChain4jCreateRoleTool provideLangChain4jCreateRoleTool() {
-    return new LangChain4jCreateRoleTool();
+  public LangChain4jCreateRoleTool provideLangChain4jCreateRoleTool(
+      DiscordRuntimeGateway discordRuntimeGateway) {
+    return new LangChain4jCreateRoleTool(discordRuntimeGateway);
   }
 
   /**
@@ -309,8 +326,9 @@ public class AIAgentModule {
    */
   @Provides
   @Singleton
-  public LangChain4jGetRolePermissionsTool provideLangChain4jGetRolePermissionsTool() {
-    return new LangChain4jGetRolePermissionsTool();
+  public LangChain4jGetRolePermissionsTool provideLangChain4jGetRolePermissionsTool(
+      DiscordRuntimeGateway discordRuntimeGateway) {
+    return new LangChain4jGetRolePermissionsTool(discordRuntimeGateway);
   }
 
   /**
@@ -320,8 +338,9 @@ public class AIAgentModule {
    */
   @Provides
   @Singleton
-  public LangChain4jModifyRolePermissionsTool provideLangChain4jModifyRolePermissionsTool() {
-    return new LangChain4jModifyRolePermissionsTool();
+  public LangChain4jModifyRolePermissionsTool provideLangChain4jModifyRolePermissionsTool(
+      DiscordRuntimeGateway discordRuntimeGateway) {
+    return new LangChain4jModifyRolePermissionsTool(discordRuntimeGateway);
   }
 
   /**
@@ -386,8 +405,9 @@ public class AIAgentModule {
    */
   @Provides
   @Singleton
-  public AgentCompletionListener provideAgentCompletionListener() {
-    return new AgentCompletionListener();
+  public AgentCompletionListener provideAgentCompletionListener(
+      DiscordRuntimeGateway discordRuntimeGateway) {
+    return new AgentCompletionListener(discordRuntimeGateway);
   }
 
   /**
@@ -397,8 +417,9 @@ public class AIAgentModule {
    */
   @Provides
   @Singleton
-  public ToolExecutionListener provideToolExecutionListener() {
-    return new ToolExecutionListener();
+  public ToolExecutionListener provideToolExecutionListener(
+      DiscordRuntimeGateway discordRuntimeGateway) {
+    return new ToolExecutionListener(discordRuntimeGateway);
   }
 
   @Provides
@@ -463,8 +484,8 @@ public class AIAgentModule {
   @Provides
   @Singleton
   public DiscordThreadHistoryProvider provideDiscordThreadHistoryProvider(
-      TokenEstimator tokenEstimator) {
-    return new DiscordThreadHistoryProvider(100, tokenEstimator);
+      TokenEstimator tokenEstimator, DiscordRuntimeGateway discordRuntimeGateway) {
+    return new DiscordThreadHistoryProvider(100, tokenEstimator, discordRuntimeGateway);
   }
 
   /**
@@ -480,8 +501,11 @@ public class AIAgentModule {
   @Provides
   @Singleton
   public ChatMemoryProvider provideChatMemoryProvider(
-      DiscordThreadHistoryProvider threadHistoryProvider, InMemoryToolCallHistory toolCallHistory) {
-    return new SimplifiedChatMemoryProvider(threadHistoryProvider, toolCallHistory);
+      DiscordThreadHistoryProvider threadHistoryProvider,
+      InMemoryToolCallHistory toolCallHistory,
+      DiscordRuntimeGateway discordRuntimeGateway) {
+    return new SimplifiedChatMemoryProvider(
+        threadHistoryProvider, toolCallHistory, discordRuntimeGateway);
   }
 
   /**
@@ -550,7 +574,8 @@ public class AIAgentModule {
       LangChain4jManageMessageTool manageMessageTool,
       LangChain4jMoveChannelTool moveChannelTool,
       LangChain4jDeleteDiscordResourceTool deleteDiscordResourceTool,
-      AIAgentChannelConfigService agentChannelConfigService) {
+      AIAgentChannelConfigService agentChannelConfigService,
+      DiscordRuntimeGateway discordRuntimeGateway) {
     return new LangChain4jAIChatService(
         config,
         promptLoader,
@@ -576,7 +601,8 @@ public class AIAgentModule {
         manageMessageTool,
         moveChannelTool,
         deleteDiscordResourceTool,
-        agentChannelConfigService);
+        agentChannelConfigService,
+        discordRuntimeGateway);
   }
 
   /**

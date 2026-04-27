@@ -12,9 +12,10 @@ import ltdjms.discord.shared.DomainError;
 import ltdjms.discord.shared.Result;
 import ltdjms.discord.shared.Unit;
 import ltdjms.discord.shared.cache.CacheService;
-import ltdjms.discord.shared.di.JDAProvider;
 import ltdjms.discord.shared.events.AIAgentChannelConfigChangedEvent;
 import ltdjms.discord.shared.events.DomainEventPublisher;
+import ltdjms.discord.shared.runtime.DiscordRuntimeGateway;
+import ltdjms.discord.shared.runtime.JdaDiscordRuntimeGateway;
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.channel.ChannelType;
 import net.dv8tion.jda.api.entities.channel.concrete.ThreadChannel;
@@ -33,6 +34,7 @@ public class DefaultAIAgentChannelConfigService implements AIAgentChannelConfigS
   private final AIAgentChannelConfigRepository repository;
   private final CacheService cacheService;
   private final DomainEventPublisher eventPublisher;
+  private final DiscordRuntimeGateway discordRuntimeGateway;
 
   /** 快取鍵格式 */
   private static final String CACHE_KEY_FORMAT = "ai:agent:config:%d:%d";
@@ -51,9 +53,26 @@ public class DefaultAIAgentChannelConfigService implements AIAgentChannelConfigS
       AIAgentChannelConfigRepository repository,
       CacheService cacheService,
       DomainEventPublisher eventPublisher) {
+    this(repository, cacheService, eventPublisher, new JdaDiscordRuntimeGateway());
+  }
+
+  /**
+   * 建立服務。
+   *
+   * @param repository 配置 Repository
+   * @param cacheService 快取服務
+   * @param eventPublisher 事件發布器
+   * @param discordRuntimeGateway Discord runtime gateway
+   */
+  public DefaultAIAgentChannelConfigService(
+      AIAgentChannelConfigRepository repository,
+      CacheService cacheService,
+      DomainEventPublisher eventPublisher,
+      DiscordRuntimeGateway discordRuntimeGateway) {
     this.repository = repository;
     this.cacheService = cacheService;
     this.eventPublisher = eventPublisher;
+    this.discordRuntimeGateway = discordRuntimeGateway;
   }
 
   @Override
@@ -101,7 +120,7 @@ public class DefaultAIAgentChannelConfigService implements AIAgentChannelConfigS
    */
   private long resolveEffectiveChannelId(long guildId, long channelId) {
     try {
-      Guild guild = JDAProvider.getJda().getGuildById(guildId);
+      Guild guild = discordRuntimeGateway.getGuildById(guildId);
       if (guild == null) {
         LOGGER.debug("Guild {} 不存在", guildId);
         return -1;

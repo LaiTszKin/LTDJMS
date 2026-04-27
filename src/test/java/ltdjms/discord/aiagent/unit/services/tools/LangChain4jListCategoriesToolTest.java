@@ -16,7 +16,7 @@ import org.junit.jupiter.api.Test;
 import dev.langchain4j.invocation.InvocationParameters;
 import ltdjms.discord.aiagent.services.ToolExecutionContext;
 import ltdjms.discord.aiagent.services.tools.LangChain4jListCategoriesTool;
-import ltdjms.discord.shared.di.JDAProvider;
+import ltdjms.discord.shared.runtime.DiscordRuntimeGateway;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.entities.Guild;
@@ -52,19 +52,18 @@ class LangChain4jListCategoriesToolTest {
 
   private Guild mockGuild;
   private JDA mockJda;
+  private DiscordRuntimeGateway discordRuntimeGateway;
   private LangChain4jListCategoriesTool tool;
 
   @BeforeEach
   void setUp() {
     mockGuild = mock(Guild.class);
     mockJda = mock(JDA.class);
-    tool = new LangChain4jListCategoriesTool();
-
-    // 設定 JDAProvider
-    JDAProvider.setJda(mockJda);
+    discordRuntimeGateway = mock(DiscordRuntimeGateway.class);
+    tool = new LangChain4jListCategoriesTool(discordRuntimeGateway);
 
     // 設定 JDA 基本行為
-    when(mockJda.getGuildById(TEST_GUILD_ID)).thenReturn(mockGuild);
+    when(discordRuntimeGateway.getGuildById(TEST_GUILD_ID)).thenReturn(mockGuild);
     Member mockCaller = mock(Member.class);
     when(mockGuild.getMemberById(TEST_USER_ID)).thenReturn(mockCaller);
     when(mockCaller.hasPermission(Permission.ADMINISTRATOR)).thenReturn(true);
@@ -76,7 +75,6 @@ class LangChain4jListCategoriesToolTest {
   @AfterEach
   void tearDown() {
     ToolExecutionContext.clearContext();
-    JDAProvider.clear();
   }
 
   /**
@@ -175,7 +173,7 @@ class LangChain4jListCategoriesToolTest {
     @DisplayName("當找不到伺服器時，應返回錯誤")
     void shouldReturnErrorWhenGuildNotFound() {
       // Given
-      when(mockJda.getGuildById(TEST_GUILD_ID)).thenReturn(null);
+      when(discordRuntimeGateway.getGuildById(TEST_GUILD_ID)).thenReturn(null);
 
       // When
       String result = tool.listCategories(createMockInvocationParameters());

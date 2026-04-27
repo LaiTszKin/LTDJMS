@@ -17,7 +17,7 @@ import org.junit.jupiter.api.Test;
 import dev.langchain4j.invocation.InvocationParameters;
 import ltdjms.discord.aiagent.services.ToolExecutionContext;
 import ltdjms.discord.aiagent.services.tools.LangChain4jGetCategoryPermissionsTool;
-import ltdjms.discord.shared.di.JDAProvider;
+import ltdjms.discord.shared.runtime.DiscordRuntimeGateway;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.entities.Guild;
@@ -38,17 +38,17 @@ class LangChain4jGetCategoryPermissionsToolTest {
 
   private Guild mockGuild;
   private JDA mockJda;
+  private DiscordRuntimeGateway discordRuntimeGateway;
   private LangChain4jGetCategoryPermissionsTool tool;
 
   @BeforeEach
   void setUp() {
     mockGuild = mock(Guild.class);
     mockJda = mock(JDA.class);
-    tool = new LangChain4jGetCategoryPermissionsTool();
+    discordRuntimeGateway = mock(DiscordRuntimeGateway.class);
+    tool = new LangChain4jGetCategoryPermissionsTool(discordRuntimeGateway);
 
-    JDAProvider.setJda(mockJda);
-
-    when(mockJda.getGuildById(TEST_GUILD_ID)).thenReturn(mockGuild);
+    when(discordRuntimeGateway.getGuildById(TEST_GUILD_ID)).thenReturn(mockGuild);
     Member mockCaller = mock(Member.class);
     when(mockGuild.getMemberById(TEST_USER_ID)).thenReturn(mockCaller);
     when(mockCaller.hasPermission(Permission.ADMINISTRATOR)).thenReturn(true);
@@ -59,7 +59,6 @@ class LangChain4jGetCategoryPermissionsToolTest {
   @AfterEach
   void tearDown() {
     ToolExecutionContext.clearContext();
-    JDAProvider.clear();
   }
 
   private InvocationParameters createMockInvocationParameters() {
@@ -202,7 +201,7 @@ class LangChain4jGetCategoryPermissionsToolTest {
     @Test
     @DisplayName("當找不到伺服器時，應返回錯誤")
     void shouldReturnErrorWhenGuildNotFound() {
-      when(mockJda.getGuildById(TEST_GUILD_ID)).thenReturn(null);
+      when(discordRuntimeGateway.getGuildById(TEST_GUILD_ID)).thenReturn(null);
 
       String result =
           tool.getCategoryPermissions(

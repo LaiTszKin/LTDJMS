@@ -7,15 +7,12 @@ import static org.mockito.Mockito.when;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import dev.langchain4j.invocation.InvocationParameters;
 import ltdjms.discord.aiagent.services.tools.LangChain4jSendMessagesTool;
-import ltdjms.discord.shared.di.JDAProvider;
-import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.Member;
@@ -33,14 +30,14 @@ class LangChain4jSendMessagesToolTest {
   private static final long TEST_TARGET_CHANNEL_2 = 523456789012345678L;
 
   private LangChain4jSendMessagesTool tool;
-  private JDA mockJda;
   private Guild mockGuild;
+  private ltdjms.discord.shared.runtime.DiscordRuntimeGateway discordRuntimeGateway;
   private InvocationParameters parameters;
 
   @BeforeEach
   void setUp() {
-    tool = new LangChain4jSendMessagesTool();
-    mockJda = mock(JDA.class);
+    discordRuntimeGateway = mock(ltdjms.discord.shared.runtime.DiscordRuntimeGateway.class);
+    tool = new LangChain4jSendMessagesTool(discordRuntimeGateway);
     mockGuild = mock(Guild.class);
     parameters = new InvocationParameters();
 
@@ -48,17 +45,11 @@ class LangChain4jSendMessagesToolTest {
     parameters.put("channelId", TEST_CURRENT_CHANNEL_ID);
     parameters.put("userId", TEST_USER_ID);
 
-    JDAProvider.setJda(mockJda);
-    when(mockJda.getGuildById(TEST_GUILD_ID)).thenReturn(mockGuild);
+    when(discordRuntimeGateway.getGuildById(TEST_GUILD_ID)).thenReturn(mockGuild);
 
     Member caller = mock(Member.class);
     when(mockGuild.getMemberById(TEST_USER_ID)).thenReturn(caller);
     when(caller.hasPermission(Permission.ADMINISTRATOR)).thenReturn(true);
-  }
-
-  @AfterEach
-  void tearDown() {
-    JDAProvider.clear();
   }
 
   @Test

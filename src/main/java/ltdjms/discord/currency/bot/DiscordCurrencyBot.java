@@ -95,8 +95,8 @@ public class DiscordCurrencyBot {
     // Wait for JDA to be ready
     jda.awaitReady();
 
-    // 設置 JDA 到 Provider，讓 AI Agent 工具可以訪問
-    JDAProvider.setJda(jda);
+    // 先發布到 transitional bridge，供尚未遷移的 bootstrap / legacy code 使用。
+    publishRuntime(jda);
 
     // 啟動綠界付款回推監聽伺服器
     ecpayCallbackHttpServer.start();
@@ -124,6 +124,10 @@ public class DiscordCurrencyBot {
    */
   public AppComponent getAppComponent() {
     return appComponent;
+  }
+
+  static void publishRuntime(JDA jda) {
+    JDAProvider.setJda(jda);
   }
 
   /** Shuts down the bot gracefully. */

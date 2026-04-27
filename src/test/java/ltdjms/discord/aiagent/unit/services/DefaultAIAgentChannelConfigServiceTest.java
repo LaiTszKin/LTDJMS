@@ -25,9 +25,8 @@ import ltdjms.discord.aiagent.persistence.AIAgentChannelConfigRepository;
 import ltdjms.discord.aiagent.services.DefaultAIAgentChannelConfigService;
 import ltdjms.discord.shared.Result;
 import ltdjms.discord.shared.cache.CacheService;
-import ltdjms.discord.shared.di.JDAProvider;
 import ltdjms.discord.shared.events.DomainEventPublisher;
-import net.dv8tion.jda.api.JDA;
+import ltdjms.discord.shared.runtime.DiscordRuntimeGateway;
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.channel.ChannelType;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
@@ -55,7 +54,7 @@ class DefaultAIAgentChannelConfigServiceTest {
   @Mock private AIAgentChannelConfigRepository repository;
   @Mock private CacheService cacheService;
   @Mock private DomainEventPublisher eventPublisher;
-  @Mock private JDA jda;
+  @Mock private DiscordRuntimeGateway discordRuntimeGateway;
   @Mock private Guild guild;
   @Mock private IThreadContainerUnion parentChannelUnion;
   @Mock private TextChannel parentChannel;
@@ -68,14 +67,13 @@ class DefaultAIAgentChannelConfigServiceTest {
   void setUp() {
     mocks = MockitoAnnotations.openMocks(this);
 
-    // 設置 JDAProvider
-    JDAProvider.setJda(jda);
-
     // 建立服務
-    service = new DefaultAIAgentChannelConfigService(repository, cacheService, eventPublisher);
+    service =
+        new DefaultAIAgentChannelConfigService(
+            repository, cacheService, eventPublisher, discordRuntimeGateway);
 
     // 設置預設的 mock 行為
-    when(jda.getGuildById(GUILD_ID)).thenReturn(guild);
+    when(discordRuntimeGateway.getGuildById(GUILD_ID)).thenReturn(guild);
     when(guild.getGuildChannelById(anyLong()))
         .thenAnswer(
             invocation -> {
@@ -102,7 +100,6 @@ class DefaultAIAgentChannelConfigServiceTest {
   @AfterEach
   void tearDown() throws Exception {
     mocks.close();
-    JDAProvider.clear();
   }
 
   @Nested
@@ -188,7 +185,7 @@ class DefaultAIAgentChannelConfigServiceTest {
     @Test
     void isAgentEnabled_當Guild不存在_返回false() {
       // Arrange
-      when(jda.getGuildById(GUILD_ID)).thenReturn(null);
+      when(discordRuntimeGateway.getGuildById(GUILD_ID)).thenReturn(null);
 
       // Act
       boolean result = service.isAgentEnabled(GUILD_ID, CHANNEL_ID);

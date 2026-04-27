@@ -11,7 +11,8 @@ import org.slf4j.LoggerFactory;
 import dev.langchain4j.agent.tool.P;
 import dev.langchain4j.agent.tool.Tool;
 import dev.langchain4j.invocation.InvocationParameters;
-import ltdjms.discord.shared.di.JDAProvider;
+import ltdjms.discord.shared.runtime.DiscordRuntimeGateway;
+import ltdjms.discord.shared.runtime.JdaDiscordRuntimeGateway;
 import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.Role;
@@ -23,10 +24,15 @@ public final class LangChain4jModifyRolePermissionsTool {
   private static final Logger LOGGER =
       LoggerFactory.getLogger(LangChain4jModifyRolePermissionsTool.class);
   private static final int MAX_ROLE_NAME_LENGTH = 100;
+  private final DiscordRuntimeGateway discordRuntimeGateway;
 
   @Inject
+  public LangChain4jModifyRolePermissionsTool(DiscordRuntimeGateway discordRuntimeGateway) {
+    this.discordRuntimeGateway = discordRuntimeGateway;
+  }
+
   public LangChain4jModifyRolePermissionsTool() {
-    // JDA 將從 JDAProvider 延遲獲取
+    this(new JdaDiscordRuntimeGateway());
   }
 
   @Tool(
@@ -70,7 +76,7 @@ public final class LangChain4jModifyRolePermissionsTool {
     }
 
     // 3. 獲取 Guild
-    Guild guild = JDAProvider.getJda().getGuildById(guildId);
+    Guild guild = discordRuntimeGateway.getGuildById(guildId);
     if (guild == null) {
       return buildErrorResponse("找不到伺服器");
     }

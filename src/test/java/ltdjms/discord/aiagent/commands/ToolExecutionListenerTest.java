@@ -15,10 +15,9 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
-import ltdjms.discord.shared.di.JDAProvider;
 import ltdjms.discord.shared.events.LangChain4jToolExecutedEvent;
 import ltdjms.discord.shared.events.LangChain4jToolExecutionStartedEvent;
-import net.dv8tion.jda.api.JDA;
+import ltdjms.discord.shared.runtime.DiscordRuntimeGateway;
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.channel.concrete.ThreadChannel;
 import net.dv8tion.jda.api.requests.restaction.MessageCreateAction;
@@ -28,22 +27,19 @@ import net.dv8tion.jda.api.requests.restaction.MessageCreateAction;
 class ToolExecutionListenerTest {
 
   private ToolExecutionListener listener;
-  private JDA jda;
+  private DiscordRuntimeGateway discordRuntimeGateway;
   private Guild guild;
   private ThreadChannel threadChannel;
   private MessageCreateAction messageCreateAction;
 
   @BeforeEach
   void setUp() {
-    listener = new ToolExecutionListener();
+    discordRuntimeGateway = mock(DiscordRuntimeGateway.class);
+    listener = new ToolExecutionListener(discordRuntimeGateway);
 
-    jda = mock(JDA.class);
     guild = mock(Guild.class);
     threadChannel = mock(ThreadChannel.class);
     messageCreateAction = mock(MessageCreateAction.class);
-
-    // Setup JDAProvider mock
-    JDAProvider.setJda(jda);
 
     // Mock sendMessage behavior
     when(threadChannel.sendMessage(any(CharSequence.class))).thenReturn(messageCreateAction);
@@ -58,7 +54,7 @@ class ToolExecutionListenerTest {
     @DisplayName("should handle LangChain4jToolExecutionStartedEvent")
     void shouldHandleToolExecutionStartedEvent() {
       // Given
-      when(jda.getGuildById(anyLong())).thenReturn(guild);
+      when(discordRuntimeGateway.getGuildById(anyLong())).thenReturn(guild);
       when(guild.getThreadChannelById(anyLong())).thenReturn(threadChannel);
 
       LangChain4jToolExecutionStartedEvent event =
@@ -75,7 +71,7 @@ class ToolExecutionListenerTest {
     @DisplayName("should handle LangChain4jToolExecutedEvent with success")
     void shouldHandleToolExecutedEventWithSuccess() {
       // Given
-      when(jda.getGuildById(anyLong())).thenReturn(guild);
+      when(discordRuntimeGateway.getGuildById(anyLong())).thenReturn(guild);
       when(guild.getThreadChannelById(anyLong())).thenReturn(threadChannel);
 
       LangChain4jToolExecutedEvent event =
@@ -93,7 +89,7 @@ class ToolExecutionListenerTest {
     @DisplayName("should handle LangChain4jToolExecutedEvent with failure")
     void shouldHandleToolExecutedEventWithFailure() {
       // Given
-      when(jda.getGuildById(anyLong())).thenReturn(guild);
+      when(discordRuntimeGateway.getGuildById(anyLong())).thenReturn(guild);
       when(guild.getThreadChannelById(anyLong())).thenReturn(threadChannel);
 
       LangChain4jToolExecutedEvent event =
@@ -126,7 +122,7 @@ class ToolExecutionListenerTest {
     @DisplayName("should send started message when tool is about to execute")
     void shouldSendStartedMessage() {
       // Given
-      when(jda.getGuildById(123L)).thenReturn(guild);
+      when(discordRuntimeGateway.getGuildById(123L)).thenReturn(guild);
       when(guild.getThreadChannelById(456L)).thenReturn(threadChannel);
 
       LangChain4jToolExecutionStartedEvent event =
@@ -143,7 +139,7 @@ class ToolExecutionListenerTest {
     @DisplayName("should not send started message when guild is not found")
     void shouldNotSendStartedMessageWhenGuildNotFound() {
       // Given
-      when(jda.getGuildById(123L)).thenReturn(null);
+      when(discordRuntimeGateway.getGuildById(123L)).thenReturn(null);
 
       LangChain4jToolExecutionStartedEvent event =
           new LangChain4jToolExecutionStartedEvent(123L, 456L, 789L, "WeatherTool", Instant.now());
@@ -164,7 +160,7 @@ class ToolExecutionListenerTest {
     @DisplayName("should send success message when tool executes successfully")
     void shouldSendSuccessMessage() {
       // Given
-      when(jda.getGuildById(123L)).thenReturn(guild);
+      when(discordRuntimeGateway.getGuildById(123L)).thenReturn(guild);
       when(guild.getThreadChannelById(456L)).thenReturn(threadChannel);
 
       LangChain4jToolExecutedEvent event =
@@ -182,7 +178,7 @@ class ToolExecutionListenerTest {
     @DisplayName("should send failure message when tool execution fails")
     void shouldSendFailureMessage() {
       // Given
-      when(jda.getGuildById(123L)).thenReturn(guild);
+      when(discordRuntimeGateway.getGuildById(123L)).thenReturn(guild);
       when(guild.getThreadChannelById(456L)).thenReturn(threadChannel);
 
       LangChain4jToolExecutedEvent event =
@@ -200,7 +196,7 @@ class ToolExecutionListenerTest {
     @DisplayName("should not send message when guild is not found")
     void shouldNotSendMessageWhenGuildNotFound() {
       // Given
-      when(jda.getGuildById(123L)).thenReturn(null);
+      when(discordRuntimeGateway.getGuildById(123L)).thenReturn(null);
 
       LangChain4jToolExecutedEvent event =
           new LangChain4jToolExecutedEvent(
@@ -217,7 +213,7 @@ class ToolExecutionListenerTest {
     @DisplayName("should not send message when channel is not found")
     void shouldNotSendMessageWhenChannelNotFound() {
       // Given
-      when(jda.getGuildById(123L)).thenReturn(guild);
+      when(discordRuntimeGateway.getGuildById(123L)).thenReturn(guild);
       when(guild.getThreadChannelById(456L)).thenReturn(null);
 
       LangChain4jToolExecutedEvent event =

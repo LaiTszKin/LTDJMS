@@ -3,7 +3,8 @@ package ltdjms.discord.shop.services;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import ltdjms.discord.shared.di.JDAProvider;
+import ltdjms.discord.shared.runtime.DiscordRuntimeGateway;
+import ltdjms.discord.shared.runtime.JdaDiscordRuntimeGateway;
 import ltdjms.discord.shop.domain.FiatOrder;
 
 /** Sends buyer-facing direct-message notifications for fiat orders. */
@@ -11,6 +12,15 @@ public class FiatOrderBuyerNotificationService {
 
   private static final Logger LOG =
       LoggerFactory.getLogger(FiatOrderBuyerNotificationService.class);
+  private final DiscordRuntimeGateway discordRuntimeGateway;
+
+  public FiatOrderBuyerNotificationService() {
+    this(new JdaDiscordRuntimeGateway());
+  }
+
+  public FiatOrderBuyerNotificationService(DiscordRuntimeGateway discordRuntimeGateway) {
+    this.discordRuntimeGateway = discordRuntimeGateway;
+  }
 
   public void notifyPaymentSucceeded(FiatOrder order) {
     if (order == null) {
@@ -18,7 +28,7 @@ public class FiatOrderBuyerNotificationService {
     }
 
     try {
-      JDAProvider.getJda()
+      discordRuntimeGateway
           .retrieveUserById(order.buyerUserId())
           .queue(
               buyerUser ->

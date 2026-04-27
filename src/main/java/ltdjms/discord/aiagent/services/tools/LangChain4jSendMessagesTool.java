@@ -13,7 +13,8 @@ import org.slf4j.LoggerFactory;
 import dev.langchain4j.agent.tool.P;
 import dev.langchain4j.agent.tool.Tool;
 import dev.langchain4j.invocation.InvocationParameters;
-import ltdjms.discord.shared.di.JDAProvider;
+import ltdjms.discord.shared.runtime.DiscordRuntimeGateway;
+import ltdjms.discord.shared.runtime.JdaDiscordRuntimeGateway;
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.Message;
 import net.dv8tion.jda.api.entities.channel.middleman.GuildChannel;
@@ -28,10 +29,15 @@ public final class LangChain4jSendMessagesTool {
   private static final int MAX_MESSAGES = 10;
   private static final int MAX_MESSAGE_LENGTH = 2000;
   private static final int ACTION_TIMEOUT_SECONDS = 10;
+  private final DiscordRuntimeGateway discordRuntimeGateway;
 
   @Inject
+  public LangChain4jSendMessagesTool(DiscordRuntimeGateway discordRuntimeGateway) {
+    this.discordRuntimeGateway = discordRuntimeGateway;
+  }
+
   public LangChain4jSendMessagesTool() {
-    // JDA 將從 JDAProvider 延遲獲取
+    this(new JdaDiscordRuntimeGateway());
   }
 
   /**
@@ -87,7 +93,7 @@ public final class LangChain4jSendMessagesTool {
       return ToolJsonResponses.error("guildId 未設置");
     }
 
-    Guild guild = JDAProvider.getJda().getGuildById(guildId);
+    Guild guild = discordRuntimeGateway.getGuildById(guildId);
     if (guild == null) {
       LOGGER.warn("LangChain4jSendMessagesTool: 找不到指定的伺服器: {}", guildId);
       return ToolJsonResponses.error("找不到伺服器");
