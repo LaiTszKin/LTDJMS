@@ -137,6 +137,27 @@ class FiatOrderPostPaymentWorkerTest {
         .handoffFromFiatPayment(order.guildId(), order.buyerUserId(), product, order.orderNumber());
   }
 
+  @Test
+  @DisplayName("管理員通知 claim 已被佔用時不應標記 fulfilled")
+  void shouldReleaseFulfillmentWhenAdminNotificationClaimFails() {
+    FiatOrder order = paidOrder();
+    Product product = order.toFulfillmentProduct();
+    when(fiatOrderRepository.claimFulfillmentProcessing(eq(order.orderNumber()), any()))
+        .thenReturn(true);
+    when(escortDispatchHandoffService.handoffFromFiatPayment(
+            eq(order.guildId()), eq(order.buyerUserId()), eq(product), eq(order.orderNumber())))
+        .thenReturn(Result.ok(autoDispatchOrder(order, product)));
+    when(fiatOrderRepository.claimAdminNotificationProcessing(eq(order.orderNumber()), any()))
+        .thenReturn(false);
+
+    worker.processSingleOrder(order);
+
+    verify(adminNotificationService, never()).notifyAdminsOrderCreated(anyLong(), anyLong(), any());
+    verify(fiatOrderRepository).releaseFulfillmentProcessing(order.orderNumber());
+    verify(fiatOrderRepository, never()).markAdminNotifiedIfNeeded(any(), any());
+    verify(fiatOrderRepository, never()).markFulfilledIfNeeded(any(), any());
+  }
+
   private FiatOrder paidOrder() {
     return new FiatOrder(
         1L,

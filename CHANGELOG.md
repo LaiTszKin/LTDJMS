@@ -4,12 +4,29 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+- **discord/runtime**: 新增注入式 `DiscordRuntimeGateway` 作為 Discord runtime access 的正式邊界，並保留 `JDAProvider` 作為短期 bootstrap compatibility bridge
+- **shop/fiat**: 法幣訂單新增履約快照、到期 terminal state、付款後重試 claim、買家 / 管理員通知與獎勵發放的冪等狀態欄位
+- **dispatch/handoff**: 付款後護航商品會建立 durable `EscortDispatchOrder` handoff，並以來源類型與來源訂單編號保持冪等
+
+### Changed
+- **aichat/aiagent**: mention routing 改為先判斷 AI Agent 啟用，再回落一般 AI allowlist，讓 Agent 頻道可獨立於 AI Chat 白名單運作
+- **aiagent/memory**: AI Agent runtime memory 明確收斂到 `SimplifiedChatMemoryProvider`，legacy conversation persistence 降為 audit / diagnostic 兼容用途
+- **panel/admin**: admin panel session refresh 改為可枚舉 guild session 並在 guild-wide 事件後實際刷新面板
+- **shop/fiat**: post-payment worker 使用訂單建立時的履約快照重播獎勵與護航交接，不再回查 live product 決定已付款訂單履約內容
+
 ### Fixed
 - **shop/migrations**: 修正 `V024__rework_fiat_order_processing_and_drop_backend_fulfillment.sql` 在既有 `product_auto_escort_requires_option` constraint 已存在時的重跑失敗，讓 Flyway migration 對整合測試與既有 schema 都保持可重入
+- **shop/fiat**: 管理員通知 claim 已被佔用時，付款後 worker 會保留 fulfilled 未完成並釋放 fulfillment claim，避免跳過通知後永久停止重試
 
 ### Docs
-- **docs/plans**: 新增目前 open architecture issues 的重構規格批次，拆分 AI Agent gating、法幣訂單生命週期、護航交接、admin panel refresh、AI memory 與 Discord runtime access 後續實作計畫
+- **docs/plans**: 歸檔 `architecture-refactor-open-issues` 完成規格批次，並同步 AI Agent gating、法幣訂單生命週期、護航交接、admin panel refresh、AI memory 與 Discord runtime access 的 durable docs
 - **development/testing**: 補充 migration 變更時的可重入性與 `DatabaseMigrationRunnerIntegrationTest` 驗證要求
+
+### Tests
+- 執行 `make format-check`，檢查通過
+- 執行 `mvn -q -Dtest=FiatOrderPostPaymentWorkerTest test`，測試通過
+- 執行 `make test`，共 `2553` tests（`0` failures / `0` errors，`14` skipped），測試通過
 
 ## [0.35.0] - 2026-04-11
 

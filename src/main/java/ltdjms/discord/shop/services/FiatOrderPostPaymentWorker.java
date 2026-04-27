@@ -100,6 +100,10 @@ public class FiatOrderPostPaymentWorker {
             fiatOrderRepository.releaseAdminNotificationProcessing(order.orderNumber());
             throw e;
           }
+        } else {
+          throw new IllegalStateException(
+              "Fiat admin notification is already being processed: orderNumber="
+                  + order.orderNumber());
         }
       }
 
