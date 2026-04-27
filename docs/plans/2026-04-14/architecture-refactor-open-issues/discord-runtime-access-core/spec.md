@@ -28,9 +28,9 @@
 **AND** 不可再把 mutable static global state 當成主要邊界
 
 **Requirements**:
-- [ ] R1.1 新的 runtime gateway 必須可在 JDA ready 之後由 bootstrap 安全發布到 DI graph
-- [ ] R1.2 gateway 介面必須只暴露本 repo 真正需要的最小能力，而不是把整個 JDA API 無限制外露
-- [ ] R1.3 gateway 尚未 ready 時，錯誤語意必須明確且可測
+- [x] R1.1 新的 runtime gateway 已可在 JDA `awaitReady()` 後由 bootstrap 安全發布到 DI graph；`DiscordCurrencyBot.publishRuntime(...)` 只負責把 ready JDA 發入 injected gateway，並由 `DiscordModuleIntegrationTest` 驗證 singleton wiring。
+- [x] R1.2 gateway 介面已收斂為本 repo 需要的最小能力：`findGuild`、`findGuildChannel`、`findThreadChannel`、`selfUserId` 與 ready publication / lookup；未將整個 JDA API 無限制外露。
+- [x] R1.3 gateway 尚未 ready 時，會以 `DiscordRuntimeNotReadyException` 明確失敗，`JdaDiscordRuntimeGatewayTest` 已覆蓋 not-ready path。
 
 ### Requirement 2: Compatibility bridge 必須是暫時且可控的
 **GIVEN** 批次中仍有未遷移的 call sites  
@@ -39,9 +39,9 @@
 **AND** 該 bridge 必須被明示為 transitional-only，而不是新的長期 canonical owner
 
 **Requirements**:
-- [ ] R2.1 `JDAProvider` 若暫時保留，必須被降級為 bridge，且新程式碼不得新增依賴
-- [ ] R2.2 core spec 需提供讓 call site migration 可逐步遷移的 adapter surface
-- [ ] R2.3 測試必須能在不碰 global singleton 的情況下驗證 gateway 行為
+- [x] R2.1 `JDAProvider` 已降級為 transitional-only bridge，文件與程式碼都明示新程式不得再以其作為主要邊界。
+- [x] R2.2 core spec 已提供可逐步遷移的 adapter surface：正式 DI gateway + 短期 bridge，讓 call site migration 可分批替換。
+- [x] R2.3 測試已能在不依賴 global singleton 作為核心驗證邊界的情況下驗證 gateway 行為；`JdaDiscordRuntimeGatewayTest` 與 `DiscordModuleIntegrationTest` 都直接測 injected gateway。
 
 ### Requirement 3: 文件與模組邊界必須對齊新抽象
 **GIVEN** 專案文件宣稱存在 `discord` abstraction layer  
@@ -50,16 +50,16 @@
 **AND** 不可再讓 `JDAProvider` 與文件中的 abstraction 同時聲稱自己是 owner
 
 **Requirements**:
-- [ ] R3.1 文件必須更新為新 gateway / adapter 模型
-- [ ] R3.2 Dagger wiring、bootstrap、測試 helper 必須對齊新抽象
-- [ ] R3.3 若 bridge 尚保留，文件必須寫明其刪除條件與存活範圍
+- [x] R3.1 文件已更新為新 gateway / adapter 模型，並以 `DiscordRuntimeGateway` 作為 runtime access canonical owner。
+- [x] R3.2 Dagger wiring、bootstrap、測試 helper 已對齊新抽象：`DiscordModule` 提供 gateway、`AppComponent` 直接暴露 gateway、測試 component 以 singleton scope 取得同一實例。
+- [x] R3.3 文件已寫明 bridge 仍保留的刪除條件與存活範圍：僅作 transitional bridge，待 call site migration 完成後刪除。
 
 ## Error and Edge Cases
-- [ ] JDA 尚未 ready 時，gateway 不得回傳模糊 null 或迫使呼叫端猜測狀態
-- [ ] 多執行緒下發布/讀取 runtime handle 時不得暴露部分初始化狀態
-- [ ] 不可把整個 JDA 物件無限制下放到所有模組，否則只是把 static 換成 injected global
-- [ ] bridge 存在期間要防止新模組繼續新增 direct static dependency
-- [ ] 測試不應再需要 `setJda()` / `clear()` 才能跑核心抽象層驗證
+- [x] JDA 尚未 ready 時，gateway 會丟出 `DiscordRuntimeNotReadyException`，不會回傳模糊 null。
+- [x] 多執行緒下發布/讀取 runtime handle 時不會暴露部分初始化狀態；`AtomicReference` + single publish guard 已封住重複發布與可見性問題。
+- [x] 不可把整個 JDA 物件無限制下放到所有模組：目前只在 gateway 邊界保留 `requireReadyJda()`，其餘業務面使用窄介面查詢。
+- [x] bridge 存在期間仍以文件與程式碼註解限制其用途，不把它視為 canonical owner。
+- [x] 核心 gateway 驗證測試已不需要 `setJda()` / `clear()` 來驅動；bridge 只保留給尚未遷移的既有 call sites 與少量相容測試。
 
 ## Clarification Questions
 None

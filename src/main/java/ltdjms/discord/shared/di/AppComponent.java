@@ -15,6 +15,7 @@ import ltdjms.discord.currency.persistence.MemberCurrencyAccountRepository;
 import ltdjms.discord.currency.services.BalanceAdjustmentService;
 import ltdjms.discord.currency.services.BalanceService;
 import ltdjms.discord.currency.services.CurrencyConfigService;
+import ltdjms.discord.discord.domain.DiscordRuntimeGateway;
 import ltdjms.discord.dispatch.commands.DispatchPanelInteractionHandler;
 import ltdjms.discord.gametoken.commands.DiceGame1CommandHandler;
 import ltdjms.discord.gametoken.commands.DiceGame2CommandHandler;
@@ -62,6 +63,7 @@ import ltdjms.discord.shop.services.FiatOrderProcessingScheduler;
       ProductRepositoryModule.class,
       ProductServiceModule.class,
       DispatchModule.class,
+      DiscordModule.class,
       CommandHandlerModule.class,
       EventModule.class,
       AIChatModule.class,
@@ -79,6 +81,9 @@ public interface AppComponent {
   CacheService cacheService();
 
   CacheKeyGenerator cacheKeyGenerator();
+
+  // Discord runtime access
+  DiscordRuntimeGateway discordRuntimeGateway();
 
   // Events
   DomainEventPublisher domainEventPublisher();
