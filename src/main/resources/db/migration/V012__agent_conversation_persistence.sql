@@ -1,8 +1,8 @@
--- AI Agent 會話持久化功能
+-- AI Agent legacy conversation artifacts
 -- Migration: V012__agent_conversation_persistence.sql
--- Description: 建立會話與訊息持久化儲存結構，支援 Redis 快取與 PostgreSQL 混合存儲
+-- Description: 建立 legacy conversation 與訊息結構，僅供 deprecated persistence / audit 兼容說明
 
--- AI Agent 會話表
+-- AI Agent legacy 會話表
 -- 支援兩種會話範圍：訊息級別（一般頻道）與討論串級別（Discord Thread）
 CREATE TABLE IF NOT EXISTS agent_conversation (
     conversation_id VARCHAR(255) PRIMARY KEY,
@@ -45,13 +45,13 @@ CREATE TRIGGER update_agent_conversation_updated_at
     FOR EACH ROW
     EXECUTE FUNCTION update_updated_at_column();
 
--- 註解：說明表用途
-COMMENT ON TABLE agent_conversation IS 'AI Agent 會話表，支援頻道訊息級別和討論串級別的會話';
+-- 註解：說明表用途（非 runtime canonical）
+COMMENT ON TABLE agent_conversation IS 'AI Agent legacy 會話表，僅供 deprecated persistence / audit 兼容用途';
 COMMENT ON COLUMN agent_conversation.thread_id IS '討論串 ID，NULL 表示一般頻道訊息（每則訊息獨立會話）';
 COMMENT ON COLUMN agent_conversation.iteration_count IS '當前工具調用迭代次數';
 COMMENT ON COLUMN agent_conversation.last_activity IS '最後活動時間，用於會話過期判斷';
 
--- AI 會話訊息表
+-- AI legacy 會話訊息表
 -- 儲存會話中的所有對話訊息（用戶、AI 回應、工具執行結果）
 CREATE TABLE IF NOT EXISTS agent_conversation_message (
     id BIGSERIAL PRIMARY KEY,
@@ -80,8 +80,8 @@ CREATE INDEX IF NOT EXISTS idx_message_conversation_timestamp
 -- 索引：加速按角色查詢
 CREATE INDEX IF NOT EXISTS idx_message_role ON agent_conversation_message(role);
 
--- 註解：說明表用途
-COMMENT ON TABLE agent_conversation_message IS 'AI 會話訊息表，儲存會話中的所有對話訊息';
+-- 註解：說明表用途（非 runtime canonical）
+COMMENT ON TABLE agent_conversation_message IS 'AI Agent legacy 會話訊息表，僅供 deprecated persistence / audit 兼容用途';
 COMMENT ON COLUMN agent_conversation_message.role IS '訊息角色：USER（用戶）、ASSISTANT（AI 回應）、TOOL（工具執行結果）';
 COMMENT ON COLUMN agent_conversation_message.tool_name IS '工具名稱，僅當 role=TOOL 時有值';
 COMMENT ON COLUMN agent_conversation_message.tool_parameters IS '工具參數（JSONB 格式），僅當 role=TOOL 時有值';

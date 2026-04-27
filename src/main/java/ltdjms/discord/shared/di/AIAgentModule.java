@@ -67,7 +67,8 @@ import ltdjms.discord.shared.events.DomainEventPublisher;
  *   <li>AI Agent 頻道配置 Repository 與 Service
  *   <li>工具執行日誌 Repository（用於審計）
  *   <li>LangChain4J 工具（CreateChannelTool、CreateCategoryTool、ListChannelsTool）
- *   <li>LangChain4J ChatMemoryProvider（整合 Redis + PostgreSQL）
+ *   <li>LangChain4J ChatMemoryProvider（canonical runtime：Discord Thread 歷史 + in-memory tool
+ *       history）
  *   <li>LangChain4J AIChatService
  * </ul>
  */
@@ -336,7 +337,9 @@ public class AIAgentModule {
   }
 
   /**
-   * 提供會話 Repository。
+   * 提供 legacy 會話 Repository。
+   *
+   * <p>此 repository 目前僅保留給 deprecated persistence / audit 兼容用途，不是 runtime canonical path。
    *
    * @param dataSource 資料來源
    * @return JDBC 實作的會話 Repository
@@ -348,7 +351,9 @@ public class AIAgentModule {
   }
 
   /**
-   * 提供會話訊息 Repository。
+   * 提供 legacy 會話訊息 Repository。
+   *
+   * <p>此 repository 目前僅保留給 deprecated persistence / audit 兼容用途，不是 runtime canonical path。
    *
    * @param dataSource 資料來源
    * @param objectMapper JSON 序列化器
@@ -468,9 +473,9 @@ public class AIAgentModule {
   }
 
   /**
-   * 提供 LangChain4J ChatMemoryProvider（簡化版）。
+   * 提供 LangChain4J ChatMemoryProvider（唯一 canonical runtime path）。
    *
-   * <p>使用 SimplifiedChatMemoryProvider 整合 Discord Thread 歷史與記憶體中的工具調用歷史。 botUserId 會在使用時從
+   * <p>使用 {@link SimplifiedChatMemoryProvider} 整合 Discord Thread 歷史與記憶體中的工具調用歷史。 botUserId 會在使用時從
    * JDAProvider 延遲獲取，避免在 Dagger 初始化時就要求 JDA 實例存在。
    *
    * @param threadHistoryProvider Discord Thread 歷史提供者

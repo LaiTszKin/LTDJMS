@@ -19,7 +19,7 @@ import ltdjms.discord.aiagent.persistence.ConversationMessageRepository;
 import ltdjms.discord.shared.cache.CacheService;
 
 /**
- * Redis + PostgreSQL 混合存儲的 ChatMemoryStore 實作。
+ * legacy Redis + PostgreSQL 混合存儲的 ChatMemoryStore 實作。
  *
  * <p>此實作提供兩層存儲策略：
  *
@@ -44,7 +44,7 @@ import ltdjms.discord.shared.cache.CacheService;
  *   <li>PostgreSQL 作為永久存儲
  * </ol>
  *
- * @deprecated 已被 {@link SimplifiedChatMemoryProvider} 取代，使用記憶體存儲和動態 Discord Thread 歷史獲取。
+ * @deprecated 已被 {@link SimplifiedChatMemoryProvider} 取代，不是 runtime canonical path。
  */
 @Deprecated
 public class RedisPostgresChatMemoryStore implements ChatMemoryStore {

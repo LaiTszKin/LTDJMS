@@ -23,11 +23,11 @@ import ltdjms.discord.aiagent.domain.ToolCallInfo;
 import ltdjms.discord.aiagent.services.TokenEstimator;
 
 /**
- * JDBC 實作的會話訊息 Repository。
+ * JDBC 實作的 legacy 會話訊息 Repository。
  *
- * <p>使用 PostgreSQL 儲存 AI 會話訊息，並根據 token 限制自動截斷訊息列表。
+ * <p>使用 PostgreSQL 儲存 legacy AI 會話訊息，並根據 token 限制自動截斷訊息列表；僅供 deprecated persistence / audit 兼容用途。
  *
- * @deprecated 已被 {@link SimplifiedChatMemoryProvider} 取代，使用記憶體存儲和動態 Discord Thread 歷史獲取。
+ * @deprecated 已被 {@link SimplifiedChatMemoryProvider} 取代，不是 runtime canonical path。
  */
 @Deprecated
 public class JdbcConversationMessageRepository implements ConversationMessageRepository {

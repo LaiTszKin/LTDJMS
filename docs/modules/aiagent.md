@@ -648,29 +648,41 @@ public class AIAgentModule {
 
 ### 會話記憶整合
 
-#### PersistentChatMemoryProvider
+#### SimplifiedChatMemoryProvider
 
-整合 Redis + PostgreSQL 的會話記憶提供者：
+唯一 canonical runtime 的會話記憶提供者：
 
 **功能**：
-- Redis 快取（30 分鐘 TTL）
-- PostgreSQL 持久化存儲
+- Discord Thread 歷史即時載入
+- in-memory 工具調用歷史
 - Token 限制歷史裁剪
-- 工具調用結果歷史記錄
+- restart 後 thread history 仍可重新抓取，但 in-memory tool call history 會遺失
 
 **會話 ID 策略**：
-- `{guildId}:{channelId}:{userId}` - 用戶特定會話
-- `{guildId}:{channelId}` - 頻道共享會話
+- `{guildId}:{threadId}:{userId}` - Thread 級別會話
+- 非 Thread 會話僅保留短期 window，不視為 canonical persistence
+
+#### Legacy persistence artifacts
+
+`PersistentChatMemoryProvider`、`RedisPostgresChatMemoryStore`、`JdbcConversationRepository`、`JdbcConversationMessageRepository` 都屬於 deprecated legacy / audit 兼容資產：
+
+- 不在 runtime canonical path 上
+- 不應再被文件描述成可還原 conversation memory 的正式來源
+- 若未來要保留，責任必須明確標示為 audit、compatibility 或 migration
 
 ### 測試
 
 #### 單元測試
 
 ```bash
-# 執行 LangChain4J 工具單元測試
+# 執行 canonical memory 與工具單元測試
 mvn test -Dtest=LangChain4jCreateChannelToolTest
 mvn test -Dtest=LangChain4jCreateCategoryToolTest
 mvn test -Dtest=LangChain4jListChannelsToolTest
+mvn test -Dtest=SimplifiedChatMemoryProviderTest
+mvn test -Dtest=AIAgentModuleTest
+
+# 兼容 / legacy 測試（不屬於 canonical runtime）
 mvn test -Dtest=PersistentChatMemoryProviderTest
 mvn test -Dtest=RedisPostgresChatMemoryStoreTest
 ```

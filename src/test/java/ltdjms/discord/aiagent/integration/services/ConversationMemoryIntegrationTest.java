@@ -32,7 +32,7 @@ import ltdjms.discord.shared.cache.CacheService;
 import ltdjms.discord.shared.cache.RedisCacheService;
 
 /**
- * 整合測試：PersistentChatMemoryProvider 使用真實 PostgreSQL 和 Redis 實例。
+ * 整合測試：Deprecated PersistentChatMemoryProvider 的 legacy PostgreSQL / Redis 兼容路徑。
  *
  * <p>測試範圍：
  *
@@ -51,7 +51,7 @@ import ltdjms.discord.shared.cache.RedisCacheService;
  * </ul>
  */
 @Testcontainers(disabledWithoutDocker = true)
-@DisplayName("T035: 會話記憶整合測試")
+@DisplayName("T035: Deprecated 會話記憶整合測試")
 class ConversationMemoryIntegrationTest {
 
   private static final String TEST_CONVERSATION_ID = "123:456:789";
