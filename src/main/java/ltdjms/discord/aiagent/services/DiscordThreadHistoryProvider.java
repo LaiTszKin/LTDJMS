@@ -10,7 +10,8 @@ import org.slf4j.LoggerFactory;
 import dev.langchain4j.data.message.AiMessage;
 import dev.langchain4j.data.message.ChatMessage;
 import dev.langchain4j.data.message.UserMessage;
-import net.dv8tion.jda.api.JDA;
+import ltdjms.discord.shared.runtime.DiscordRuntimeGateway;
+import ltdjms.discord.shared.runtime.JdaDiscordRuntimeGateway;
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.Message;
 import net.dv8tion.jda.api.entities.MessageType;
@@ -36,6 +37,7 @@ public final class DiscordThreadHistoryProvider {
 
   private final int maxMessages;
   private final TokenEstimator tokenEstimator;
+  private final DiscordRuntimeGateway discordRuntimeGateway;
 
   /**
    * 建立 Discord Thread 歷史訊息提供者。
@@ -46,17 +48,21 @@ public final class DiscordThreadHistoryProvider {
    * @param tokenEstimator Token 估算器
    */
   public DiscordThreadHistoryProvider(int maxMessages, TokenEstimator tokenEstimator) {
-    this.maxMessages = maxMessages;
-    this.tokenEstimator = tokenEstimator;
+    this(maxMessages, tokenEstimator, new JdaDiscordRuntimeGateway());
   }
 
   /**
-   * 獲取 JDA 實例。
+   * 建立 Discord Thread 歷史訊息提供者。
    *
-   * @return JDA 實例
+   * @param maxMessages 最大獲取訊息數量
+   * @param tokenEstimator Token 估算器
+   * @param discordRuntimeGateway Discord runtime gateway
    */
-  private JDA getJda() {
-    return ltdjms.discord.shared.di.JDAProvider.getJda();
+  public DiscordThreadHistoryProvider(
+      int maxMessages, TokenEstimator tokenEstimator, DiscordRuntimeGateway discordRuntimeGateway) {
+    this.maxMessages = maxMessages;
+    this.tokenEstimator = tokenEstimator;
+    this.discordRuntimeGateway = discordRuntimeGateway;
   }
 
   /**
@@ -75,19 +81,19 @@ public final class DiscordThreadHistoryProvider {
       return List.of();
     }
 
-    Guild guild = getJda().getGuildById(guildId);
-    if (guild == null) {
-      LOG.warn("找不到伺服器: guildId={}", guildId);
-      return List.of();
-    }
-
-    ThreadChannel threadChannel = guild.getThreadChannelById(threadId);
-    if (threadChannel == null) {
-      LOG.warn("找不到 Thread: guildId={}, threadId={}", guildId, threadId);
-      return List.of();
-    }
-
     try {
+      Guild guild = discordRuntimeGateway.getGuildById(guildId);
+      if (guild == null) {
+        LOG.warn("找不到伺服器: guildId={}", guildId);
+        return List.of();
+      }
+
+      ThreadChannel threadChannel = guild.getThreadChannelById(threadId);
+      if (threadChannel == null) {
+        LOG.warn("找不到 Thread: guildId={}, threadId={}", guildId, threadId);
+        return List.of();
+      }
+
       // 使用 JDA API 獲取歷史訊息（避免在 callback thread 調用 complete()）
       List<Message> discordMessages =
           threadChannel.getHistory().retrievePast(maxMessages).submit().get(5, TimeUnit.SECONDS);

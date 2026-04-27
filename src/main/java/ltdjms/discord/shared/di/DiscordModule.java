@@ -7,7 +7,6 @@ import dagger.Provides;
 import ltdjms.discord.discord.domain.DiscordEmbedBuilder;
 import ltdjms.discord.discord.domain.DiscordRuntimeGateway;
 import ltdjms.discord.discord.services.JdaDiscordEmbedBuilder;
-import ltdjms.discord.discord.services.JdaDiscordRuntimeGateway;
 
 /**
  * Dagger module providing Discord API abstraction layer dependencies.
@@ -41,8 +40,24 @@ public class DiscordModule {
   /** Provides the runtime gateway used by bootstrapped services. */
   @Provides
   @Singleton
-  public DiscordRuntimeGateway provideDiscordRuntimeGateway() {
-    return new JdaDiscordRuntimeGateway();
+  public ltdjms.discord.shared.runtime.JdaDiscordRuntimeGateway provideJdaDiscordRuntimeGateway() {
+    return new ltdjms.discord.shared.runtime.JdaDiscordRuntimeGateway();
+  }
+
+  /** Provides the canonical runtime gateway used by bootstrapped services. */
+  @Provides
+  @Singleton
+  public DiscordRuntimeGateway provideDiscordRuntimeGateway(
+      ltdjms.discord.shared.runtime.JdaDiscordRuntimeGateway gateway) {
+    return gateway;
+  }
+
+  /** Provides the transitional runtime gateway alias for migrated call sites. */
+  @Provides
+  @Singleton
+  public ltdjms.discord.shared.runtime.DiscordRuntimeGateway provideSharedDiscordRuntimeGateway(
+      ltdjms.discord.shared.runtime.JdaDiscordRuntimeGateway gateway) {
+    return gateway;
   }
 
   // 註冊的抽象層元件：

@@ -16,8 +16,7 @@ import org.junit.jupiter.api.Test;
 import dev.langchain4j.invocation.InvocationParameters;
 import ltdjms.discord.aiagent.services.ToolExecutionContext;
 import ltdjms.discord.aiagent.services.tools.LangChain4jListRolesTool;
-import ltdjms.discord.shared.di.JDAProvider;
-import net.dv8tion.jda.api.JDA;
+import ltdjms.discord.shared.runtime.DiscordRuntimeGateway;
 import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.Member;
@@ -48,19 +47,17 @@ class LangChain4jListRolesToolIntegrationTest {
   private static final long TEST_USER_ID = 987654321098765432L;
 
   private LangChain4jListRolesTool tool;
-  private JDA mockJda;
   private Guild mockGuild;
+  private DiscordRuntimeGateway discordRuntimeGateway;
 
   @BeforeEach
   void setUp() {
-    mockJda = mock(JDA.class);
     mockGuild = mock(Guild.class);
+    discordRuntimeGateway = mock(DiscordRuntimeGateway.class);
 
-    tool = new LangChain4jListRolesTool();
+    tool = new LangChain4jListRolesTool(discordRuntimeGateway);
 
-    // 設置 JDAProvider
-    JDAProvider.setJda(mockJda);
-    when(mockJda.getGuildById(TEST_GUILD_ID)).thenReturn(mockGuild);
+    when(discordRuntimeGateway.getGuildById(TEST_GUILD_ID)).thenReturn(mockGuild);
     Member mockCaller = mock(Member.class);
     when(mockGuild.getMemberById(TEST_USER_ID)).thenReturn(mockCaller);
     when(mockCaller.hasPermission(Permission.ADMINISTRATOR)).thenReturn(true);
@@ -72,7 +69,6 @@ class LangChain4jListRolesToolIntegrationTest {
   @AfterEach
   void tearDown() {
     ToolExecutionContext.clearContext();
-    JDAProvider.clear();
   }
 
   /**
@@ -179,7 +175,7 @@ class LangChain4jListRolesToolIntegrationTest {
     void shouldReturnStandardErrorForGuildNotFound() {
       // Given
       long invalidGuildId = 999999999999999999L;
-      when(mockJda.getGuildById(invalidGuildId)).thenReturn(null);
+      when(discordRuntimeGateway.getGuildById(invalidGuildId)).thenReturn(null);
 
       // When
       String result = tool.listRoles(createInvocationParameters(invalidGuildId));

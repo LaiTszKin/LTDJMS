@@ -12,7 +12,8 @@ import org.slf4j.LoggerFactory;
 import dev.langchain4j.agent.tool.P;
 import dev.langchain4j.agent.tool.Tool;
 import dev.langchain4j.invocation.InvocationParameters;
-import ltdjms.discord.shared.di.JDAProvider;
+import ltdjms.discord.shared.runtime.DiscordRuntimeGateway;
+import ltdjms.discord.shared.runtime.JdaDiscordRuntimeGateway;
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.PermissionOverride;
 import net.dv8tion.jda.api.entities.channel.concrete.Category;
@@ -22,10 +23,15 @@ public final class LangChain4jGetCategoryPermissionsTool {
 
   private static final Logger LOGGER =
       LoggerFactory.getLogger(LangChain4jGetCategoryPermissionsTool.class);
+  private final DiscordRuntimeGateway discordRuntimeGateway;
 
   @Inject
+  public LangChain4jGetCategoryPermissionsTool(DiscordRuntimeGateway discordRuntimeGateway) {
+    this.discordRuntimeGateway = discordRuntimeGateway;
+  }
+
   public LangChain4jGetCategoryPermissionsTool() {
-    // JDA 將從 JDAProvider 延遲獲取
+    this(new JdaDiscordRuntimeGateway());
   }
 
   /**
@@ -91,7 +97,7 @@ public final class LangChain4jGetCategoryPermissionsTool {
     }
 
     // 3. 獲取 Guild
-    Guild guild = JDAProvider.getJda().getGuildById(guildId);
+    Guild guild = discordRuntimeGateway.getGuildById(guildId);
     if (guild == null) {
       String errorMsg = String.format("找不到指定的伺服器: %d", guildId);
       LOGGER.warn("LangChain4jGetCategoryPermissionsTool: {}", errorMsg);

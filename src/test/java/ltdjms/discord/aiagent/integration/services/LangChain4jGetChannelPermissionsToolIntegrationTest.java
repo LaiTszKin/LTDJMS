@@ -6,6 +6,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -13,7 +14,7 @@ import org.testcontainers.utility.DockerImageName;
 
 import ltdjms.discord.aiagent.services.ToolExecutionContext;
 import ltdjms.discord.aiagent.services.tools.LangChain4jGetChannelPermissionsTool;
-import ltdjms.discord.shared.di.JDAProvider;
+import ltdjms.discord.shared.runtime.DiscordRuntimeGateway;
 
 /**
  * 整合測試 {@link LangChain4jGetChannelPermissionsTool}。
@@ -47,7 +48,8 @@ class LangChain4jGetChannelPermissionsToolIntegrationTest {
 
   @BeforeEach
   void setUp() {
-    tool = new LangChain4jGetChannelPermissionsTool();
+    DiscordRuntimeGateway discordRuntimeGateway = Mockito.mock(DiscordRuntimeGateway.class);
+    tool = new LangChain4jGetChannelPermissionsTool(discordRuntimeGateway);
 
     // 注意：整合測試需要真實的 JDA 實例
     // 在實際環境中，需要使用 Test Discord 伺服器
@@ -57,7 +59,6 @@ class LangChain4jGetChannelPermissionsToolIntegrationTest {
   @AfterEach
   void tearDown() {
     ToolExecutionContext.clearContext();
-    JDAProvider.clear();
   }
 
   @Test

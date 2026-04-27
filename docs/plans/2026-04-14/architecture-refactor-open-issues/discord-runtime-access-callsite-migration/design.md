@@ -78,3 +78,9 @@
 
 ## Open Questions
 None
+
+## Delivery Outcome
+- `aiagent`、`aichat`、`shop` 已統一改為注入式 `DiscordRuntimeGateway` / 窄 adapter，owned modules 不再以 `JDAProvider.getJda()` 作為主要路徑。
+- 測試 fixture 已改為 module-local fake / mock gateway，`JDAProvider.setJda()` / `clear()` 的 process-global state 依賴已移除。
+- `NoDirectJdaProviderCallsitesTest` 已成為回流 guardrail，會阻擋 owned modules 新增 direct static call site。
+- 完整 `mvn test` 已通過，作為這次 migration 的收斂驗證。

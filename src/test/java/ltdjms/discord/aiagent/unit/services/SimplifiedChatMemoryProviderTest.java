@@ -9,7 +9,6 @@ import static org.mockito.Mockito.when;
 
 import java.util.List;
 
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -19,8 +18,7 @@ import dev.langchain4j.data.message.UserMessage;
 import ltdjms.discord.aiagent.services.DiscordThreadHistoryProvider;
 import ltdjms.discord.aiagent.services.InMemoryToolCallHistory;
 import ltdjms.discord.aiagent.services.SimplifiedChatMemoryProvider;
-import ltdjms.discord.shared.di.JDAProvider;
-import net.dv8tion.jda.api.JDA;
+import ltdjms.discord.shared.runtime.DiscordRuntimeGateway;
 import net.dv8tion.jda.api.entities.SelfUser;
 
 @DisplayName("SimplifiedChatMemoryProvider")
@@ -28,18 +26,17 @@ class SimplifiedChatMemoryProviderTest {
 
   private DiscordThreadHistoryProvider threadHistoryProvider;
   private InMemoryToolCallHistory toolCallHistory;
+  private DiscordRuntimeGateway discordRuntimeGateway;
   private SimplifiedChatMemoryProvider provider;
 
   @BeforeEach
   void setUp() {
     threadHistoryProvider = mock(DiscordThreadHistoryProvider.class);
     toolCallHistory = mock(InMemoryToolCallHistory.class);
-    provider = new SimplifiedChatMemoryProvider(threadHistoryProvider, toolCallHistory);
-  }
-
-  @AfterEach
-  void tearDown() {
-    JDAProvider.clear();
+    discordRuntimeGateway = mock(DiscordRuntimeGateway.class);
+    provider =
+        new SimplifiedChatMemoryProvider(
+            threadHistoryProvider, toolCallHistory, discordRuntimeGateway);
   }
 
   @Test
@@ -67,11 +64,9 @@ class SimplifiedChatMemoryProviderTest {
   @Test
   @DisplayName("合法 Thread 級別 conversationId 應正常載入歷史")
   void shouldLoadThreadHistoryForValidThreadConversationId() {
-    JDA jda = mock(JDA.class);
     SelfUser selfUser = mock(SelfUser.class);
     when(selfUser.getIdLong()).thenReturn(900L);
-    when(jda.getSelfUser()).thenReturn(selfUser);
-    JDAProvider.setJda(jda);
+    when(discordRuntimeGateway.getSelfUserId()).thenReturn(900L);
 
     when(threadHistoryProvider.getThreadHistory(100L, 200L, 300L, 900L))
         .thenReturn(List.of(UserMessage.from("hello")));
@@ -87,14 +82,13 @@ class SimplifiedChatMemoryProviderTest {
   @Test
   @DisplayName("rehydration 時只應加入安全摘要而非 raw tool result")
   void shouldOnlyInjectMemorySafeToolSummaries() {
-    JDA jda = mock(JDA.class);
     SelfUser selfUser = mock(SelfUser.class);
     when(selfUser.getIdLong()).thenReturn(900L);
-    when(jda.getSelfUser()).thenReturn(selfUser);
-    JDAProvider.setJda(jda);
+    when(discordRuntimeGateway.getSelfUserId()).thenReturn(900L);
 
     InMemoryToolCallHistory realHistory = new InMemoryToolCallHistory();
-    provider = new SimplifiedChatMemoryProvider(threadHistoryProvider, realHistory);
+    provider =
+        new SimplifiedChatMemoryProvider(threadHistoryProvider, realHistory, discordRuntimeGateway);
 
     when(threadHistoryProvider.getThreadHistory(100L, 200L, 300L, 900L))
         .thenReturn(List.of(UserMessage.from("請幫我找關鍵字訊息")));
@@ -126,6 +120,7 @@ class SimplifiedChatMemoryProviderTest {
   @Test
   @DisplayName("當 JDA 尚未初始化時 Thread 會話應回退為非 Thread 記憶體")
   void shouldFallbackToNonThreadMemoryWhenJdaIsNotInitialized() {
+    when(discordRuntimeGateway.getSelfUserId()).thenThrow(new IllegalStateException("JDA 尚未初始化"));
     var memory = provider.get("100:200:300");
 
     assertThat(memory).isNotNull();

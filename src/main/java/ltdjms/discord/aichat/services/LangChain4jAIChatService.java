@@ -46,9 +46,10 @@ import ltdjms.discord.aichat.domain.AIServiceConfig;
 import ltdjms.discord.aichat.domain.SystemPrompt;
 import ltdjms.discord.shared.DomainError;
 import ltdjms.discord.shared.Result;
-import ltdjms.discord.shared.di.JDAProvider;
 import ltdjms.discord.shared.events.AIMessageEvent;
 import ltdjms.discord.shared.events.DomainEventPublisher;
+import ltdjms.discord.shared.runtime.DiscordRuntimeGateway;
+import ltdjms.discord.shared.runtime.JdaDiscordRuntimeGateway;
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.channel.concrete.ThreadChannel;
 
@@ -120,6 +121,7 @@ public final class LangChain4jAIChatService implements AIChatService {
   private final LangChain4jMoveChannelTool moveChannelTool;
   private final LangChain4jDeleteDiscordResourceTool deleteDiscordResourceTool;
   private final AIAgentChannelConfigService agentChannelConfigService;
+  private final DiscordRuntimeGateway discordRuntimeGateway;
   private final AgentServiceFactory agentServiceFactory;
 
   /** Agent 服務工廠，用於依頻道設定決定是否註冊工具。 */
@@ -286,6 +288,63 @@ public final class LangChain4jAIChatService implements AIChatService {
       LangChain4jManageMessageTool manageMessageTool,
       LangChain4jMoveChannelTool moveChannelTool,
       LangChain4jDeleteDiscordResourceTool deleteDiscordResourceTool,
+      AIAgentChannelConfigService agentChannelConfigService,
+      DiscordRuntimeGateway discordRuntimeGateway) {
+    this(
+        config,
+        promptLoader,
+        eventPublisher,
+        streamingChatModel,
+        chatMemoryProvider,
+        toolExecutionInterceptor,
+        toolCallHistory,
+        createChannelTool,
+        createCategoryTool,
+        listChannelsTool,
+        listCategoriesTool,
+        listRolesTool,
+        getChannelPermissionsTool,
+        getCategoryPermissionsTool,
+        modifyChannelPermissionsTool,
+        modifyCategoryPermissionsTool,
+        createRoleTool,
+        getRolePermissionsTool,
+        modifyRolePermissionsTool,
+        sendMessagesTool,
+        searchMessagesTool,
+        manageMessageTool,
+        moveChannelTool,
+        deleteDiscordResourceTool,
+        agentChannelConfigService,
+        discordRuntimeGateway,
+        null);
+  }
+
+  public LangChain4jAIChatService(
+      AIServiceConfig config,
+      PromptLoader promptLoader,
+      DomainEventPublisher eventPublisher,
+      StreamingChatModel streamingChatModel,
+      ChatMemoryProvider chatMemoryProvider,
+      ToolExecutionInterceptor toolExecutionInterceptor,
+      InMemoryToolCallHistory toolCallHistory,
+      LangChain4jCreateChannelTool createChannelTool,
+      LangChain4jCreateCategoryTool createCategoryTool,
+      LangChain4jListChannelsTool listChannelsTool,
+      LangChain4jListCategoriesTool listCategoriesTool,
+      LangChain4jListRolesTool listRolesTool,
+      LangChain4jGetChannelPermissionsTool getChannelPermissionsTool,
+      LangChain4jGetCategoryPermissionsTool getCategoryPermissionsTool,
+      LangChain4jModifyChannelPermissionsTool modifyChannelPermissionsTool,
+      LangChain4jModifyCategoryPermissionsTool modifyCategoryPermissionsTool,
+      LangChain4jCreateRoleTool createRoleTool,
+      LangChain4jGetRolePermissionsTool getRolePermissionsTool,
+      LangChain4jModifyRolePermissionsTool modifyRolePermissionsTool,
+      LangChain4jSendMessagesTool sendMessagesTool,
+      LangChain4jSearchMessagesTool searchMessagesTool,
+      LangChain4jManageMessageTool manageMessageTool,
+      LangChain4jMoveChannelTool moveChannelTool,
+      LangChain4jDeleteDiscordResourceTool deleteDiscordResourceTool,
       AIAgentChannelConfigService agentChannelConfigService) {
     this(
         config,
@@ -313,6 +372,7 @@ public final class LangChain4jAIChatService implements AIChatService {
         moveChannelTool,
         deleteDiscordResourceTool,
         agentChannelConfigService,
+        new JdaDiscordRuntimeGateway(),
         null);
   }
 
@@ -343,6 +403,7 @@ public final class LangChain4jAIChatService implements AIChatService {
       LangChain4jMoveChannelTool moveChannelTool,
       LangChain4jDeleteDiscordResourceTool deleteDiscordResourceTool,
       AIAgentChannelConfigService agentChannelConfigService,
+      DiscordRuntimeGateway discordRuntimeGateway,
       AgentServiceFactory agentServiceFactory) {
     this.config = config;
     this.promptLoader = promptLoader;
@@ -369,6 +430,7 @@ public final class LangChain4jAIChatService implements AIChatService {
     this.moveChannelTool = moveChannelTool;
     this.deleteDiscordResourceTool = deleteDiscordResourceTool;
     this.agentChannelConfigService = agentChannelConfigService;
+    this.discordRuntimeGateway = discordRuntimeGateway;
     this.agentServiceFactory =
         (agentServiceFactory != null)
             ? agentServiceFactory
@@ -396,6 +458,63 @@ public final class LangChain4jAIChatService implements AIChatService {
         "LangChain4jAIChatService initialized with model: {}, tools: 17, reasoning: {}",
         config.model(),
         config.showReasoning());
+  }
+
+  public LangChain4jAIChatService(
+      AIServiceConfig config,
+      PromptLoader promptLoader,
+      DomainEventPublisher eventPublisher,
+      StreamingChatModel streamingChatModel,
+      ChatMemoryProvider chatMemoryProvider,
+      ToolExecutionInterceptor toolExecutionInterceptor,
+      InMemoryToolCallHistory toolCallHistory,
+      LangChain4jCreateChannelTool createChannelTool,
+      LangChain4jCreateCategoryTool createCategoryTool,
+      LangChain4jListChannelsTool listChannelsTool,
+      LangChain4jListCategoriesTool listCategoriesTool,
+      LangChain4jListRolesTool listRolesTool,
+      LangChain4jGetChannelPermissionsTool getChannelPermissionsTool,
+      LangChain4jGetCategoryPermissionsTool getCategoryPermissionsTool,
+      LangChain4jModifyChannelPermissionsTool modifyChannelPermissionsTool,
+      LangChain4jModifyCategoryPermissionsTool modifyCategoryPermissionsTool,
+      LangChain4jCreateRoleTool createRoleTool,
+      LangChain4jGetRolePermissionsTool getRolePermissionsTool,
+      LangChain4jModifyRolePermissionsTool modifyRolePermissionsTool,
+      LangChain4jSendMessagesTool sendMessagesTool,
+      LangChain4jSearchMessagesTool searchMessagesTool,
+      LangChain4jManageMessageTool manageMessageTool,
+      LangChain4jMoveChannelTool moveChannelTool,
+      LangChain4jDeleteDiscordResourceTool deleteDiscordResourceTool,
+      AIAgentChannelConfigService agentChannelConfigService,
+      AgentServiceFactory agentServiceFactory) {
+    this(
+        config,
+        promptLoader,
+        eventPublisher,
+        streamingChatModel,
+        chatMemoryProvider,
+        toolExecutionInterceptor,
+        toolCallHistory,
+        createChannelTool,
+        createCategoryTool,
+        listChannelsTool,
+        listCategoriesTool,
+        listRolesTool,
+        getChannelPermissionsTool,
+        getCategoryPermissionsTool,
+        modifyChannelPermissionsTool,
+        modifyCategoryPermissionsTool,
+        createRoleTool,
+        getRolePermissionsTool,
+        modifyRolePermissionsTool,
+        sendMessagesTool,
+        searchMessagesTool,
+        manageMessageTool,
+        moveChannelTool,
+        deleteDiscordResourceTool,
+        agentChannelConfigService,
+        new JdaDiscordRuntimeGateway(),
+        agentServiceFactory);
   }
 
   @Override
@@ -901,7 +1020,7 @@ public final class LangChain4jAIChatService implements AIChatService {
    */
   private Long inferThreadId(long guildId, String channelId) {
     try {
-      Guild guild = JDAProvider.getJda().getGuildById(guildId);
+      Guild guild = discordRuntimeGateway.getGuildById(guildId);
       if (guild == null) {
         LOG.debug("找不到伺服器: guildId={}", guildId);
         return null;

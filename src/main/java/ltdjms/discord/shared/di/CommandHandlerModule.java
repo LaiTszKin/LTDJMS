@@ -52,6 +52,7 @@ import ltdjms.discord.redemption.services.RedemptionService;
 import ltdjms.discord.shared.EnvironmentConfig;
 import ltdjms.discord.shared.events.DomainEvent;
 import ltdjms.discord.shared.events.DomainEventPublisher;
+import ltdjms.discord.shared.runtime.DiscordRuntimeGateway;
 import ltdjms.discord.shop.commands.ShopButtonHandler;
 import ltdjms.discord.shop.commands.ShopCommandHandler;
 import ltdjms.discord.shop.commands.ShopSelectMenuHandler;
@@ -337,14 +338,16 @@ public class CommandHandlerModule {
 
   @Provides
   @Singleton
-  public ShopAdminNotificationService provideShopAdminNotificationService() {
-    return new ShopAdminNotificationService();
+  public ShopAdminNotificationService provideShopAdminNotificationService(
+      DiscordRuntimeGateway discordRuntimeGateway) {
+    return new ShopAdminNotificationService(discordRuntimeGateway);
   }
 
   @Provides
   @Singleton
-  public FiatOrderBuyerNotificationService provideFiatOrderBuyerNotificationService() {
-    return new FiatOrderBuyerNotificationService();
+  public FiatOrderBuyerNotificationService provideFiatOrderBuyerNotificationService(
+      DiscordRuntimeGateway discordRuntimeGateway) {
+    return new FiatOrderBuyerNotificationService(discordRuntimeGateway);
   }
 
   @Provides

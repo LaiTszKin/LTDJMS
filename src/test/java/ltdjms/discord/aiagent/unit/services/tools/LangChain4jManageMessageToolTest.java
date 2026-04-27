@@ -11,7 +11,7 @@ import org.junit.jupiter.api.Test;
 
 import dev.langchain4j.invocation.InvocationParameters;
 import ltdjms.discord.aiagent.services.tools.LangChain4jManageMessageTool;
-import ltdjms.discord.shared.di.JDAProvider;
+import ltdjms.discord.shared.runtime.DiscordRuntimeGateway;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.entities.Guild;
@@ -34,11 +34,13 @@ class LangChain4jManageMessageToolTest {
   private JDA mockJda;
   private Guild mockGuild;
   private GuildMessageChannel mockChannel;
+  private DiscordRuntimeGateway discordRuntimeGateway;
   private InvocationParameters parameters;
 
   @BeforeEach
   void setUp() {
-    tool = new LangChain4jManageMessageTool();
+    discordRuntimeGateway = mock(DiscordRuntimeGateway.class);
+    tool = new LangChain4jManageMessageTool(discordRuntimeGateway);
     mockJda = mock(JDA.class);
     mockGuild = mock(Guild.class);
     mockChannel = mock(GuildMessageChannel.class);
@@ -48,8 +50,7 @@ class LangChain4jManageMessageToolTest {
     parameters.put("channelId", TEST_CHANNEL_ID);
     parameters.put("userId", TEST_USER_ID);
 
-    JDAProvider.setJda(mockJda);
-    when(mockJda.getGuildById(TEST_GUILD_ID)).thenReturn(mockGuild);
+    when(discordRuntimeGateway.getGuildById(TEST_GUILD_ID)).thenReturn(mockGuild);
     when(mockGuild.getGuildChannelById(TEST_CHANNEL_ID)).thenReturn(mockChannel);
 
     Member caller = mock(Member.class);
@@ -58,9 +59,7 @@ class LangChain4jManageMessageToolTest {
   }
 
   @AfterEach
-  void tearDown() {
-    JDAProvider.clear();
-  }
+  void tearDown() {}
 
   @Test
   @DisplayName("pin 操作應成功")

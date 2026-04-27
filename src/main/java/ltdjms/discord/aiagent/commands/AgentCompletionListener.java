@@ -8,10 +8,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import ltdjms.discord.aichat.services.MessageSplitter;
-import ltdjms.discord.shared.di.JDAProvider;
 import ltdjms.discord.shared.events.AgentCompletedEvent;
 import ltdjms.discord.shared.events.AgentFailedEvent;
 import ltdjms.discord.shared.events.DomainEvent;
+import ltdjms.discord.shared.runtime.DiscordRuntimeGateway;
+import ltdjms.discord.shared.runtime.JdaDiscordRuntimeGateway;
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.channel.middleman.GuildChannel;
 import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel;
@@ -25,10 +26,16 @@ public final class AgentCompletionListener implements Consumer<DomainEvent> {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(AgentCompletionListener.class);
   private static final String EMPTY_RESPONSE_FALLBACK = ":question: AI 沒有產生回應";
+  private final DiscordRuntimeGateway discordRuntimeGateway;
 
   @Inject
-  public AgentCompletionListener() {
+  public AgentCompletionListener(DiscordRuntimeGateway discordRuntimeGateway) {
     // Dagger 構造函數
+    this.discordRuntimeGateway = discordRuntimeGateway;
+  }
+
+  AgentCompletionListener() {
+    this(new JdaDiscordRuntimeGateway());
   }
 
   @Override
@@ -109,7 +116,7 @@ public final class AgentCompletionListener implements Consumer<DomainEvent> {
    */
   private MessageChannel resolveMessageChannel(long guildId, String channelId) {
     try {
-      Guild guild = JDAProvider.getJda().getGuildById(guildId);
+      Guild guild = discordRuntimeGateway.getGuildById(guildId);
       if (guild == null) {
         return null;
       }

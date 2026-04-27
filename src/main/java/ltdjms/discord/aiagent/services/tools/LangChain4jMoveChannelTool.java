@@ -8,7 +8,8 @@ import org.slf4j.LoggerFactory;
 import dev.langchain4j.agent.tool.P;
 import dev.langchain4j.agent.tool.Tool;
 import dev.langchain4j.invocation.InvocationParameters;
-import ltdjms.discord.shared.di.JDAProvider;
+import ltdjms.discord.shared.runtime.DiscordRuntimeGateway;
+import ltdjms.discord.shared.runtime.JdaDiscordRuntimeGateway;
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.channel.attribute.ICategorizableChannel;
 import net.dv8tion.jda.api.entities.channel.concrete.Category;
@@ -19,10 +20,15 @@ import net.dv8tion.jda.api.exceptions.InsufficientPermissionException;
 public final class LangChain4jMoveChannelTool {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(LangChain4jMoveChannelTool.class);
+  private final DiscordRuntimeGateway discordRuntimeGateway;
 
   @Inject
+  public LangChain4jMoveChannelTool(DiscordRuntimeGateway discordRuntimeGateway) {
+    this.discordRuntimeGateway = discordRuntimeGateway;
+  }
+
   public LangChain4jMoveChannelTool() {
-    // JDA 將從 JDAProvider 延遲獲取
+    this(new JdaDiscordRuntimeGateway());
   }
 
   /**
@@ -77,7 +83,7 @@ public final class LangChain4jMoveChannelTool {
       return ToolJsonResponses.error("guildId 未設置");
     }
 
-    Guild guild = JDAProvider.getJda().getGuildById(guildId);
+    Guild guild = discordRuntimeGateway.getGuildById(guildId);
     if (guild == null) {
       LOGGER.warn("LangChain4jMoveChannelTool: 找不到指定伺服器: {}", guildId);
       return ToolJsonResponses.error("找不到伺服器");

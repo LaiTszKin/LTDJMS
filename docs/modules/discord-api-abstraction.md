@@ -214,7 +214,7 @@ stateDiagram-v2
 
 | 介面 | JDA 實作 | 說明 |
 |------|----------|------|
-| `DiscordRuntimeGateway` | `JdaDiscordRuntimeGateway` | 由 bootstrap 在 JDA ready 後發布，提供 guild / channel / bot identity 的正式 runtime 邊界 |
+| `DiscordRuntimeGateway` | `JdaDiscordRuntimeGateway` | 由 DI 提供，並由 bootstrap 在 JDA ready 後發布，讓業務模組只依賴 guild / channel / bot identity 的正式 runtime 邊界 |
 | `DiscordInteraction` | `JdaDiscordInteraction` | 包裝 `GenericInteractionCreateEvent` |
 | `DiscordContext` | `JdaDiscordContext` | 從 JDA 事件提取上下文 |
 | `DiscordEmbedBuilder` | `JdaDiscordEmbedBuilder` | 使用 `EmbedBuilder` 建構 Embed |

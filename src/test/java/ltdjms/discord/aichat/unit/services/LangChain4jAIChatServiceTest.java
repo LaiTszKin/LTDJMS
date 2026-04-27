@@ -58,9 +58,8 @@ import ltdjms.discord.aichat.services.PromptLoader;
 import ltdjms.discord.aichat.services.StreamingResponseHandler;
 import ltdjms.discord.shared.DomainError;
 import ltdjms.discord.shared.Result;
-import ltdjms.discord.shared.di.JDAProvider;
 import ltdjms.discord.shared.events.DomainEventPublisher;
-import net.dv8tion.jda.api.JDA;
+import ltdjms.discord.shared.runtime.DiscordRuntimeGateway;
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.channel.concrete.ThreadChannel;
 
@@ -104,13 +103,13 @@ class LangChain4jAIChatServiceTest {
   private LangChain4jMoveChannelTool mockMoveChannelTool;
   private LangChain4jDeleteDiscordResourceTool mockDeleteDiscordResourceTool;
   private AIAgentChannelConfigService mockAgentChannelConfigService;
+  private DiscordRuntimeGateway mockDiscordRuntimeGateway;
   private TestAgentServiceFactory testAgentServiceFactory;
   private AIChatService service;
 
   @BeforeEach
   void setUp() {
     ToolExecutionContext.clearContext();
-    JDAProvider.clear();
     // 使用真實的 AIServiceConfig，但配置測試用的值
     config =
         new AIServiceConfig(
@@ -150,6 +149,7 @@ class LangChain4jAIChatServiceTest {
     mockMoveChannelTool = mock(LangChain4jMoveChannelTool.class);
     mockDeleteDiscordResourceTool = mock(LangChain4jDeleteDiscordResourceTool.class);
     mockAgentChannelConfigService = mock(AIAgentChannelConfigService.class);
+    mockDiscordRuntimeGateway = mock(DiscordRuntimeGateway.class);
     testAgentServiceFactory = new TestAgentServiceFactory();
 
     when(mockPromptLoader.loadPrompts(true))
@@ -184,6 +184,7 @@ class LangChain4jAIChatServiceTest {
             mockMoveChannelTool,
             mockDeleteDiscordResourceTool,
             mockAgentChannelConfigService,
+            mockDiscordRuntimeGateway,
             testAgentServiceFactory);
   }
 
@@ -468,12 +469,10 @@ class LangChain4jAIChatServiceTest {
     @Test
     @DisplayName("應將高風險工具結果轉為紅線化摘要後再寫入歷史")
     void shouldStoreRedactedSummaryForSensitiveToolResults() throws Exception {
-      JDA jda = mock(JDA.class);
       Guild guild = mock(Guild.class);
       ThreadChannel threadChannel = mock(ThreadChannel.class);
-      when(jda.getGuildById(123L)).thenReturn(guild);
+      when(mockDiscordRuntimeGateway.getGuildById(123L)).thenReturn(guild);
       when(guild.getThreadChannelById(456L)).thenReturn(threadChannel);
-      JDAProvider.setJda(jda);
 
       dev.langchain4j.service.tool.ToolExecution toolExecution =
           mock(dev.langchain4j.service.tool.ToolExecution.class, RETURNS_DEEP_STUBS);

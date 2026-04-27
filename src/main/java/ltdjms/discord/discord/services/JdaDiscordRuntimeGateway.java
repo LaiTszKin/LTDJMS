@@ -17,7 +17,7 @@ import net.dv8tion.jda.api.entities.channel.middleman.GuildChannel;
  * <p>此實作由 Dagger 注入為 singleton，bootstrap 在 JDA ready 後呼叫 {@link #publishReady(JDA)} 將 live runtime
  * 發布進圖中。
  */
-public final class JdaDiscordRuntimeGateway implements DiscordRuntimeGateway {
+public class JdaDiscordRuntimeGateway implements DiscordRuntimeGateway {
 
   private final AtomicReference<JDA> jdaRef = new AtomicReference<>();
 

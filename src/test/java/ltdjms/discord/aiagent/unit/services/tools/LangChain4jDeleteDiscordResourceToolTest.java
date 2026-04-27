@@ -13,7 +13,7 @@ import org.junit.jupiter.api.Test;
 
 import dev.langchain4j.invocation.InvocationParameters;
 import ltdjms.discord.aiagent.services.tools.LangChain4jDeleteDiscordResourceTool;
-import ltdjms.discord.shared.di.JDAProvider;
+import ltdjms.discord.shared.runtime.DiscordRuntimeGateway;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.entities.Guild;
@@ -35,11 +35,13 @@ class LangChain4jDeleteDiscordResourceToolTest {
   private LangChain4jDeleteDiscordResourceTool tool;
   private JDA mockJda;
   private Guild mockGuild;
+  private DiscordRuntimeGateway discordRuntimeGateway;
   private InvocationParameters parameters;
 
   @BeforeEach
   void setUp() {
-    tool = new LangChain4jDeleteDiscordResourceTool();
+    discordRuntimeGateway = mock(DiscordRuntimeGateway.class);
+    tool = new LangChain4jDeleteDiscordResourceTool(discordRuntimeGateway);
     mockJda = mock(JDA.class);
     mockGuild = mock(Guild.class);
     parameters = new InvocationParameters();
@@ -48,8 +50,7 @@ class LangChain4jDeleteDiscordResourceToolTest {
     parameters.put("channelId", TEST_CHANNEL_ID);
     parameters.put("userId", TEST_CALLER_ID);
 
-    JDAProvider.setJda(mockJda);
-    when(mockJda.getGuildById(TEST_GUILD_ID)).thenReturn(mockGuild);
+    when(discordRuntimeGateway.getGuildById(TEST_GUILD_ID)).thenReturn(mockGuild);
 
     Member caller = mock(Member.class);
     when(mockGuild.getMemberById(TEST_CALLER_ID)).thenReturn(caller);
@@ -57,9 +58,7 @@ class LangChain4jDeleteDiscordResourceToolTest {
   }
 
   @AfterEach
-  void tearDown() {
-    JDAProvider.clear();
-  }
+  void tearDown() {}
 
   @Test
   @DisplayName("應成功刪除頻道")

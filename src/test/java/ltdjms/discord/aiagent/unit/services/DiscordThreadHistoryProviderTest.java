@@ -15,7 +15,7 @@ import dev.langchain4j.data.message.ChatMessage;
 import dev.langchain4j.data.message.UserMessage;
 import ltdjms.discord.aiagent.services.DiscordThreadHistoryProvider;
 import ltdjms.discord.aiagent.services.TokenEstimator;
-import ltdjms.discord.shared.di.JDAProvider;
+import ltdjms.discord.shared.runtime.DiscordRuntimeGateway;
 import net.dv8tion.jda.api.entities.Message;
 import net.dv8tion.jda.api.entities.MessageType;
 import net.dv8tion.jda.api.entities.User;
@@ -27,8 +27,9 @@ class DiscordThreadHistoryProviderTest {
   @DisplayName("Thread 歷史應僅保留請求者與機器人自身訊息")
   void shouldFilterMessagesByRequesterAndBot() throws Exception {
     // Given
+    DiscordRuntimeGateway discordRuntimeGateway = mock(DiscordRuntimeGateway.class);
     DiscordThreadHistoryProvider provider =
-        new DiscordThreadHistoryProvider(100, new TokenEstimator(4000));
+        new DiscordThreadHistoryProvider(100, new TokenEstimator(4000), discordRuntimeGateway);
     long requesterUserId = 111L;
     long botUserId = 999L;
 
@@ -87,9 +88,9 @@ class DiscordThreadHistoryProviderTest {
   @Test
   @DisplayName("maxMessages 為非正數時應直接回傳空列表")
   void shouldReturnEmptyWhenMaxMessagesNonPositive() {
-    JDAProvider.clear();
+    DiscordRuntimeGateway discordRuntimeGateway = mock(DiscordRuntimeGateway.class);
     DiscordThreadHistoryProvider provider =
-        new DiscordThreadHistoryProvider(0, new TokenEstimator(4000));
+        new DiscordThreadHistoryProvider(0, new TokenEstimator(4000), discordRuntimeGateway);
 
     List<ChatMessage> history = provider.getThreadHistory(1L, 2L, 3L, 4L);
 
@@ -99,8 +100,9 @@ class DiscordThreadHistoryProviderTest {
   @Test
   @DisplayName("maxTokens 為非正數時應裁剪為空列表")
   void shouldReturnEmptyWhenMaxTokensNonPositive() throws Exception {
+    DiscordRuntimeGateway discordRuntimeGateway = mock(DiscordRuntimeGateway.class);
     DiscordThreadHistoryProvider provider =
-        new DiscordThreadHistoryProvider(10, new TokenEstimator(2000));
+        new DiscordThreadHistoryProvider(10, new TokenEstimator(2000), discordRuntimeGateway);
     List<ChatMessage> messages = List.of(UserMessage.from("hello"), AiMessage.from("world"));
 
     Method trimMethod =

@@ -4,8 +4,11 @@ import java.util.Optional;
 
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.entities.Guild;
+import net.dv8tion.jda.api.entities.User;
+import net.dv8tion.jda.api.entities.channel.concrete.Category;
 import net.dv8tion.jda.api.entities.channel.concrete.ThreadChannel;
 import net.dv8tion.jda.api.entities.channel.middleman.GuildChannel;
+import net.dv8tion.jda.api.requests.RestAction;
 
 /**
  * Discord runtime access 的正式注入邊界。
@@ -34,4 +37,24 @@ public interface DiscordRuntimeGateway {
 
   /** 取得 bot self user id。 */
   long selfUserId();
+
+  /** Transitional convenience for migrated legacy call sites. */
+  default Guild getGuildById(long guildId) {
+    return findGuild(guildId).orElse(null);
+  }
+
+  /** Transitional convenience for migrated legacy call sites. */
+  default Category getCategoryById(long categoryId) {
+    return requireReadyJda().getCategoryById(categoryId);
+  }
+
+  /** Transitional convenience for migrated legacy call sites. */
+  default long getSelfUserId() {
+    return selfUserId();
+  }
+
+  /** Transitional convenience for migrated legacy call sites. */
+  default RestAction<User> retrieveUserById(long userId) {
+    return requireReadyJda().retrieveUserById(userId);
+  }
 }

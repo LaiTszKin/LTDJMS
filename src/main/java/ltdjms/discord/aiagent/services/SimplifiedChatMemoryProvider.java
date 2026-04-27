@@ -10,6 +10,8 @@ import dev.langchain4j.memory.ChatMemory;
 import dev.langchain4j.memory.chat.ChatMemoryProvider;
 import dev.langchain4j.memory.chat.MessageWindowChatMemory;
 import ltdjms.discord.aiagent.domain.ConversationIdBuilder;
+import ltdjms.discord.shared.runtime.DiscordRuntimeGateway;
+import ltdjms.discord.shared.runtime.JdaDiscordRuntimeGateway;
 
 /**
  * 簡化的 ChatMemoryProvider 實作。
@@ -43,6 +45,7 @@ public final class SimplifiedChatMemoryProvider implements ChatMemoryProvider {
 
   private final DiscordThreadHistoryProvider threadHistoryProvider;
   private final InMemoryToolCallHistory toolCallHistory;
+  private final DiscordRuntimeGateway discordRuntimeGateway;
 
   /**
    * 建立簡化的 ChatMemoryProvider。
@@ -54,8 +57,23 @@ public final class SimplifiedChatMemoryProvider implements ChatMemoryProvider {
    */
   public SimplifiedChatMemoryProvider(
       DiscordThreadHistoryProvider threadHistoryProvider, InMemoryToolCallHistory toolCallHistory) {
+    this(threadHistoryProvider, toolCallHistory, new JdaDiscordRuntimeGateway());
+  }
+
+  /**
+   * 建立簡化的 ChatMemoryProvider。
+   *
+   * @param threadHistoryProvider Discord Thread 歷史提供者
+   * @param toolCallHistory 記憶體中的工具調用歷史
+   * @param discordRuntimeGateway Discord runtime gateway
+   */
+  public SimplifiedChatMemoryProvider(
+      DiscordThreadHistoryProvider threadHistoryProvider,
+      InMemoryToolCallHistory toolCallHistory,
+      DiscordRuntimeGateway discordRuntimeGateway) {
     this.threadHistoryProvider = threadHistoryProvider;
     this.toolCallHistory = toolCallHistory;
+    this.discordRuntimeGateway = discordRuntimeGateway;
   }
 
   /**
@@ -64,7 +82,7 @@ public final class SimplifiedChatMemoryProvider implements ChatMemoryProvider {
    * @return 機器人用戶 ID
    */
   private long getBotUserId() {
-    return ltdjms.discord.shared.di.JDAProvider.getJda().getSelfUser().getIdLong();
+    return discordRuntimeGateway.getSelfUserId();
   }
 
   /**

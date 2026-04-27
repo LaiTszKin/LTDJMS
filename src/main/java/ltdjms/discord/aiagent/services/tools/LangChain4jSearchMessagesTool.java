@@ -14,7 +14,8 @@ import org.slf4j.LoggerFactory;
 import dev.langchain4j.agent.tool.P;
 import dev.langchain4j.agent.tool.Tool;
 import dev.langchain4j.invocation.InvocationParameters;
-import ltdjms.discord.shared.di.JDAProvider;
+import ltdjms.discord.shared.runtime.DiscordRuntimeGateway;
+import ltdjms.discord.shared.runtime.JdaDiscordRuntimeGateway;
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.Message;
 import net.dv8tion.jda.api.entities.MessageHistory;
@@ -34,10 +35,15 @@ public final class LangChain4jSearchMessagesTool {
   private static final int FETCH_BATCH_SIZE = 100;
   private static final int FETCH_TIMEOUT_SECONDS = 10;
   private static final int CONTENT_SNIPPET_LENGTH = 180;
+  private final DiscordRuntimeGateway discordRuntimeGateway;
 
   @Inject
+  public LangChain4jSearchMessagesTool(DiscordRuntimeGateway discordRuntimeGateway) {
+    this.discordRuntimeGateway = discordRuntimeGateway;
+  }
+
   public LangChain4jSearchMessagesTool() {
-    // JDA 將從 JDAProvider 延遲獲取
+    this(new JdaDiscordRuntimeGateway());
   }
 
   /**
@@ -87,7 +93,7 @@ public final class LangChain4jSearchMessagesTool {
       return ToolJsonResponses.error("guildId 未設置");
     }
 
-    Guild guild = JDAProvider.getJda().getGuildById(guildId);
+    Guild guild = discordRuntimeGateway.getGuildById(guildId);
     if (guild == null) {
       LOGGER.warn("LangChain4jSearchMessagesTool: 找不到指定的伺服器: {}", guildId);
       return ToolJsonResponses.error("找不到伺服器");
