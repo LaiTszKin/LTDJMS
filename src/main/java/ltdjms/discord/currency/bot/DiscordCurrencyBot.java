@@ -7,6 +7,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import ltdjms.discord.aichat.commands.AIChatMentionListener;
+import ltdjms.discord.discord.domain.DiscordRuntimeGateway;
 import ltdjms.discord.dispatch.commands.DispatchPanelInteractionHandler;
 import ltdjms.discord.panel.commands.AdminPanelButtonHandler;
 import ltdjms.discord.panel.commands.AdminProductPanelHandler;
@@ -95,7 +96,8 @@ public class DiscordCurrencyBot {
     // Wait for JDA to be ready
     jda.awaitReady();
 
-    // 設置 JDA 到 Provider，讓 AI Agent 工具可以訪問
+    // 先發布到正式注入式 gateway，再保留短期 bridge 供尚未遷移的模組使用。
+    publishRuntime(appComponent.discordRuntimeGateway(), jda);
     JDAProvider.setJda(jda);
 
     // 啟動綠界付款回推監聽伺服器
@@ -124,6 +126,10 @@ public class DiscordCurrencyBot {
    */
   public AppComponent getAppComponent() {
     return appComponent;
+  }
+
+  static void publishRuntime(DiscordRuntimeGateway runtimeGateway, JDA jda) {
+    runtimeGateway.publishReady(jda);
   }
 
   /** Shuts down the bot gracefully. */

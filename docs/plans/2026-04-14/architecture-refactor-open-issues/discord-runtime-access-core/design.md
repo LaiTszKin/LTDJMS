@@ -10,7 +10,7 @@
 ## Change Summary
 - Requested change: 修正 `JDAProvider` 成為跨模組 process-global integration boundary 的問題
 - Existing baseline: `DiscordCurrencyBot` 啟動後把 live JDA 寫進 static `JDAProvider`，多個模組直接 `getJda()`
-- Proposed design delta: 在 `shared/di` 與 `discord` 模組中建立 `DiscordRuntimeGateway`（名稱可調整），由 bootstrap 發布，其他模組透過注入依賴它
+- Delivered design delta: 在 `shared/di` 與 `discord` 模組中建立 `DiscordRuntimeGateway`，由 bootstrap 在 JDA ready 後發布，其他模組透過注入依賴它；`JDAProvider` 只保留為 transitional bridge
 
 ## Scope Mapping
 - Spec requirements covered: `R1.1-R3.3`
@@ -19,15 +19,15 @@
 - Coordination reference: `../coordination.md`
 
 ## Current Architecture
-- JDA 在啟動完成後才可取得，但 repo 目前以 static singleton 方式暴露給各模組
-- 這使文件宣稱的 `discord` abstraction layer 失去實質 owner 地位
-- 測試若要驗證這些模組，也必須先 mutate 同一個 global singleton
+- JDA 在啟動完成後才可取得，並在 bootstrap `awaitReady()` 後由 `DiscordCurrencyBot` 發布到 injected runtime gateway
+- `discord` abstraction layer 現在重新成為實質 owner，`shared/di` 只負責把 gateway 注入圖中
+- 測試可直接針對 gateway 與 Dagger component 驗證，不必先 mutate 同一個 global singleton 才能啟動核心抽象層
 
 ## Proposed Architecture
-- 引入一個 singleton 但非 static 的 `DiscordRuntimeGateway` / `DiscordRuntimeHandle`
-- bootstrap 在 JDA ready 後將 runtime 注入/發布到此 gateway
+- `DiscordRuntimeGateway` 以 injected singleton 形式存在，但不使用 static 作為 canonical owner
+- bootstrap 在 JDA ready 後將 runtime 發布到 gateway；gateway 以 `AtomicReference` 保證單次發布與明確 not-ready failure
 - 其他模組只依賴 gateway 介面或更窄的 adapter，不直接依賴 `JDA` 或 `JDAProvider`
-- `JDAProvider` 若暫時保留，只作為遷移橋接，並被明示為 legacy shim
+- `JDAProvider` 保留為 legacy shim，並被明示為 transitional-only
 
 ## Component Changes
 
@@ -75,6 +75,15 @@
 - Tests: `UT` ready/not-ready semantics、bridge guard、`IT` bootstrap publishes runtime once
 - Contract checks: 驗證設計尊重 JDA bootstrap lifecycle
 - Rollback / fallback: 若 gateway 方案需要回退，可暫時保留 bridge，但不得再次接受新的 direct static dependency
+
+## Delivered Validation
+- Unit: `mvn -q -Punit-tests test`
+- Integration: `mvn -q -Pintegration-tests test`
+- Coverage notes:
+  - not-ready path 由 `DiscordRuntimeNotReadyException` 驗證
+  - duplicate publish path 由 `JdaDiscordRuntimeGatewayTest` 驗證
+  - Dagger singleton wiring 由 `DiscordModuleIntegrationTest` 驗證
+  - bootstrap publish path 由 `DiscordCurrencyBotRuntimePublishTest` 驗證
 
 ## Open Questions
 None

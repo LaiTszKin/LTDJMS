@@ -36,4 +36,11 @@
   - Spec mapping: `R1.1-R2.3`
   - Design mapping: `Proposed Architecture`, `Component Changes`
   - Planned coverage: `UT-runtime-gateway-ready-state`, `IT-bootstrap-publishes-runtime`
-  - Evidence notes: 官方 JDA 類型與 builder 文件表明 runtime instance 與 builder/ready lifecycle 分離
+  - Actual coverage: `mvn -q -Punit-tests test`, `mvn -q -Pintegration-tests test`
+  - Evidence notes: 官方 JDA 類型與 builder 文件表明 runtime instance 與 builder/ready lifecycle 分離；實作已在 `DiscordCurrencyBot.awaitReady()` 之後才發布到 injected gateway
+
+## Implementation Notes
+
+- `DiscordRuntimeGateway` 是 repo 內部的最小 runtime boundary，負責 ready publication 與 guild/channel/self user lookup。
+- `JdaDiscordRuntimeGateway` 以 `AtomicReference<JDA>` 保存 runtime，確保只會單次發布且 not-ready 狀態會以 `DiscordRuntimeNotReadyException` 明確失敗。
+- `JDAProvider` 仍保留為 transitional bridge，但文件與程式碼都標明它不是 canonical owner。
