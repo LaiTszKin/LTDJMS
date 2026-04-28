@@ -4,6 +4,26 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.35.2] - 2026-04-28
+
+### Added
+- **shop/notifications**: 護航商品購買後系統會 DM 通知管理人員（含客戶資訊、訂單詳情、付款狀態）以及通知買家訂單等待處理
+- **shop/notifications**: 新增 `EscortOrderBuyerNotificationService`，在護航交接單自動建立後 DM 買家「訂單正在等待處理」
+
+### Changed
+- **shop/admin-notification**: 管理員通知訊息增加顯式「付款狀態」行，依來源類型（貨幣/法幣/手動）顯示對應狀態
+- **shop/fiat**: 法幣付款處理中買家護航通知移至 admin claim 成功後才發送，避免重試時重複通知買家
+
+### Fixed
+- **shop/buyer-notification**: `EscortOrderBuyerNotificationService` 加入 self-ID 檢查，買家為 bot 自身時跳過通知
+- **shop/worker**: `FiatOrderPostPaymentWorker` 的 5 參數便利建構子標記為 `@Deprecated`
+
+### Docs
+- **docs/plans**: 新增 `escort-purchase-notifications` 規格集，涵蓋管理員通知、買家通知、付款狀態
+
+### Tests
+- 執行 `mvn test`，共 42 tests（0 failures / 0 errors），測試通過
+
 ## [0.35.1] - 2026-04-27
 
 ### Added
