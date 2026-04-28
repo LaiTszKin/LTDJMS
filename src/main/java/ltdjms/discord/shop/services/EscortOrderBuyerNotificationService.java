@@ -34,6 +34,13 @@ public class EscortOrderBuyerNotificationService {
       return;
     }
 
+    // Skip notification if the buyer is the bot itself (bots cannot DM themselves)
+    Long selfUserId = resolveSelfUserId();
+    if (selfUserId != null && order.customerUserId() == selfUserId.longValue()) {
+      LOG.debug("Skipping buyer escort notification for bot self: userId={}", selfUserId);
+      return;
+    }
+
     try {
       discordRuntimeGateway
           .retrieveUserById(order.customerUserId())
@@ -90,6 +97,15 @@ public class EscortOrderBuyerNotificationService {
     builder.append("**付款方式：** ").append(formatPaymentMethod(order)).append("\n");
     builder.append("\n我們已收到你的訂單，管理員將會在不久後為你安排護航，請耐心等候。");
     return builder.toString();
+  }
+
+  private Long resolveSelfUserId() {
+    try {
+      return discordRuntimeGateway.getSelfUserId();
+    } catch (RuntimeException e) {
+      LOG.debug("Unable to resolve bot self user id for escort order notification", e);
+      return null;
+    }
   }
 
   private String formatPaymentMethod(EscortDispatchOrder order) {

@@ -30,6 +30,13 @@ public class FiatOrderPostPaymentWorker {
   private final EscortOrderBuyerNotificationService escortOrderBuyerNotificationService;
   private final Clock clock;
 
+  /**
+   * @deprecated Prefer the 6-parameter constructor with an injected {@link
+   *     EscortOrderBuyerNotificationService}. This convenience constructor creates its own
+   *     instance, bypassing dependency injection, and should only be used for backward
+   *     compatibility with existing integration tests.
+   */
+  @Deprecated
   public FiatOrderPostPaymentWorker(
       FiatOrderRepository fiatOrderRepository,
       ProductRewardService productRewardService,
@@ -111,11 +118,12 @@ public class FiatOrderPostPaymentWorker {
         }
 
         EscortDispatchOrder dispatchOrder = handoffResult.getValue();
-        escortOrderBuyerNotificationService.notifyEscortOrderCreated(dispatchOrder);
         Instant adminClaimTime = Instant.now(clock);
         if (fiatOrderRepository.claimAdminNotificationProcessing(
             order.orderNumber(), adminClaimTime)) {
           try {
+            // 買家通知放在 admin claim 成功之後，避免重試時重複通知買家
+            escortOrderBuyerNotificationService.notifyEscortOrderCreated(dispatchOrder);
             adminNotificationService.notifyAdminsOrderCreated(
                 dispatchOrder.guildId(), dispatchOrder.customerUserId(), dispatchOrder);
             fiatOrderRepository.markAdminNotifiedIfNeeded(order.orderNumber(), adminClaimTime);

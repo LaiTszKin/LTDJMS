@@ -176,6 +176,32 @@ class EscortOrderBuyerNotificationServiceTest {
   }
 
   @Test
+  @DisplayName("buyer 是 bot 自身時應跳過通知")
+  void shouldSkipNotificationWhenBuyerIsSelf() {
+    when(discordRuntimeGateway.getSelfUserId()).thenReturn(BUYER_USER_ID);
+
+    EscortDispatchOrder order = createOrder(EscortDispatchOrder.SourceType.CURRENCY_PURCHASE);
+
+    service.notifyEscortOrderCreated(order);
+
+    verify(discordRuntimeGateway, never()).retrieveUserById(anyLong());
+  }
+
+  @Test
+  @DisplayName("getSelfUserId 失敗時不應影響通知發送")
+  void shouldProceedWhenGetSelfUserIdFails() {
+    when(discordRuntimeGateway.getSelfUserId()).thenThrow(new RuntimeException("Failed"));
+    stubSuccessfulDm();
+
+    EscortDispatchOrder order = createOrder(EscortDispatchOrder.SourceType.CURRENCY_PURCHASE);
+
+    service.notifyEscortOrderCreated(order);
+
+    verify(discordRuntimeGateway).retrieveUserById(BUYER_USER_ID);
+    verify(privateChannel).sendMessage(anyString());
+  }
+
+  @Test
   @DisplayName("retrieveUser 失敗時應優雅處理")
   void shouldHandleRetrieveUserFailureGracefully() {
     when(discordRuntimeGateway.retrieveUserById(BUYER_USER_ID)).thenReturn(retrieveUserAction);
