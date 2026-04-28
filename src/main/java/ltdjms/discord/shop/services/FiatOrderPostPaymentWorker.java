@@ -27,6 +27,7 @@ public class FiatOrderPostPaymentWorker {
   private final EscortDispatchHandoffService escortDispatchHandoffService;
   private final ShopAdminNotificationService adminNotificationService;
   private final FiatOrderBuyerNotificationService buyerNotificationService;
+  private final EscortOrderBuyerNotificationService escortOrderBuyerNotificationService;
   private final Clock clock;
 
   public FiatOrderPostPaymentWorker(
@@ -41,6 +42,24 @@ public class FiatOrderPostPaymentWorker {
         escortDispatchHandoffService,
         adminNotificationService,
         buyerNotificationService,
+        new EscortOrderBuyerNotificationService(),
+        Clock.systemUTC());
+  }
+
+  public FiatOrderPostPaymentWorker(
+      FiatOrderRepository fiatOrderRepository,
+      ProductRewardService productRewardService,
+      EscortDispatchHandoffService escortDispatchHandoffService,
+      ShopAdminNotificationService adminNotificationService,
+      FiatOrderBuyerNotificationService buyerNotificationService,
+      EscortOrderBuyerNotificationService escortOrderBuyerNotificationService) {
+    this(
+        fiatOrderRepository,
+        productRewardService,
+        escortDispatchHandoffService,
+        adminNotificationService,
+        buyerNotificationService,
+        escortOrderBuyerNotificationService,
         Clock.systemUTC());
   }
 
@@ -50,12 +69,15 @@ public class FiatOrderPostPaymentWorker {
       EscortDispatchHandoffService escortDispatchHandoffService,
       ShopAdminNotificationService adminNotificationService,
       FiatOrderBuyerNotificationService buyerNotificationService,
+      EscortOrderBuyerNotificationService escortOrderBuyerNotificationService,
       Clock clock) {
     this.fiatOrderRepository = Objects.requireNonNull(fiatOrderRepository);
     this.productRewardService = Objects.requireNonNull(productRewardService);
     this.escortDispatchHandoffService = Objects.requireNonNull(escortDispatchHandoffService);
     this.adminNotificationService = Objects.requireNonNull(adminNotificationService);
     this.buyerNotificationService = Objects.requireNonNull(buyerNotificationService);
+    this.escortOrderBuyerNotificationService =
+        Objects.requireNonNull(escortOrderBuyerNotificationService);
     this.clock = Objects.requireNonNull(clock);
   }
 
@@ -89,6 +111,7 @@ public class FiatOrderPostPaymentWorker {
         }
 
         EscortDispatchOrder dispatchOrder = handoffResult.getValue();
+        escortOrderBuyerNotificationService.notifyEscortOrderCreated(dispatchOrder);
         Instant adminClaimTime = Instant.now(clock);
         if (fiatOrderRepository.claimAdminNotificationProcessing(
             order.orderNumber(), adminClaimTime)) {

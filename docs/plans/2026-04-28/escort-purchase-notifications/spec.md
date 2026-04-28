@@ -38,10 +38,10 @@
   - 付款狀態（已付款、價格快照）
 
 **Requirements**:
-- [ ] R1.1 貨幣購買完成後，若商品有護航服務，管理員應收到 DM
-- [ ] R1.2 DM 內容應包含買家、商品名稱、護航選項、訂單編號、付款金額與狀態
-- [ ] R1.3 管理員通知不應發送給 bot 自身
-- [ ] R1.4 個別管理員 DM 失敗不應影響其他管理員通知
+- [x] R1.1 貨幣購買完成後，若商品有護航服務，管理員應收到 DM
+- [x] R1.2 DM 內容應包含買家、商品名稱、護航選項、訂單編號、付款金額與狀態
+- [x] R1.3 管理員通知不應發送給 bot 自身
+- [x] R1.4 個別管理員 DM 失敗不應影響其他管理員通知
 
 ### Requirement 2: 管理員接收法幣付款護航商品通知
 
@@ -53,9 +53,9 @@
 **AND** 通知訊息應同 R1.2 格式，含付款狀態（法幣付款、金額）
 
 **Requirements**:
-- [ ] R2.1 法幣付款完成後，若商品有護航服務，管理員應收到 DM
-- [ ] R2.2 DM 內容同 R1.2 規範（含法幣付款狀態）
-- [ ] R2.3 管理員通知失敗時應釋放 claim 以利後續重試
+- [x] R2.1 法幣付款完成後，若商品有護航服務，管理員應收到 DM
+- [x] R2.2 DM 內容同 R1.2 規範（含法幣付款狀態）
+- [x] R2.3 管理員通知失敗時應釋放 claim 以利後續重試
 
 ### Requirement 3: 買家接收貨幣購買護航商品通知
 
@@ -69,8 +69,8 @@
   - 等待處理說明
 
 **Requirements**:
-- [ ] R3.1 貨幣購買護航商品成功後，買家應收到 DM 通知
-- [ ] R3.2 DM 應明確說明護航訂單已建立且正在等待處理
+- [x] R3.1 貨幣購買護航商品成功後，買家應收到 DM 通知
+- [x] R3.2 DM 應明確說明護航訂單已建立且正在等待處理
 
 ### Requirement 4: 買家接收法幣付款護航商品通知
 
@@ -81,18 +81,18 @@
 **AND** DM 內容應同 R3.2（商品名稱、護航訂單編號、等待處理說明）
 
 **Requirements**:
-- [ ] R4.1 法幣付款處理中護航交接建立成功後，買家應收到 DM 通知
-- [ ] R4.2 DM 應明確說明護航訂單已建立且正在等待處理
+- [x] R4.1 法幣付款處理中護航交接建立成功後，買家應收到 DM 通知
+- [x] R4.2 DM 應明確說明護航訂單已建立且正在等待處理
 
 ## Error and Edge Cases
 
-- [ ] 管理員 DM 私訊關閉時應優雅處理（catch failure callback），不影響流程
-- [ ] 買家 DM 私訊關閉時應優雅處理，僅記錄 warn log
-- [ ] `EscortDispatchOrder` 物件為 null 時不應發送通知（guard clause）
-- [ ] 商品未啟用護航服務時不應發送任何護航相關通知
-- [ ] 法幣付款處理中 escort handoff 失敗時，已有實作會釋放 claim 重試，不另做通知
-- [ ] `DiscordRuntimeGateway.retrieveUserById()` 非同步失敗時應記錄 warn log
-- [ ] 貨幣購買流程中 handoff 失敗時（`Result.err`），已有實作會回傳錯誤訊息給買家，不另做通知
+- [x] 管理員 DM 私訊關閉時應優雅處理（catch failure callback），不影響流程 — 已有 `sendAdminNotification` try-catch 與 failure callback
+- [x] 買家 DM 私訊關閉時應優雅處理，僅記錄 warn log — UT-06 驗證
+- [x] `EscortDispatchOrder` 物件為 null 時不應發送通知（guard clause）— 新 service 與既有 service 皆有 null guard
+- [x] 商品未啟用護航服務時不應發送任何護航相關通知 — 既有 `shouldAutoCreateEscortOrder()` 檢查
+- [x] 法幣付款處理中 escort handoff 失敗時，已有實作會釋放 claim 重試，不另做通知
+- [x] `DiscordRuntimeGateway.retrieveUserById()` 非同步失敗時應記錄 warn log — UT-06 驗證 failure callback 不拋錯
+- [x] 貨幣購買流程中 handoff 失敗時（`Result.err`），已有實作會回傳錯誤訊息給買家，不另做通知
 
 ## Clarification Questions
 

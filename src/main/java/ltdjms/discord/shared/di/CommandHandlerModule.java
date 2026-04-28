@@ -61,6 +61,7 @@ import ltdjms.discord.shop.domain.FiatOrderRepository;
 import ltdjms.discord.shop.services.EcpayCallbackHttpServer;
 import ltdjms.discord.shop.services.EcpayCvsPaymentService;
 import ltdjms.discord.shop.services.EcpayTradeQueryService;
+import ltdjms.discord.shop.services.EscortOrderBuyerNotificationService;
 import ltdjms.discord.shop.services.FiatOrderBuyerNotificationService;
 import ltdjms.discord.shop.services.FiatOrderPostPaymentWorker;
 import ltdjms.discord.shop.services.FiatOrderProcessingScheduler;
@@ -354,6 +355,13 @@ public class CommandHandlerModule {
 
   @Provides
   @Singleton
+  public EscortOrderBuyerNotificationService provideEscortOrderBuyerNotificationService(
+      DiscordRuntimeGateway discordRuntimeGateway) {
+    return new EscortOrderBuyerNotificationService(discordRuntimeGateway);
+  }
+
+  @Provides
+  @Singleton
   public FiatOrderService provideFiatOrderService(
       ProductService productService,
       EcpayCvsPaymentService ecpayCvsPaymentService,
@@ -381,13 +389,15 @@ public class CommandHandlerModule {
       ProductRewardService productRewardService,
       EscortDispatchHandoffService escortDispatchHandoffService,
       ShopAdminNotificationService shopAdminNotificationService,
-      FiatOrderBuyerNotificationService fiatOrderBuyerNotificationService) {
+      FiatOrderBuyerNotificationService fiatOrderBuyerNotificationService,
+      EscortOrderBuyerNotificationService escortOrderBuyerNotificationService) {
     return new FiatOrderPostPaymentWorker(
         fiatOrderRepository,
         productRewardService,
         escortDispatchHandoffService,
         shopAdminNotificationService,
-        fiatOrderBuyerNotificationService);
+        fiatOrderBuyerNotificationService,
+        escortOrderBuyerNotificationService);
   }
 
   @Provides
@@ -421,14 +431,16 @@ public class CommandHandlerModule {
       ltdjms.discord.shop.services.CurrencyPurchaseService currencyPurchaseService,
       FiatOrderService fiatOrderService,
       EscortDispatchHandoffService escortDispatchHandoffService,
-      ShopAdminNotificationService shopAdminNotificationService) {
+      ShopAdminNotificationService shopAdminNotificationService,
+      EscortOrderBuyerNotificationService escortOrderBuyerNotificationService) {
     return new ShopSelectMenuHandler(
         productService,
         balanceService,
         currencyPurchaseService,
         fiatOrderService,
         escortDispatchHandoffService,
-        shopAdminNotificationService);
+        shopAdminNotificationService,
+        escortOrderBuyerNotificationService);
   }
 
   @Provides
