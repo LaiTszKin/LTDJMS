@@ -27,8 +27,16 @@ public class FiatOrderPostPaymentWorker {
   private final EscortDispatchHandoffService escortDispatchHandoffService;
   private final ShopAdminNotificationService adminNotificationService;
   private final FiatOrderBuyerNotificationService buyerNotificationService;
+  private final EscortOrderBuyerNotificationService escortOrderBuyerNotificationService;
   private final Clock clock;
 
+  /**
+   * @deprecated Prefer the 6-parameter constructor with an injected {@link
+   *     EscortOrderBuyerNotificationService}. This convenience constructor creates its own
+   *     instance, bypassing dependency injection, and should only be used for backward
+   *     compatibility with existing integration tests.
+   */
+  @Deprecated
   public FiatOrderPostPaymentWorker(
       FiatOrderRepository fiatOrderRepository,
       ProductRewardService productRewardService,
@@ -41,6 +49,24 @@ public class FiatOrderPostPaymentWorker {
         escortDispatchHandoffService,
         adminNotificationService,
         buyerNotificationService,
+        new EscortOrderBuyerNotificationService(),
+        Clock.systemUTC());
+  }
+
+  public FiatOrderPostPaymentWorker(
+      FiatOrderRepository fiatOrderRepository,
+      ProductRewardService productRewardService,
+      EscortDispatchHandoffService escortDispatchHandoffService,
+      ShopAdminNotificationService adminNotificationService,
+      FiatOrderBuyerNotificationService buyerNotificationService,
+      EscortOrderBuyerNotificationService escortOrderBuyerNotificationService) {
+    this(
+        fiatOrderRepository,
+        productRewardService,
+        escortDispatchHandoffService,
+        adminNotificationService,
+        buyerNotificationService,
+        escortOrderBuyerNotificationService,
         Clock.systemUTC());
   }
 
@@ -50,12 +76,15 @@ public class FiatOrderPostPaymentWorker {
       EscortDispatchHandoffService escortDispatchHandoffService,
       ShopAdminNotificationService adminNotificationService,
       FiatOrderBuyerNotificationService buyerNotificationService,
+      EscortOrderBuyerNotificationService escortOrderBuyerNotificationService,
       Clock clock) {
     this.fiatOrderRepository = Objects.requireNonNull(fiatOrderRepository);
     this.productRewardService = Objects.requireNonNull(productRewardService);
     this.escortDispatchHandoffService = Objects.requireNonNull(escortDispatchHandoffService);
     this.adminNotificationService = Objects.requireNonNull(adminNotificationService);
     this.buyerNotificationService = Objects.requireNonNull(buyerNotificationService);
+    this.escortOrderBuyerNotificationService =
+        Objects.requireNonNull(escortOrderBuyerNotificationService);
     this.clock = Objects.requireNonNull(clock);
   }
 
@@ -93,6 +122,8 @@ public class FiatOrderPostPaymentWorker {
         if (fiatOrderRepository.claimAdminNotificationProcessing(
             order.orderNumber(), adminClaimTime)) {
           try {
+            // 買家通知放在 admin claim 成功之後，避免重試時重複通知買家
+            escortOrderBuyerNotificationService.notifyEscortOrderCreated(dispatchOrder);
             adminNotificationService.notifyAdminsOrderCreated(
                 dispatchOrder.guildId(), dispatchOrder.customerUserId(), dispatchOrder);
             fiatOrderRepository.markAdminNotifiedIfNeeded(order.orderNumber(), adminClaimTime);

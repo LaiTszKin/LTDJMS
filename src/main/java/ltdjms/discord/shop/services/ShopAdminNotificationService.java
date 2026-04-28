@@ -207,6 +207,7 @@ public class ShopAdminNotificationService {
     if (order.sourceProductName() != null && !order.sourceProductName().isBlank()) {
       builder.append("**來源商品：** ").append(order.sourceProductName()).append("\n");
     }
+    builder.append("**付款狀態：** ").append(formatPaymentStatus(order)).append("\n");
     String priceText = formatSourcePrice(order);
     if (!priceText.isBlank()) {
       builder.append("**價格快照：** ").append(priceText).append("\n");
@@ -227,6 +228,29 @@ public class ShopAdminNotificationService {
       case MANUAL -> "手動派單";
       case CURRENCY_PURCHASE -> "貨幣購買";
       case FIAT_PAYMENT -> "法幣付款";
+    };
+  }
+
+  private String formatPaymentStatus(EscortDispatchOrder order) {
+    if (order.sourceType() == null) {
+      return "未知";
+    }
+    return switch (order.sourceType()) {
+      case CURRENCY_PURCHASE -> {
+        String price =
+            order.sourceCurrencyPrice() != null && order.sourceCurrencyPrice() > 0
+                ? String.format("（%,d 貨幣）", order.sourceCurrencyPrice())
+                : "";
+        yield "已付款（貨幣" + price + "）";
+      }
+      case FIAT_PAYMENT -> {
+        String price =
+            order.sourceFiatPriceTwd() != null && order.sourceFiatPriceTwd() > 0
+                ? String.format("（NT$%,d）", order.sourceFiatPriceTwd())
+                : "";
+        yield "已付款（法幣" + price + "）";
+      }
+      case MANUAL -> "不適用（手動派單）";
     };
   }
 

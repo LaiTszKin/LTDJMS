@@ -17,6 +17,7 @@ import ltdjms.discord.product.services.ProductService;
 import ltdjms.discord.shared.DomainError;
 import ltdjms.discord.shared.Result;
 import ltdjms.discord.shop.services.CurrencyPurchaseService;
+import ltdjms.discord.shop.services.EscortOrderBuyerNotificationService;
 import ltdjms.discord.shop.services.FiatOrderService;
 import ltdjms.discord.shop.services.ShopAdminNotificationService;
 import ltdjms.discord.shop.services.ShopView;
@@ -41,6 +42,7 @@ public class ShopSelectMenuHandler extends ListenerAdapter {
   private final FiatOrderService fiatOrderService;
   private final EscortDispatchHandoffService escortDispatchHandoffService;
   private final ShopAdminNotificationService adminNotificationService;
+  private final EscortOrderBuyerNotificationService escortOrderBuyerNotificationService;
   private final Set<String> inflightFiatOrders = ConcurrentHashMap.newKeySet();
 
   public ShopSelectMenuHandler(
@@ -49,13 +51,15 @@ public class ShopSelectMenuHandler extends ListenerAdapter {
       CurrencyPurchaseService purchaseService,
       FiatOrderService fiatOrderService,
       EscortDispatchHandoffService escortDispatchHandoffService,
-      ShopAdminNotificationService adminNotificationService) {
+      ShopAdminNotificationService adminNotificationService,
+      EscortOrderBuyerNotificationService escortOrderBuyerNotificationService) {
     this.productService = productService;
     this.balanceService = balanceService;
     this.purchaseService = purchaseService;
     this.fiatOrderService = fiatOrderService;
     this.escortDispatchHandoffService = escortDispatchHandoffService;
     this.adminNotificationService = adminNotificationService;
+    this.escortOrderBuyerNotificationService = escortOrderBuyerNotificationService;
   }
 
   @Override
@@ -300,7 +304,9 @@ public class ShopSelectMenuHandler extends ListenerAdapter {
             escortDispatchHandoffService.handoffFromCurrencyPurchase(
                 guildId, userId, purchasedProduct, event.getId());
         if (handoffResult.isOk()) {
-          notifyAdminsOrderCreated(handoffResult.getValue());
+          EscortDispatchOrder dispatchOrder = handoffResult.getValue();
+          escortOrderBuyerNotificationService.notifyEscortOrderCreated(dispatchOrder);
+          notifyAdminsOrderCreated(dispatchOrder);
         } else {
           LOG.warn(
               "Failed to create escort dispatch handoff for currency purchase: guildId={},"

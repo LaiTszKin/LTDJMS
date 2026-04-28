@@ -23,6 +23,7 @@ import ltdjms.discord.dispatch.domain.EscortDispatchOrder;
 import ltdjms.discord.dispatch.services.EscortDispatchHandoffService;
 import ltdjms.discord.product.domain.Product;
 import ltdjms.discord.product.services.ProductRewardService;
+import ltdjms.discord.shared.DomainError;
 import ltdjms.discord.shared.Result;
 import ltdjms.discord.shop.domain.FiatOrder;
 import ltdjms.discord.shop.domain.FiatOrderRepository;
@@ -39,6 +40,7 @@ class FiatOrderPostPaymentWorkerTest {
   @Mock private EscortDispatchHandoffService escortDispatchHandoffService;
   @Mock private ShopAdminNotificationService adminNotificationService;
   @Mock private FiatOrderBuyerNotificationService buyerNotificationService;
+  @Mock private EscortOrderBuyerNotificationService escortOrderBuyerNotificationService;
 
   private FiatOrderPostPaymentWorker worker;
 
@@ -51,6 +53,7 @@ class FiatOrderPostPaymentWorkerTest {
             escortDispatchHandoffService,
             adminNotificationService,
             buyerNotificationService,
+            escortOrderBuyerNotificationService,
             Clock.fixed(NOW, ZoneOffset.UTC));
   }
 
@@ -73,11 +76,16 @@ class FiatOrderPostPaymentWorkerTest {
     worker.processSingleOrder(order);
 
     var callOrder =
-        inOrder(buyerNotificationService, escortDispatchHandoffService, adminNotificationService);
+        inOrder(
+            buyerNotificationService,
+            escortDispatchHandoffService,
+            escortOrderBuyerNotificationService,
+            adminNotificationService);
     callOrder.verify(buyerNotificationService).notifyPaymentSucceeded(order);
     callOrder
         .verify(escortDispatchHandoffService)
         .handoffFromFiatPayment(order.guildId(), order.buyerUserId(), product, order.orderNumber());
+    callOrder.verify(escortOrderBuyerNotificationService).notifyEscortOrderCreated(dispatchOrder);
     callOrder
         .verify(adminNotificationService)
         .notifyAdminsOrderCreated(eq(order.guildId()), eq(order.buyerUserId()), eq(dispatchOrder));
@@ -135,6 +143,25 @@ class FiatOrderPostPaymentWorkerTest {
     verify(fiatOrderRepository, never()).markFulfilledIfNeeded(any(), any());
     verify(escortDispatchHandoffService)
         .handoffFromFiatPayment(order.guildId(), order.buyerUserId(), product, order.orderNumber());
+  }
+
+  @Test
+  @DisplayName("UT-04: 護航 handoff 失敗時不應呼叫買家護航通知")
+  void shouldNotNotifyBuyerEscortWhenHandoffFails() {
+    FiatOrder order = paidOrder();
+    Product product = order.toFulfillmentProduct();
+    when(fiatOrderRepository.claimFulfillmentProcessing(eq(order.orderNumber()), any()))
+        .thenReturn(true);
+    when(escortDispatchHandoffService.handoffFromFiatPayment(
+            eq(order.guildId()), eq(order.buyerUserId()), eq(product), eq(order.orderNumber())))
+        .thenReturn(
+            Result.err(new DomainError(DomainError.Category.INVALID_INPUT, "handoff 失敗", null)));
+
+    worker.processSingleOrder(order);
+
+    verify(escortOrderBuyerNotificationService, never()).notifyEscortOrderCreated(any());
+    verify(adminNotificationService, never()).notifyAdminsOrderCreated(anyLong(), anyLong(), any());
+    verify(fiatOrderRepository).releaseFulfillmentProcessing(order.orderNumber());
   }
 
   @Test

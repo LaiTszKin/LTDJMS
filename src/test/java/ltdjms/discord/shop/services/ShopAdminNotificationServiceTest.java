@@ -3,6 +3,7 @@ package ltdjms.discord.shop.services;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
@@ -148,5 +149,96 @@ class ShopAdminNotificationServiceTest {
             })
         .when(openPrivateChannelAction)
         .queue(any(), any());
+  }
+
+  @Test
+  @DisplayName("UT-05: 貨幣購買訂單的管理員通知應包含付款狀態（貨幣）")
+  void adminNotificationForCurrencyOrder_shouldIncludeCurrencyPaymentStatus() {
+    EscortDispatchOrder order =
+        EscortDispatchOrder.createAutoHandoff(
+            "ESC-20260427-ABC123",
+            GUILD_ID,
+            0L,
+            0L,
+            BUYER_USER_ID,
+            EscortDispatchOrder.SourceType.CURRENCY_PURCHASE,
+            "ORDER-001",
+            1L,
+            "Test Product",
+            100L,
+            null,
+            "escort-a");
+
+    when(guild.getMembers()).thenReturn(List.of(adminMember));
+    when(adminMember.hasPermission(Permission.ADMINISTRATOR)).thenReturn(true);
+    when(adminMember.getUser()).thenReturn(adminUser);
+    when(adminUser.getIdLong()).thenReturn(ADMIN_USER_ID);
+    stubSuccessfulDirectMessage(adminUser);
+
+    service.notifyAdminsOrderCreated(GUILD_ID, BUYER_USER_ID, order);
+
+    verify(privateChannel)
+        .sendMessage(
+            argThat(
+                (String msg) ->
+                    msg.contains("付款狀態")
+                        && msg.contains("貨幣")
+                        && msg.contains("100")
+                        && msg.contains("已付款")));
+  }
+
+  @Test
+  @DisplayName("UT-05: 法幣付款訂單的管理員通知應包含付款狀態（法幣）")
+  void adminNotificationForFiatOrder_shouldIncludeFiatPaymentStatus() {
+    EscortDispatchOrder order =
+        EscortDispatchOrder.createAutoHandoff(
+            "ESC-20260427-DEF456",
+            GUILD_ID,
+            0L,
+            0L,
+            BUYER_USER_ID,
+            EscortDispatchOrder.SourceType.FIAT_PAYMENT,
+            "ORDER-002",
+            1L,
+            "Test Product",
+            null,
+            1200L,
+            "escort-b");
+
+    when(guild.getMembers()).thenReturn(List.of(adminMember));
+    when(adminMember.hasPermission(Permission.ADMINISTRATOR)).thenReturn(true);
+    when(adminMember.getUser()).thenReturn(adminUser);
+    when(adminUser.getIdLong()).thenReturn(ADMIN_USER_ID);
+    stubSuccessfulDirectMessage(adminUser);
+
+    service.notifyAdminsOrderCreated(GUILD_ID, BUYER_USER_ID, order);
+
+    verify(privateChannel)
+        .sendMessage(
+            argThat(
+                (String msg) ->
+                    msg.contains("付款狀態")
+                        && msg.contains("法幣")
+                        && msg.contains("1,200")
+                        && msg.contains("已付款")));
+  }
+
+  @Test
+  @DisplayName("UT-05: 手動派單的管理員通知不應包含付款狀態")
+  void adminNotificationForManualOrder_shouldNotIncludePaymentStatus() {
+    EscortDispatchOrder order =
+        EscortDispatchOrder.createManualOpenOrder(
+            "ESC-20260427-MANUAL", GUILD_ID, 0L, BUYER_USER_ID, "escort-a");
+
+    when(guild.getMembers()).thenReturn(List.of(adminMember));
+    when(adminMember.hasPermission(Permission.ADMINISTRATOR)).thenReturn(true);
+    when(adminMember.getUser()).thenReturn(adminUser);
+    when(adminUser.getIdLong()).thenReturn(ADMIN_USER_ID);
+    stubSuccessfulDirectMessage(adminUser);
+
+    service.notifyAdminsOrderCreated(GUILD_ID, BUYER_USER_ID, order);
+
+    verify(privateChannel)
+        .sendMessage(argThat((String msg) -> msg.contains("付款狀態") && msg.contains("手動派單")));
   }
 }

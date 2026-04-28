@@ -28,6 +28,7 @@ import ltdjms.discord.product.services.ProductService;
 import ltdjms.discord.shared.DomainError;
 import ltdjms.discord.shared.Result;
 import ltdjms.discord.shop.services.CurrencyPurchaseService;
+import ltdjms.discord.shop.services.EscortOrderBuyerNotificationService;
 import ltdjms.discord.shop.services.FiatOrderService;
 import ltdjms.discord.shop.services.ShopAdminNotificationService;
 import ltdjms.discord.shop.services.ShopView;
@@ -67,6 +68,8 @@ class ShopSelectMenuHandlerTest {
 
   @Mock private ShopAdminNotificationService adminNotificationService;
 
+  @Mock private EscortOrderBuyerNotificationService escortOrderBuyerNotificationService;
+
   @Mock private StringSelectInteractionEvent selectEvent;
 
   @Mock private ButtonInteractionEvent buttonEvent;
@@ -102,7 +105,8 @@ class ShopSelectMenuHandlerTest {
             purchaseService,
             fiatOrderService,
             escortDispatchHandoffService,
-            adminNotificationService);
+            adminNotificationService,
+            escortOrderBuyerNotificationService);
 
     // 設定預設的 mock 行為
     when(selectEvent.getGuild()).thenReturn(guild);
@@ -548,6 +552,137 @@ class ShopSelectMenuHandlerTest {
 
     verify(buttonEvent).reply(argThat((String msg) -> msg.contains("購買成功")));
     verify(replyAction).setEphemeral(true);
+  }
+
+  @Test
+  @DisplayName("自動護航商品購買成功後應先通知買家再通知管理員")
+  void confirmAutoEscortPurchaseSuccess_shouldNotifyBuyerBeforeAdmin() {
+    String buttonId = ShopSelectMenuHandler.BUTTON_CONFIRM_PURCHASE + TEST_PRODUCT_ID;
+    var product =
+        new Product(
+            TEST_PRODUCT_ID,
+            TEST_GUILD_ID,
+            "Test Product",
+            null,
+            null,
+            null,
+            100L,
+            null,
+            true,
+            "escort-a",
+            Instant.now(),
+            Instant.now());
+    var purchaseResult = new CurrencyPurchaseService.PurchaseResult(product, 500L, 400L, 100L, "");
+    EscortDispatchOrder dispatchOrder =
+        EscortDispatchOrder.createAutoHandoff(
+            "ESC-20260411-ABC123",
+            TEST_GUILD_ID,
+            0L,
+            0L,
+            TEST_USER_ID,
+            EscortDispatchOrder.SourceType.CURRENCY_PURCHASE,
+            "interaction-1234567890",
+            product.id(),
+            product.name(),
+            product.currencyPrice(),
+            product.fiatPriceTwd(),
+            product.escortOptionCode());
+
+    when(buttonEvent.getComponentId()).thenReturn(buttonId);
+    when(purchaseService.purchaseProduct(TEST_GUILD_ID, TEST_USER_ID, TEST_PRODUCT_ID))
+        .thenReturn(Result.ok(purchaseResult));
+    when(escortDispatchHandoffService.handoffFromCurrencyPurchase(
+            TEST_GUILD_ID, TEST_USER_ID, product, "interaction-1234567890"))
+        .thenReturn(Result.ok(dispatchOrder));
+
+    handler.onButtonInteraction(buttonEvent);
+
+    verify(escortOrderBuyerNotificationService).notifyEscortOrderCreated(dispatchOrder);
+    verify(adminNotificationService)
+        .notifyAdminsOrderCreated(TEST_GUILD_ID, TEST_USER_ID, dispatchOrder);
+    verify(buttonEvent).reply(argThat((String msg) -> msg.contains("購買成功")));
+    verify(replyAction).setEphemeral(true);
+  }
+
+  @Test
+  @DisplayName("UT-03: 自動護航商品 handoff 成功後買家通知應被呼叫")
+  void confirmAutoEscortPurchaseSuccess_shouldNotifyBuyer() {
+    String buttonId = ShopSelectMenuHandler.BUTTON_CONFIRM_PURCHASE + TEST_PRODUCT_ID;
+    var product =
+        new Product(
+            TEST_PRODUCT_ID,
+            TEST_GUILD_ID,
+            "Test Product",
+            null,
+            null,
+            null,
+            100L,
+            null,
+            true,
+            "escort-a",
+            Instant.now(),
+            Instant.now());
+    var purchaseResult = new CurrencyPurchaseService.PurchaseResult(product, 500L, 400L, 100L, "");
+    EscortDispatchOrder dispatchOrder =
+        EscortDispatchOrder.createAutoHandoff(
+            "ESC-20260411-ABC123",
+            TEST_GUILD_ID,
+            0L,
+            0L,
+            TEST_USER_ID,
+            EscortDispatchOrder.SourceType.CURRENCY_PURCHASE,
+            "interaction-1234567890",
+            product.id(),
+            product.name(),
+            product.currencyPrice(),
+            product.fiatPriceTwd(),
+            product.escortOptionCode());
+
+    when(buttonEvent.getComponentId()).thenReturn(buttonId);
+    when(purchaseService.purchaseProduct(TEST_GUILD_ID, TEST_USER_ID, TEST_PRODUCT_ID))
+        .thenReturn(Result.ok(purchaseResult));
+    when(escortDispatchHandoffService.handoffFromCurrencyPurchase(
+            TEST_GUILD_ID, TEST_USER_ID, product, "interaction-1234567890"))
+        .thenReturn(Result.ok(dispatchOrder));
+
+    handler.onButtonInteraction(buttonEvent);
+
+    verify(escortOrderBuyerNotificationService).notifyEscortOrderCreated(dispatchOrder);
+  }
+
+  @Test
+  @DisplayName("UT-03: 自動護航 handoff 失敗時不應呼叫買家通知")
+  void confirmAutoEscortPurchaseHandoffFailure_shouldNotNotifyBuyer() {
+    String buttonId = ShopSelectMenuHandler.BUTTON_CONFIRM_PURCHASE + TEST_PRODUCT_ID;
+    var product =
+        new Product(
+            TEST_PRODUCT_ID,
+            TEST_GUILD_ID,
+            "Test Product",
+            null,
+            null,
+            null,
+            100L,
+            null,
+            true,
+            "escort-a",
+            Instant.now(),
+            Instant.now());
+    var purchaseResult = new CurrencyPurchaseService.PurchaseResult(product, 500L, 400L, 100L, "");
+
+    when(buttonEvent.getComponentId()).thenReturn(buttonId);
+    when(purchaseService.purchaseProduct(TEST_GUILD_ID, TEST_USER_ID, TEST_PRODUCT_ID))
+        .thenReturn(Result.ok(purchaseResult));
+    when(escortDispatchHandoffService.handoffFromCurrencyPurchase(
+            TEST_GUILD_ID, TEST_USER_ID, product, "interaction-1234567890"))
+        .thenReturn(
+            Result.err(new DomainError(DomainError.Category.INVALID_INPUT, "handoff 失敗", null)));
+
+    handler.onButtonInteraction(buttonEvent);
+
+    verify(escortOrderBuyerNotificationService, never()).notifyEscortOrderCreated(any());
+    verify(adminNotificationService, never())
+        .notifyAdminsOrderCreated(anyLong(), anyLong(), any(EscortDispatchOrder.class));
   }
 
   @Test
