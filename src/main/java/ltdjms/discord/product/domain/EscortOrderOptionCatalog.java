@@ -6,20 +6,65 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-/** Built-in escort order option catalog and pricing table (TWD). */
+/**
+ * Escort order option catalog that reads from the database via {@link EscortOptionCatalogRepository}
+ * with a fallback to built-in hardcoded data when the repository is unavailable.
+ *
+ * <p>This class maintains backward compatibility — all public static API signatures remain unchanged
+ * while the underlying data source transitions from hardcoded to database-driven.
+ */
 public final class EscortOrderOptionCatalog {
 
-  private static final Map<String, EscortOrderOption> OPTIONS = createOptions();
+  private static EscortOptionCatalogRepository repository;
+
+  private static volatile Map<String, EscortOrderOption> cachedOptions;
+  private static volatile boolean cacheLoaded;
 
   private EscortOrderOptionCatalog() {
     // Utility class
+  }
+
+  /** Sets the repository instance for database-backed reads. */
+  public static void setRepository(EscortOptionCatalogRepository repo) {
+    repository = repo;
+    cacheLoaded = false; // invalidate cache on next access
+  }
+
+  private static Map<String, EscortOrderOption> loadOptions() {
+    if (repository != null) {
+      try {
+        List<EscortOptionCatalog> catalogs = repository.findAll();
+        if (!catalogs.isEmpty()) {
+          Map<String, EscortOrderOption> options = new LinkedHashMap<>();
+          for (EscortOptionCatalog cat : catalogs) {
+            options.put(
+                cat.code(),
+                new EscortOrderOption(
+                    cat.code(), cat.type(), cat.level(), cat.mapScope(), cat.target(),
+                    cat.priceTwd()));
+          }
+          return Map.copyOf(options);
+        }
+      } catch (Exception e) {
+        // Fall through to hardcoded data
+      }
+    }
+    return createHardcodedOptions();
+  }
+
+  private static Map<String, EscortOrderOption> getOptions() {
+    if (!cacheLoaded) {
+      cachedOptions = loadOptions();
+      cacheLoaded = true;
+    }
+    return cachedOptions;
   }
 
   public static Optional<EscortOrderOption> findByCode(String code) {
     if (code == null || code.isBlank()) {
       return Optional.empty();
     }
-    return Optional.ofNullable(OPTIONS.get(code.trim().toUpperCase()));
+    return Optional.ofNullable(getOptions().get(code.trim().toUpperCase()));
   }
 
   public static boolean isSupported(String code) {
@@ -27,18 +72,18 @@ public final class EscortOrderOptionCatalog {
   }
 
   public static Set<String> supportedCodes() {
-    return OPTIONS.keySet();
+    return getOptions().keySet();
   }
 
   public static List<EscortOrderOption> allOptions() {
-    return List.copyOf(OPTIONS.values());
+    return List.copyOf(getOptions().values());
   }
 
   public static String supportedCodesForDisplay() {
-    return String.join(", ", OPTIONS.keySet());
+    return String.join(", ", getOptions().keySet());
   }
 
-  private static Map<String, EscortOrderOption> createOptions() {
+  private static Map<String, EscortOrderOption> createHardcodedOptions() {
     Map<String, EscortOrderOption> options = new LinkedHashMap<>();
 
     // 包本單

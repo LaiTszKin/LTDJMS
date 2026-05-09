@@ -1,5 +1,6 @@
 package ltdjms.discord.panel.services;
 
+import java.util.List;
 import java.util.Set;
 
 import org.slf4j.Logger;
@@ -11,6 +12,8 @@ import ltdjms.discord.currency.domain.GuildCurrencyConfig;
 import ltdjms.discord.dispatch.services.DispatchAfterSalesStaffService;
 import ltdjms.discord.dispatch.services.EscortOptionPricingService;
 import ltdjms.discord.gametoken.domain.DiceGame1Config;
+import ltdjms.discord.product.domain.EscortOptionCatalog;
+import ltdjms.discord.product.domain.EscortOptionCatalogRepository;
 import ltdjms.discord.gametoken.domain.DiceGame2Config;
 import ltdjms.discord.shared.DomainError;
 import ltdjms.discord.shared.Result;
@@ -32,6 +35,7 @@ public class AdminPanelService {
   private final AIConfigManagementFacade aiConfigFacade;
   private final DispatchAfterSalesStaffService dispatchAfterSalesStaffService;
   private final EscortOptionPricingService escortOptionPricingService;
+  private final EscortOptionCatalogRepository escortOptionCatalogRepository;
 
   public AdminPanelService(
       CurrencyManagementFacade currencyFacade,
@@ -45,6 +49,7 @@ public class AdminPanelService {
         gameConfigFacade,
         aiConfigFacade,
         dispatchAfterSalesStaffService,
+        null,
         null);
   }
 
@@ -55,12 +60,31 @@ public class AdminPanelService {
       AIConfigManagementFacade aiConfigFacade,
       DispatchAfterSalesStaffService dispatchAfterSalesStaffService,
       EscortOptionPricingService escortOptionPricingService) {
+    this(
+        currencyFacade,
+        gameTokenFacade,
+        gameConfigFacade,
+        aiConfigFacade,
+        dispatchAfterSalesStaffService,
+        escortOptionPricingService,
+        null);
+  }
+
+  public AdminPanelService(
+      CurrencyManagementFacade currencyFacade,
+      GameTokenManagementFacade gameTokenFacade,
+      GameConfigManagementFacade gameConfigFacade,
+      AIConfigManagementFacade aiConfigFacade,
+      DispatchAfterSalesStaffService dispatchAfterSalesStaffService,
+      EscortOptionPricingService escortOptionPricingService,
+      EscortOptionCatalogRepository escortOptionCatalogRepository) {
     this.currencyFacade = currencyFacade;
     this.gameTokenFacade = gameTokenFacade;
     this.gameConfigFacade = gameConfigFacade;
     this.aiConfigFacade = aiConfigFacade;
     this.dispatchAfterSalesStaffService = dispatchAfterSalesStaffService;
     this.escortOptionPricingService = escortOptionPricingService;
+    this.escortOptionCatalogRepository = escortOptionCatalogRepository;
   }
 
   // ========== Currency Management ==========
@@ -363,5 +387,118 @@ public class AdminPanelService {
       return Result.err(DomainError.unexpectedFailure("護航定價服務尚未初始化", null));
     }
     return escortOptionPricingService.resetOptionPrice(guildId, optionCode);
+  }
+
+  // ========== 護航價目表管理（Catalog CRUD）==========
+
+  /** Returns a paginated view of the escort catalog. */
+  public Result<java.util.List<EscortOptionCatalog>, DomainError> getEscortCatalogPage(
+      long guildId, int page, int pageSize) {
+    try {
+      List<EscortOptionCatalog> all = escortOptionCatalogRepository.findAll();
+      int totalItems = all.size();
+      int fromIndex = Math.min(page * pageSize, totalItems);
+      int toIndex = Math.min(fromIndex + pageSize, totalItems);
+      List<EscortOptionCatalog> pageItems =
+          fromIndex < totalItems ? all.subList(fromIndex, toIndex) : List.of();
+      return Result.ok(pageItems);
+    } catch (Exception e) {
+      LOG.error("Failed to get escort catalog page: guildId={}, page={}", guildId, page, e);
+      return Result.err(DomainError.persistenceFailure("查詢護航價目表失敗", e));
+    }
+  }
+
+  /** Returns the total count of catalog entries. */
+  public long getEscortCatalogCount() {
+    try {
+      return escortOptionCatalogRepository.count();
+    } catch (Exception e) {
+      LOG.error("Failed to count escort catalog entries", e);
+      return 0;
+    }
+  }
+
+  /** Creates a new escort catalog entry. */
+  public Result<EscortOptionCatalog, DomainError> createEscortCatalogItem(
+      String code, String type, String level, String mapScope, String target, long priceTwd) {
+    try {
+      if (escortOptionCatalogRepository.existsByCode(code.trim().toUpperCase())) {
+        return Result.err(
+            DomainError.invalidInput("護航選項代碼已存在：" + code.trim().toUpperCase()));
+      }
+      EscortOptionCatalog catalog =
+          EscortOptionCatalog.create(
+              code.trim().toUpperCase(), type, level, mapScope, target, priceTwd);
+      EscortOptionCatalog saved = escortOptionCatalogRepository.save(catalog);
+      LOG.info("Created escort catalog item: code={}", saved.code());
+      return Result.ok(saved);
+    } catch (Exception e) {
+      LOG.error("Failed to create escort catalog item: code={}", code, e);
+      return Result.err(DomainError.persistenceFailure("新增護航項目失敗", e));
+    }
+  }
+
+  /** Updates an existing escort catalog entry. */
+  public Result<EscortOptionCatalog, DomainError> updateEscortCatalogItem(
+      String originalCode,
+      String code,
+      String type,
+      String level,
+      String mapScope,
+      String target,
+      long priceTwd) {
+    try {
+      String normalizedOriginalCode = originalCode.trim().toUpperCase();
+      String normalizedNewCode = code.trim().toUpperCase();
+
+      // If code changed, check uniqueness of new code
+      if (!normalizedOriginalCode.equals(normalizedNewCode)
+          && escortOptionCatalogRepository.existsByCode(normalizedNewCode)) {
+        return Result.err(
+            DomainError.invalidInput("護航選項代碼已存在：" + normalizedNewCode));
+      }
+
+      EscortOptionCatalog existing =
+          escortOptionCatalogRepository.findByCode(normalizedOriginalCode).orElse(null);
+      if (existing == null) {
+        return Result.err(
+            DomainError.invalidInput("護航選項不存在：" + normalizedOriginalCode));
+      }
+
+      EscortOptionCatalog updated =
+          existing.withUpdatedDetails(
+              normalizedNewCode, type, level, mapScope, target, priceTwd);
+      EscortOptionCatalog saved = escortOptionCatalogRepository.update(updated);
+      LOG.info("Updated escort catalog item: code={}", saved.code());
+      return Result.ok(saved);
+    } catch (Exception e) {
+      LOG.error("Failed to update escort catalog item: code={}", code, e);
+      return Result.err(DomainError.persistenceFailure("更新護航項目失敗", e));
+    }
+  }
+
+  /** Deletes a catalog entry by code. */
+  public Result<Unit, DomainError> deleteEscortCatalogItem(String code) {
+    try {
+      String normalizedCode = code.trim().toUpperCase();
+      boolean deleted = escortOptionCatalogRepository.deleteByCode(normalizedCode);
+      if (!deleted) {
+        return Result.err(DomainError.invalidInput("護航選項不存在：" + normalizedCode));
+      }
+      LOG.info("Deleted escort catalog item: code={}", normalizedCode);
+      return Result.okVoid();
+    } catch (Exception e) {
+      LOG.error("Failed to delete escort catalog item: code={}", code, e);
+      return Result.err(DomainError.persistenceFailure("刪除護航項目失敗", e));
+    }
+  }
+
+  /** Checks if a catalog entry with the given code exists. */
+  public boolean existsEscortCatalogItemByCode(String code) {
+    try {
+      return escortOptionCatalogRepository.existsByCode(code.trim().toUpperCase());
+    } catch (Exception e) {
+      return false;
+    }
   }
 }

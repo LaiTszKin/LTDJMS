@@ -4,6 +4,7 @@ import java.awt.Color;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -15,6 +16,7 @@ import ltdjms.discord.discord.domain.EmbedView;
 import ltdjms.discord.dispatch.services.EscortOptionPricingService;
 import ltdjms.discord.gametoken.domain.DiceGame1Config;
 import ltdjms.discord.gametoken.domain.DiceGame2Config;
+import ltdjms.discord.product.domain.EscortOptionCatalog;
 import ltdjms.discord.panel.components.PanelComponentRenderer;
 import ltdjms.discord.panel.services.AdminPanelService;
 import ltdjms.discord.panel.services.AdminPanelSessionManager;
@@ -89,6 +91,19 @@ public class AdminPanelButtonHandler extends ListenerAdapter {
   public static final String BUTTON_ESCORT_PRICING_PANEL_CONFIRM =
       "admin_escort_pricing_panel_confirm";
   public static final String BUTTON_ESCORT_PRICING_PANEL_CLOSE = "admin_escort_pricing_panel_close";
+
+  // Escort Catalog 護航價目表管理
+  public static final String BUTTON_ESCORT_CATALOG = "admin_panel_escort_catalog";
+  public static final String BUTTON_ESCORT_CATALOG_PREV = "admin_escort_catalog_prev";
+  public static final String BUTTON_ESCORT_CATALOG_NEXT = "admin_escort_catalog_next";
+  public static final String BUTTON_ESCORT_CATALOG_CREATE = "admin_escort_catalog_create";
+  public static final String BUTTON_ESCORT_CATALOG_EDIT = "admin_escort_catalog_edit";
+  public static final String BUTTON_ESCORT_CATALOG_DELETE = "admin_escort_catalog_delete";
+  public static final String BUTTON_ESCORT_CATALOG_REFRESH = "admin_escort_catalog_refresh";
+  public static final String BUTTON_ESCORT_CATALOG_SELECT = "admin_escort_catalog_select";
+  public static final String SELECT_ESCORT_CATALOG_ITEM = "admin_select_escort_catalog_item";
+  public static final String MODAL_ESCORT_CATALOG_CREATE = "admin_modal_escort_catalog_create";
+  public static final String MODAL_ESCORT_CATALOG_EDIT = "admin_modal_escort_catalog_edit";
 
   // Modal IDs
   public static final String MODAL_BALANCE_ADJUST = "admin_modal_balance_adjust";
@@ -194,6 +209,14 @@ public class AdminPanelButtonHandler extends ListenerAdapter {
         case BUTTON_ESCORT_PRICING_PANEL_INPUT_PRICE -> openEscortPricingPanelPriceModal(event);
         case BUTTON_ESCORT_PRICING_PANEL_CONFIRM -> handleEscortPricingPanelConfirm(event);
         case BUTTON_ESCORT_PRICING_PANEL_CLOSE -> handleEscortPricingPanelClose(event);
+        case BUTTON_ESCORT_CATALOG -> showEscortCatalogList(event, 0);
+        case BUTTON_ESCORT_CATALOG_PREV -> handleEscortCatalogPageNav(event, -1);
+        case BUTTON_ESCORT_CATALOG_NEXT -> handleEscortCatalogPageNav(event, 1);
+        case BUTTON_ESCORT_CATALOG_CREATE -> openEscortCatalogCreateModal(event);
+        case BUTTON_ESCORT_CATALOG_EDIT -> openEscortCatalogEditModal(event);
+        case BUTTON_ESCORT_CATALOG_DELETE -> handleEscortCatalogDelete(event);
+        case BUTTON_ESCORT_CATALOG_REFRESH -> handleEscortCatalogRefresh(event);
+        case BUTTON_ESCORT_CATALOG_SELECT -> openEscortCatalogItemSelect(event);
         case BUTTON_BACK -> showMainPanel(event);
         case BUTTON_OPEN_BALANCE_MODAL -> openBalanceModal(event);
         case BUTTON_OPEN_TOKEN_MODAL -> openTokenModal(event);
@@ -286,6 +309,7 @@ public class AdminPanelButtonHandler extends ListenerAdapter {
             handleEscortPricingPanelOptionSelect(event, sessionKey, guildId);
         case SELECT_ESCORT_PRICING_PANEL_OPTION_EXTRA ->
             handleEscortPricingPanelOptionSelect(event, sessionKey, guildId);
+        case SELECT_ESCORT_CATALOG_ITEM -> handleEscortCatalogItemSelect(event, guildId);
         default -> LOG.warn("Unknown string select: {}", selectId);
       }
     } catch (Exception e) {
@@ -333,6 +357,10 @@ public class AdminPanelButtonHandler extends ListenerAdapter {
         handleEscortPricingResetModal(event);
       } else if (modalId.startsWith(MODAL_ESCORT_PRICING_PANEL_PRICE)) {
         handleEscortPricingPanelPriceModal(event);
+      } else if (modalId.startsWith(MODAL_ESCORT_CATALOG_CREATE)) {
+        handleEscortCatalogCreateModal(event);
+      } else if (modalId.startsWith(MODAL_ESCORT_CATALOG_EDIT)) {
+        handleEscortCatalogEditModal(event);
       }
     } catch (Exception e) {
       LOG.error("Error handling modal: {}", modalId, e);
@@ -2491,5 +2519,360 @@ public class AdminPanelButtonHandler extends ListenerAdapter {
     Long pendingPriceTwd;
     String statusMessage;
     InteractionHook panelHook;
+  }
+
+  // ===== Escort Catalog State =====
+
+  private final Map<String, Integer> catalogPages = new ConcurrentHashMap<>();
+
+  private int getCatalogPage(String sessionKey) {
+    return catalogPages.getOrDefault(sessionKey, 0);
+  }
+
+  private void setCatalogPage(String sessionKey, int page) {
+    catalogPages.put(sessionKey, page);
+  }
+
+  private static class CatalogItemState {
+    String selectedCode;
+    String sessionKey;
+  }
+
+  private final Map<String, CatalogItemState> catalogItemStates = new ConcurrentHashMap<>();
+
+  // ===== Escort Catalog 護航價目表管理 =====
+
+  private void showEscortCatalogList(ButtonInteractionEvent event, int page) {
+    long guildId = event.getGuild().getIdLong();
+    String sessionKey = getSessionKey(event.getUser().getIdLong(), guildId);
+    setCatalogPage(sessionKey, page);
+
+    Result<List<EscortOptionCatalog>, DomainError> result =
+        adminPanelService.getEscortCatalogPage(guildId, page, 10);
+    long totalCount = adminPanelService.getEscortCatalogCount();
+    int totalPages = (int) Math.ceil((double) totalCount / 10);
+    if (totalPages < 1) {
+      totalPages = 1;
+    }
+
+    if (result.isErr()) {
+      event
+          .editMessageEmbeds(
+              AdminPanelViewFactory.buildEscortCatalogListEmbed(List.of(), page, totalPages))
+          .setComponents(AdminPanelViewFactory.buildEscortCatalogComponents(page, totalPages))
+          .queue();
+      return;
+    }
+
+    event
+        .editMessageEmbeds(
+            AdminPanelViewFactory.buildEscortCatalogListEmbed(result.getValue(), page, totalPages))
+        .setComponents(AdminPanelViewFactory.buildEscortCatalogComponents(page, totalPages))
+        .queue();
+  }
+
+  private void handleEscortCatalogPageNav(ButtonInteractionEvent event, int delta) {
+    long guildId = event.getGuild().getIdLong();
+    String sessionKey = getSessionKey(event.getUser().getIdLong(), guildId);
+    int currentPage = getCatalogPage(sessionKey);
+    int newPage = Math.max(0, currentPage + delta);
+    showEscortCatalogList(event, newPage);
+  }
+
+  private void handleEscortCatalogRefresh(ButtonInteractionEvent event) {
+    long guildId = event.getGuild().getIdLong();
+    String sessionKey = getSessionKey(event.getUser().getIdLong(), guildId);
+    int currentPage = getCatalogPage(sessionKey);
+    showEscortCatalogList(event, currentPage);
+  }
+
+  private void openEscortCatalogCreateModal(ButtonInteractionEvent event) {
+    event.replyModal(AdminPanelModalFactory.createEscortCatalogCreateModal()).queue();
+  }
+
+  private void handleEscortCatalogCreateModal(ModalInteractionEvent event) {
+    String code = event.getValue("escort_cat_code").getAsString().trim();
+    String type = event.getValue("escort_cat_type").getAsString().trim();
+    String level = event.getValue("escort_cat_level").getAsString().trim();
+    String scopeTarget = event.getValue("escort_cat_scope_target").getAsString().trim();
+    String priceStr = event.getValue("escort_cat_price").getAsString().trim();
+
+    // Parse combined scope/target field (first line = mapScope, rest = target)
+    String[] lines = scopeTarget.split("\n", 2);
+    String mapScope = lines[0].trim();
+    String target = lines.length > 1 ? lines[1].trim() : "";
+
+    // Validate
+    if (code.isBlank() || type.isBlank() || level.isBlank() || mapScope.isBlank()
+        || target.isBlank()) {
+      event.reply("❌ 所有欄位都必須填寫").setEphemeral(true).queue();
+      return;
+    }
+
+    long priceTwd;
+    try {
+      priceTwd = Long.parseLong(priceStr);
+    } catch (NumberFormatException e) {
+      event.reply("❌ 價格格式錯誤，請輸入有效整數").setEphemeral(true).queue();
+      return;
+    }
+
+    if (priceTwd <= 0) {
+      event.reply("❌ 價格必須大於 0").setEphemeral(true).queue();
+      return;
+    }
+
+    Result<EscortOptionCatalog, DomainError> result =
+        adminPanelService.createEscortCatalogItem(code, type, level, mapScope, target, priceTwd);
+
+    if (result.isErr()) {
+      event.reply("❌ 新增失敗：" + result.getError().message()).setEphemeral(true).queue();
+      return;
+    }
+
+    EscortOptionCatalog created = result.getValue();
+    event
+        .reply("✅ 已新增護航項目：`" + created.code() + "` NT$" + String.format("%,d", created.priceTwd()))
+        .setEphemeral(true)
+        .queue();
+
+    // Refresh the catalog list
+    long guildId = event.getGuild().getIdLong();
+    refreshEscortCatalogPanel(guildId, event.getUser().getIdLong());
+  }
+
+  private void openEscortCatalogItemSelect(ButtonInteractionEvent event) {
+    long guildId = event.getGuild().getIdLong();
+    String sessionKey = getSessionKey(event.getUser().getIdLong(), guildId);
+
+    Result<List<EscortOptionCatalog>, DomainError> result =
+        adminPanelService.getEscortCatalogPage(guildId, 0, 100);
+    if (result.isErr() || result.getValue().isEmpty()) {
+      event.reply("❌ 沒有可選擇的護航項目").setEphemeral(true).queue();
+      return;
+    }
+
+    StringSelectMenu.Builder menuBuilder =
+        StringSelectMenu.create(SELECT_ESCORT_CATALOG_ITEM)
+            .setPlaceholder("選擇要編輯或刪除的護航項目");
+
+    for (EscortOptionCatalog item : result.getValue()) {
+      String label = item.code();
+      if (label.length() > 100) {
+        label = label.substring(0, 97) + "...";
+      }
+      String description = item.type() + " | " + item.mapScope() + " | NT$" + item.priceTwd();
+      if (description.length() > 100) {
+        description = description.substring(0, 97) + "...";
+      }
+      menuBuilder.addOption(label, item.code(), description);
+    }
+
+    event
+        .reply("請選擇要編輯或刪除的護航項目：")
+        .addActionRow(menuBuilder.build())
+        .setEphemeral(true)
+        .queue();
+  }
+
+  private void handleEscortCatalogItemSelect(
+      StringSelectInteractionEvent event, long guildId) {
+    String selectedCode = event.getValues().get(0);
+    String sessionKey = getSessionKey(event.getUser().getIdLong(), guildId);
+
+    CatalogItemState state = new CatalogItemState();
+    state.selectedCode = selectedCode;
+    state.sessionKey = sessionKey;
+    catalogItemStates.put(sessionKey, state);
+
+    Optional<EscortOptionCatalog> found =
+        adminPanelService.getEscortCatalogPage(guildId, 0, 100).getValue().stream()
+            .filter(item -> item.code().equals(selectedCode))
+            .findFirst();
+
+    if (found.isEmpty()) {
+      event.reply("❌ 找不到選取的護航項目").setEphemeral(true).queue();
+      return;
+    }
+
+    EscortOptionCatalog item = found.get();
+    String details =
+        String.format(
+            "**%s**\n訂單類型：%s\n服務級別：%s\n服務範圍：%s\n目標說明：%s\n價格：NT$%,d",
+            item.code(), item.type(), item.level(), item.mapScope(), item.target(), item.priceTwd());
+
+    event
+        .editMessageEmbeds(
+            AdminPanelViewFactory.buildAdminEmbed(
+                "📋 護航項目操作", "已選擇 `" + selectedCode + "`", List.of(), null))
+        .setComponents(
+            PanelComponentRenderer.buildActionRow(
+                List.of(
+                    new ButtonView(
+                        BUTTON_ESCORT_CATALOG_EDIT,
+                        "✏️ 編輯此項目",
+                        ButtonStyle.PRIMARY,
+                        false),
+                    new ButtonView(
+                        BUTTON_ESCORT_CATALOG_DELETE,
+                        "🗑️ 刪除此項目",
+                        ButtonStyle.DANGER,
+                        false))))
+        .queue();
+  }
+
+  private void openEscortCatalogEditModal(ButtonInteractionEvent event) {
+    long guildId = event.getGuild().getIdLong();
+    String sessionKey = getSessionKey(event.getUser().getIdLong(), guildId);
+    CatalogItemState state = catalogItemStates.get(sessionKey);
+
+    if (state == null || state.selectedCode == null) {
+      event.reply("❌ 請先從管理面板選擇一個護航項目").setEphemeral(true).queue();
+      return;
+    }
+
+    Result<List<EscortOptionCatalog>, DomainError> result =
+        adminPanelService.getEscortCatalogPage(guildId, 0, 100);
+    if (result.isErr()) {
+      event.reply("❌ 無法載入護航項目資料").setEphemeral(true).queue();
+      return;
+    }
+
+    Optional<EscortOptionCatalog> found =
+        result.getValue().stream()
+            .filter(item -> item.code().equals(state.selectedCode))
+            .findFirst();
+    if (found.isEmpty()) {
+      event.reply("❌ 找不到選取的護航項目").setEphemeral(true).queue();
+      return;
+    }
+
+    event.replyModal(AdminPanelModalFactory.createEscortCatalogEditModal(found.get())).queue();
+  }
+
+  private void handleEscortCatalogEditModal(ModalInteractionEvent event) {
+    long guildId = event.getGuild().getIdLong();
+    String sessionKey = getSessionKey(event.getUser().getIdLong(), guildId);
+    CatalogItemState state = catalogItemStates.get(sessionKey);
+
+    String originalCode = state != null ? state.selectedCode : extractOriginalCode(event.getModalId());
+
+    String code = event.getValue("escort_cat_code").getAsString().trim();
+    String type = event.getValue("escort_cat_type").getAsString().trim();
+    String level = event.getValue("escort_cat_level").getAsString().trim();
+    String scopeTarget = event.getValue("escort_cat_scope_target").getAsString().trim();
+    String priceStr = event.getValue("escort_cat_price").getAsString().trim();
+
+    // Parse combined scope/target field (first line = mapScope, rest = target)
+    String[] lines = scopeTarget.split("\n", 2);
+    String mapScope = lines[0].trim();
+    String target = lines.length > 1 ? lines[1].trim() : "";
+
+    // Validate
+    if (code.isBlank() || type.isBlank() || level.isBlank() || mapScope.isBlank()
+        || target.isBlank()) {
+      event.reply("❌ 所有欄位都必須填寫").setEphemeral(true).queue();
+      return;
+    }
+
+    long priceTwd;
+    try {
+      priceTwd = Long.parseLong(priceStr);
+    } catch (NumberFormatException e) {
+      event.reply("❌ 價格格式錯誤，請輸入有效整數").setEphemeral(true).queue();
+      return;
+    }
+
+    if (priceTwd <= 0) {
+      event.reply("❌ 價格必須大於 0").setEphemeral(true).queue();
+      return;
+    }
+
+    Result<EscortOptionCatalog, DomainError> result =
+        adminPanelService.updateEscortCatalogItem(
+            originalCode, code, type, level, mapScope, target, priceTwd);
+
+    if (result.isErr()) {
+      event.reply("❌ 編輯失敗：" + result.getError().message()).setEphemeral(true).queue();
+      return;
+    }
+
+    EscortOptionCatalog updated = result.getValue();
+    event
+        .reply("✅ 已更新護航項目：`" + updated.code() + "` NT$" + String.format("%,d", updated.priceTwd()))
+        .setEphemeral(true)
+        .queue();
+
+    // Refresh the catalog list
+    refreshEscortCatalogPanel(guildId, event.getUser().getIdLong());
+  }
+
+  private void handleEscortCatalogDelete(ButtonInteractionEvent event) {
+    long guildId = event.getGuild().getIdLong();
+    String sessionKey = getSessionKey(event.getUser().getIdLong(), guildId);
+    CatalogItemState state = catalogItemStates.get(sessionKey);
+
+    if (state == null || state.selectedCode == null) {
+      event.reply("❌ 請先選擇一個護航項目").setEphemeral(true).queue();
+      return;
+    }
+
+    String code = state.selectedCode;
+    Result<Unit, DomainError> result = adminPanelService.deleteEscortCatalogItem(code);
+
+    if (result.isErr()) {
+      event.reply("❌ 刪除失敗：" + result.getError().message()).setEphemeral(true).queue();
+      return;
+    }
+
+    event
+        .reply("✅ 已刪除護航項目：`" + code + "`")
+        .setEphemeral(true)
+        .queue();
+
+    // Clear selection state and refresh
+    catalogItemStates.remove(sessionKey);
+    refreshEscortCatalogPanel(guildId, event.getUser().getIdLong());
+  }
+
+  private String extractOriginalCode(String modalId) {
+    // Format: MODAL_ESCORT_CATALOG_EDIT:ORIGINAL_CODE
+    int colonIndex = modalId.indexOf(':');
+    if (colonIndex >= 0 && colonIndex + 1 < modalId.length()) {
+      return modalId.substring(colonIndex + 1);
+    }
+    return "";
+  }
+
+  private void refreshEscortCatalogPanel(long guildId, long adminId) {
+    String sessionKey = guildId + ":" + adminId;
+    int currentPage = getCatalogPage(sessionKey);
+    adminPanelSessionManager.updatePanel(
+        guildId,
+        adminId,
+        hook -> {
+          Result<List<EscortOptionCatalog>, DomainError> listResult =
+              adminPanelService.getEscortCatalogPage(guildId, currentPage, 10);
+          long totalCount = adminPanelService.getEscortCatalogCount();
+          int totalPages = (int) Math.ceil((double) totalCount / 10);
+          if (totalPages < 1) {
+            totalPages = 1;
+          }
+          hook.editOriginalEmbeds(
+                  AdminPanelViewFactory.buildEscortCatalogListEmbed(
+                      listResult.isOk() ? listResult.getValue() : List.of(),
+                      currentPage,
+                      totalPages))
+              .setComponents(
+                  AdminPanelViewFactory.buildEscortCatalogComponents(currentPage, totalPages))
+              .queue(
+                  success ->
+                      LOG.trace(
+                          "Refreshed escort catalog panel for guildId={}, adminId={}",
+                          guildId,
+                          adminId),
+                  error ->
+                      LOG.warn("Failed to refresh escort catalog panel for guildId={}", guildId));
+        });
   }
 }

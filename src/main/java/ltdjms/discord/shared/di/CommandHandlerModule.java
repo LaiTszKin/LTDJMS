@@ -45,6 +45,7 @@ import ltdjms.discord.panel.services.PanelSessionManager;
 import ltdjms.discord.panel.services.ProductRedemptionUpdateListener;
 import ltdjms.discord.panel.services.UserPanelService;
 import ltdjms.discord.panel.services.UserPanelUpdateListener;
+import ltdjms.discord.product.domain.EscortOptionCatalogRepository;
 import ltdjms.discord.product.domain.ProductRepository;
 import ltdjms.discord.product.services.ProductRewardService;
 import ltdjms.discord.product.services.ProductService;
@@ -246,14 +247,16 @@ public class CommandHandlerModule {
       GameConfigManagementFacade gameConfigFacade,
       AIConfigManagementFacade aiConfigFacade,
       DispatchAfterSalesStaffService dispatchAfterSalesStaffService,
-      EscortOptionPricingService escortOptionPricingService) {
+      EscortOptionPricingService escortOptionPricingService,
+      EscortOptionCatalogRepository escortOptionCatalogRepository) {
     return new AdminPanelService(
         currencyFacade,
         gameTokenFacade,
         gameConfigFacade,
         aiConfigFacade,
         dispatchAfterSalesStaffService,
-        escortOptionPricingService);
+        escortOptionPricingService,
+        escortOptionCatalogRepository);
   }
 
   @Provides
