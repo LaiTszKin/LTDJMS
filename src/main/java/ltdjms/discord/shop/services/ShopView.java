@@ -34,6 +34,7 @@ public class ShopView {
   public static final String BUTTON_PAY_WITH_CURRENCY = "shop_pay_currency_";
   public static final String BUTTON_PAY_WITH_FIAT = "shop_pay_fiat_";
   public static final String BUTTON_BACK_TO_SHOP = "shop_back";
+  public static final String SELECT_SEARCH_BUY = "shop_search_buy_select";
   public static final String BUTTON_SEARCH_PREV = "shop_sprev_";
   public static final String BUTTON_SEARCH_NEXT = "shop_snext_";
 
@@ -181,17 +182,23 @@ public class ShopView {
   }
 
   /**
-   * Builds action rows for search result page with pagination and a back-to-shop button.
+   * Builds action rows for search result page with a buy selection, pagination, and back-to-shop.
    *
    * <p>The keyword is encoded in the pagination button IDs so the handler can re-query.
    */
   public static List<ActionRow> buildSearchResultComponents(
-      int currentPage, int totalPages, String keyword) {
+      int currentPage, int totalPages, String keyword, List<Product> products) {
     String encodedKeyword = encodeKeyword(keyword);
     boolean isFirstPage = currentPage == 1;
     boolean isLastPage = currentPage >= totalPages;
 
     List<ActionRow> rows = new ArrayList<>();
+
+    // Buy select menu with the products shown in search results
+    if (!products.isEmpty()) {
+      rows.add(DiscordComponentRenderer.buildRow(buildSearchBuyMenu(products)));
+    }
+
     rows.add(
         DiscordComponentRenderer.buildActionRow(
             List.of(
@@ -213,6 +220,20 @@ public class ShopView {
                     BUTTON_BACK_TO_SHOP, "返回商店", ButtonStyle.SECONDARY, false))));
 
     return rows;
+  }
+
+  /** Builds a select menu of the given products for purchase directly from search results. */
+  public static StringSelectMenu buildSearchBuyMenu(List<Product> products) {
+    StringSelectMenu.Builder menuBuilder =
+        StringSelectMenu.create(SELECT_SEARCH_BUY).setPlaceholder("選擇要購買的商品");
+
+    int limit = Math.min(products.size(), MAX_PURCHASE_OPTIONS);
+    for (int i = 0; i < limit; i++) {
+      Product product = products.get(i);
+      menuBuilder.addOption(product.name(), String.valueOf(product.id()), buildPriceDescription(product));
+    }
+
+    return menuBuilder.build();
   }
 
   /** Builds an embed for purchase confirmation. */

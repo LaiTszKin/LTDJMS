@@ -68,7 +68,8 @@ public class ShopSelectMenuHandler extends ListenerAdapter {
   public void onStringSelectInteraction(StringSelectInteractionEvent event) {
     String selectId = event.getComponentId();
 
-    if (!selectId.equals(ShopView.SELECT_BUY_PRODUCT)) {
+    if (!selectId.equals(ShopView.SELECT_BUY_PRODUCT)
+        && !selectId.equals(ShopView.SELECT_SEARCH_BUY)) {
       return;
     }
 

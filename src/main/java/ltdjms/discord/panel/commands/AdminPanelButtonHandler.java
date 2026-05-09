@@ -102,6 +102,7 @@ public class AdminPanelButtonHandler extends ListenerAdapter {
   public static final String BUTTON_ESCORT_CATALOG_REFRESH = "admin_escort_catalog_refresh";
   public static final String BUTTON_ESCORT_CATALOG_SELECT = "admin_escort_catalog_select";
   public static final String SELECT_ESCORT_CATALOG_ITEM = "admin_select_escort_catalog_item";
+  public static final String SELECT_ESCORT_CATALOG_ITEM_EXTRA = "admin_select_escort_catalog_item_extra";
   public static final String MODAL_ESCORT_CATALOG_CREATE = "admin_modal_escort_catalog_create";
   public static final String MODAL_ESCORT_CATALOG_EDIT = "admin_modal_escort_catalog_edit";
 
@@ -309,7 +310,8 @@ public class AdminPanelButtonHandler extends ListenerAdapter {
             handleEscortPricingPanelOptionSelect(event, sessionKey, guildId);
         case SELECT_ESCORT_PRICING_PANEL_OPTION_EXTRA ->
             handleEscortPricingPanelOptionSelect(event, sessionKey, guildId);
-        case SELECT_ESCORT_CATALOG_ITEM -> handleEscortCatalogItemSelect(event, guildId);
+        case SELECT_ESCORT_CATALOG_ITEM, SELECT_ESCORT_CATALOG_ITEM_EXTRA ->
+            handleEscortCatalogItemSelect(event, guildId);
         default -> LOG.warn("Unknown string select: {}", selectId);
       }
     } catch (Exception e) {
@@ -2652,11 +2654,36 @@ public class AdminPanelButtonHandler extends ListenerAdapter {
       return;
     }
 
-    StringSelectMenu.Builder menuBuilder =
-        StringSelectMenu.create(SELECT_ESCORT_CATALOG_ITEM)
-            .setPlaceholder("選擇要編輯或刪除的護航項目");
+    List<EscortOptionCatalog> items = result.getValue();
+    int limit = Math.min(24, items.size());
+    List<EscortOptionCatalog> primaryItems = items.subList(0, limit);
+    List<EscortOptionCatalog> extraItems =
+        items.size() > limit ? items.subList(limit, items.size()) : List.of();
 
-    for (EscortOptionCatalog item : result.getValue()) {
+    StringSelectMenu primaryMenu = buildEscortCatalogSelectMenu(
+        SELECT_ESCORT_CATALOG_ITEM, primaryItems, "選擇要編輯或刪除的護航項目");
+
+    List<ActionRow> rows = new ArrayList<>();
+    rows.add(PanelComponentRenderer.buildRow(primaryMenu));
+
+    if (!extraItems.isEmpty()) {
+      StringSelectMenu extraMenu = buildEscortCatalogSelectMenu(
+          SELECT_ESCORT_CATALOG_ITEM_EXTRA, extraItems, "更多護航項目…");
+      rows.add(PanelComponentRenderer.buildRow(extraMenu));
+    }
+
+    event
+        .reply("請選擇要編輯或刪除的護航項目：")
+        .addComponents(rows)
+        .setEphemeral(true)
+        .queue();
+  }
+
+  private StringSelectMenu buildEscortCatalogSelectMenu(
+      String selectId, List<EscortOptionCatalog> items, String placeholder) {
+    StringSelectMenu.Builder menuBuilder =
+        StringSelectMenu.create(selectId).setPlaceholder(placeholder);
+    for (EscortOptionCatalog item : items) {
       String label = item.code();
       if (label.length() > 100) {
         label = label.substring(0, 97) + "...";
@@ -2667,12 +2694,7 @@ public class AdminPanelButtonHandler extends ListenerAdapter {
       }
       menuBuilder.addOption(label, item.code(), description);
     }
-
-    event
-        .reply("請選擇要編輯或刪除的護航項目：")
-        .addActionRow(menuBuilder.build())
-        .setEphemeral(true)
-        .queue();
+    return menuBuilder.build();
   }
 
   private void handleEscortCatalogItemSelect(

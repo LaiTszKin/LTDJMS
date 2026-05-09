@@ -242,18 +242,22 @@ class ShopViewTest {
   }
 
   @Test
-  @DisplayName("buildSearchResultComponents 應包含分頁和返回按鈕")
-  void buildSearchResultComponentsShouldIncludePaginationAndBackButton() {
-    List<ActionRow> components = ShopView.buildSearchResultComponents(1, 3, "test");
+  @DisplayName("buildSearchResultComponents 應包含購買選單、分頁和返回按鈕")
+  void buildSearchResultComponentsShouldIncludePurchaseMenuPaginationAndBackButton() {
+    Product product = Product.createWithCurrencyPrice(TEST_GUILD_ID, "TestProduct", null, 100L);
+    List<ActionRow> components =
+        ShopView.buildSearchResultComponents(1, 3, "test", List.of(product));
 
-    assertThat(components).hasSize(2);
-    // First row: pagination buttons
-    List<Button> paginationRow = components.get(0).getButtons();
+    assertThat(components).hasSize(3);
+    // First row: buy select menu
+    assertThat(components.get(0).getComponents()).isNotEmpty();
+    // Second row: pagination buttons
+    List<Button> paginationRow = components.get(1).getButtons();
     assertThat(paginationRow).hasSize(2);
     assertThat(paginationRow.get(0).getId()).startsWith(ShopView.BUTTON_SEARCH_PREV);
     assertThat(paginationRow.get(1).getId()).startsWith(ShopView.BUTTON_SEARCH_NEXT);
-    // Second row: back button
-    List<Button> backRow = components.get(1).getButtons();
+    // Third row: back button
+    List<Button> backRow = components.get(2).getButtons();
     assertThat(backRow.get(0).getId()).isEqualTo(ShopView.BUTTON_BACK_TO_SHOP);
   }
 
