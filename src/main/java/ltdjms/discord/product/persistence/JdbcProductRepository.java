@@ -490,4 +490,23 @@ public class JdbcProductRepository implements ProductRepository {
       throw new RepositoryException("Failed to count search products", e);
     }
   }
+
+  @Override
+  public long countByEscortOptionCode(String optionCode) {
+    String sql = "SELECT COUNT(*) FROM product WHERE escort_option_code = ?";
+
+    try (Connection conn = dataSource.getConnection();
+        PreparedStatement stmt = conn.prepareStatement(sql)) {
+      stmt.setString(1, optionCode);
+      try (ResultSet rs = stmt.executeQuery()) {
+        if (rs.next()) {
+          return rs.getLong(1);
+        }
+        return 0;
+      }
+    } catch (SQLException e) {
+      LOG.error("Failed to count products for escort option code={}", optionCode, e);
+      throw new RepositoryException("Failed to count products by escort option code", e);
+    }
+  }
 }

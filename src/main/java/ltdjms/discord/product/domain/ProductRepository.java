@@ -113,4 +113,13 @@ public interface ProductRepository {
    * @return the number of matching products
    */
   long countByGuildIdAndNameContaining(long guildId, String keyword);
+
+  /**
+   * Counts products that reference a specific escort option code. Used to prevent deletion of
+   * catalog entries sill referenced by products.
+   *
+   * @param optionCode the escort option code to check
+   * @return the number of products referencing the code
+   */
+  long countByEscortOptionCode(String optionCode);
 }

@@ -250,14 +250,14 @@ public class ShopView {
 
   /** Encodes a keyword string for use in button IDs. */
   static String encodeKeyword(String keyword) {
-    return java.util.Base64.getUrlEncoder().withoutPadding()
+    return java.util.Base64.getEncoder().withoutPadding()
         .encodeToString(keyword.getBytes(java.nio.charset.StandardCharsets.UTF_8));
   }
 
   /** Decodes a keyword string from a button ID. */
   public static String decodeKeyword(String encoded) {
     return new String(
-        java.util.Base64.getUrlDecoder().decode(encoded),
+        java.util.Base64.getDecoder().decode(encoded),
         java.nio.charset.StandardCharsets.UTF_8);
   }
 

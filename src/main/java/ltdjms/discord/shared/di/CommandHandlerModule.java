@@ -248,7 +248,8 @@ public class CommandHandlerModule {
       AIConfigManagementFacade aiConfigFacade,
       DispatchAfterSalesStaffService dispatchAfterSalesStaffService,
       EscortOptionPricingService escortOptionPricingService,
-      EscortOptionCatalogRepository escortOptionCatalogRepository) {
+      EscortOptionCatalogRepository escortOptionCatalogRepository,
+      ProductRepository productRepository) {
     return new AdminPanelService(
         currencyFacade,
         gameTokenFacade,
@@ -256,7 +257,8 @@ public class CommandHandlerModule {
         aiConfigFacade,
         dispatchAfterSalesStaffService,
         escortOptionPricingService,
-        escortOptionCatalogRepository);
+        escortOptionCatalogRepository,
+        productRepository);
   }
 
   @Provides

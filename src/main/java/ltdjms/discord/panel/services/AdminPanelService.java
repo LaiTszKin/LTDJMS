@@ -14,6 +14,7 @@ import ltdjms.discord.dispatch.services.EscortOptionPricingService;
 import ltdjms.discord.gametoken.domain.DiceGame1Config;
 import ltdjms.discord.product.domain.EscortOptionCatalog;
 import ltdjms.discord.product.domain.EscortOptionCatalogRepository;
+import ltdjms.discord.product.domain.ProductRepository;
 import ltdjms.discord.gametoken.domain.DiceGame2Config;
 import ltdjms.discord.shared.DomainError;
 import ltdjms.discord.shared.Result;
@@ -36,6 +37,7 @@ public class AdminPanelService {
   private final DispatchAfterSalesStaffService dispatchAfterSalesStaffService;
   private final EscortOptionPricingService escortOptionPricingService;
   private final EscortOptionCatalogRepository escortOptionCatalogRepository;
+  private final ProductRepository productRepository;
 
   public AdminPanelService(
       CurrencyManagementFacade currencyFacade,
@@ -49,6 +51,7 @@ public class AdminPanelService {
         gameConfigFacade,
         aiConfigFacade,
         dispatchAfterSalesStaffService,
+        null,
         null,
         null);
   }
@@ -67,6 +70,7 @@ public class AdminPanelService {
         aiConfigFacade,
         dispatchAfterSalesStaffService,
         escortOptionPricingService,
+        null,
         null);
   }
 
@@ -77,7 +81,8 @@ public class AdminPanelService {
       AIConfigManagementFacade aiConfigFacade,
       DispatchAfterSalesStaffService dispatchAfterSalesStaffService,
       EscortOptionPricingService escortOptionPricingService,
-      EscortOptionCatalogRepository escortOptionCatalogRepository) {
+      EscortOptionCatalogRepository escortOptionCatalogRepository,
+      ProductRepository productRepository) {
     this.currencyFacade = currencyFacade;
     this.gameTokenFacade = gameTokenFacade;
     this.gameConfigFacade = gameConfigFacade;
@@ -85,6 +90,7 @@ public class AdminPanelService {
     this.dispatchAfterSalesStaffService = dispatchAfterSalesStaffService;
     this.escortOptionPricingService = escortOptionPricingService;
     this.escortOptionCatalogRepository = escortOptionCatalogRepository;
+    this.productRepository = productRepository;
   }
 
   // ========== Currency Management ==========
@@ -477,10 +483,20 @@ public class AdminPanelService {
     }
   }
 
-  /** Deletes a catalog entry by code. */
+  /** Deletes a catalog entry by code. Refuses deletion if any product still references it. */
   public Result<Unit, DomainError> deleteEscortCatalogItem(String code) {
     try {
       String normalizedCode = code.trim().toUpperCase();
+
+      if (productRepository != null) {
+        long refCount = productRepository.countByEscortOptionCode(normalizedCode);
+        if (refCount > 0) {
+          return Result.err(
+              DomainError.invalidInput(
+                  "無法刪除：有 " + refCount + " 個商品仍引用此護航選項（" + normalizedCode + "），請先移除商品引用再刪除"));
+        }
+      }
+
       boolean deleted = escortOptionCatalogRepository.deleteByCode(normalizedCode);
       if (!deleted) {
         return Result.err(DomainError.invalidInput("護航選項不存在：" + normalizedCode));
