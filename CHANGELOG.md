@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.35.3] - 2026-05-09
+
 ### Added
 - **shop/search**: 商店頁面新增關鍵字搜尋按鈕與 Modal，支援商品名稱模糊查詢（ILIKE）與分頁
 - **panel/escort-catalog**: 管理面板新增護航價目表管理，以商店式分頁清單顯示護航項目（訂單類型、服務範圍、價格），支援完整新增/編輯/刪除 CRUD
