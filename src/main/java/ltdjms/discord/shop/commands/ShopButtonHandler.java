@@ -110,7 +110,10 @@ public class ShopButtonHandler extends ListenerAdapter {
               guildId);
       List<ActionRow> components =
           ShopView.buildSearchResultComponents(
-              searchResults.currentPage(), searchResults.totalPages(), keyword);
+              searchResults.currentPage(),
+              searchResults.totalPages(),
+              keyword,
+              searchResults.products());
 
       event.replyEmbeds(embed).setComponents(components).setEphemeral(true).queue();
     } catch (Exception e) {
@@ -199,7 +202,10 @@ public class ShopButtonHandler extends ListenerAdapter {
               guildId);
       components =
           ShopView.buildSearchResultComponents(
-              searchResults.currentPage(), searchResults.totalPages(), keyword);
+              searchResults.currentPage(),
+              searchResults.totalPages(),
+              keyword,
+              searchResults.products());
     }
 
     event.editMessageEmbeds(embed).setComponents(components).queue();
