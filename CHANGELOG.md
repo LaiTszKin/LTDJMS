@@ -4,8 +4,18 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+- **shop/search**: 商店頁面新增關鍵字搜尋按鈕與 Modal，支援商品名稱模糊查詢（ILIKE）與分頁
+- **panel/escort-catalog**: 管理面板新增護航價目表管理，以商店式分頁清單顯示護航項目（訂單類型、服務範圍、價格），支援完整新增/編輯/刪除 CRUD
+
+### Changed
+- **shop/sorting**: 商店商品列表改為依名稱字母排序（原為依建立時間倒序）
+- **shop/purchase-flow**: 合併貨幣購買與法幣下單為統一「購買」按鈕，雙價格商品在確認時選擇支付方式
+- **dispatch/pricing**: 護航價目表從硬編碼 (`EscortOrderOptionCatalog`) 改為資料庫驅動，新增 `escort_option_catalog` 表與 26 筆種子資料
+
 ### Docs
 - **docs/restructure**: 將文件重整為三支柱結構，包含 `docs/features/`（BDD 情境）、`docs/architecture/`（巨觀架構）、`docs/principles/`（程式碼慣例）；移除已取代的 `docs/architecture.md` 與 `docs/features.md`；同步更新 `AGENTS.md`/`CLAUDE.md` 為三個章節並更新文件索引
+- **docs/features**: 更新 `shop-and-payment.md` 新增統一購買流程與搜尋行為；更新 `escort-dispatch.md` 新增資料庫護航目錄管理行為
 
 ## [0.35.2] - 2026-04-28
 

@@ -17,7 +17,22 @@ And associated redemption codes are invalidated if the product is deleted
 ### Browse Shop
 Given the user is a member of a guild  
 When they use `/shop`  
-Then they see a paginated list of available products with prices and descriptions
+Then they see a paginated list of available products with prices and descriptions  
+And products are sorted alphabetically by name  
+And there is a unified "Buy" button for all purchasable products
+
+### Search Shop
+Given the user is a member of a guild  
+When they click the search button in the shop and enter a keyword  
+Then matching products are shown by name similarity  
+And results are paginated when exceeding 5 items
+
+### Unified Purchase Flow
+Given the user selects a product in the shop  
+When the product has both currency price and fiat price  
+Then they are prompted to choose between currency purchase or fiat order  
+When the product has only one payment method  
+Then the purchase flow proceeds directly without a payment choice step
 
 ## Currency Purchase
 

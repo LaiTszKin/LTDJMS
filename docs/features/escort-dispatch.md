@@ -67,8 +67,10 @@ And the customer is notified
 
 ### Configure Escort Pricing (Admin)
 Given the user is a guild administrator  
-When they configure escort pricing in the admin panel  
-Then guild-specific price overrides are applied for each escort option
+When they open the escort catalog in the admin panel  
+Then they see a paginated store-like list of all escort options with order type, service scope, and default price  
+And they can create, edit, or delete escort catalog items  
+And guild-specific price overrides can still be applied per option
 
 ### Manage After-Sales Staff (Admin)
 Given the user is a guild administrator  
