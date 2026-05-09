@@ -8,6 +8,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import ltdjms.discord.dispatch.domain.EscortOptionPriceRepository;
+import ltdjms.discord.product.domain.EscortOptionCatalog;
+import ltdjms.discord.product.domain.EscortOptionCatalogRepository;
 import ltdjms.discord.product.domain.EscortOrderOptionCatalog;
 import ltdjms.discord.product.domain.EscortOrderOptionCatalog.EscortOrderOption;
 import ltdjms.discord.shared.DomainError;
@@ -20,22 +22,29 @@ public class EscortOptionPricingService {
   private static final Logger LOG = LoggerFactory.getLogger(EscortOptionPricingService.class);
 
   private final EscortOptionPriceRepository repository;
+  private final EscortOptionCatalogRepository catalogRepository;
 
-  public EscortOptionPricingService(EscortOptionPriceRepository repository) {
+  public EscortOptionPricingService(
+      EscortOptionPriceRepository repository,
+      EscortOptionCatalogRepository catalogRepository) {
     this.repository = repository;
+    this.catalogRepository = catalogRepository;
   }
 
   public Result<List<OptionPriceView>, DomainError> listOptionPrices(long guildId) {
     try {
       Map<String, Long> overrides = repository.findAllByGuildId(guildId);
+      List<EscortOptionCatalog> catalogs = catalogRepository.findAll();
       List<OptionPriceView> prices = new ArrayList<>();
 
-      for (EscortOrderOption option : EscortOrderOptionCatalog.allOptions()) {
-        Long override = overrides.get(option.code());
-        long effective = override != null ? override : option.priceTwd();
+      for (EscortOptionCatalog cat : catalogs) {
+        Long override = overrides.get(cat.code());
+        long effective = override != null ? override : cat.priceTwd();
+        EscortOrderOption option =
+            new EscortOrderOption(
+                cat.code(), cat.type(), cat.level(), cat.mapScope(), cat.target(), cat.priceTwd());
         prices.add(
-            new OptionPriceView(
-                option.code(), option, option.priceTwd(), effective, override != null));
+            new OptionPriceView(cat.code(), option, cat.priceTwd(), effective, override != null));
       }
       return Result.ok(prices);
     } catch (Exception e) {
@@ -53,17 +62,20 @@ public class EscortOptionPricingService {
       return Result.err(DomainError.invalidInput("護航選項代碼不能為空"));
     }
     String normalizedCode = optionCode.trim().toUpperCase();
-    EscortOrderOption option = EscortOrderOptionCatalog.findByCode(normalizedCode).orElse(null);
-    if (option == null) {
+
+    EscortOptionCatalog cat = catalogRepository.findByCode(normalizedCode).orElse(null);
+    if (cat == null) {
       return Result.err(
-          DomainError.invalidInput(
-              "護航選項代碼無效，可用代碼：" + EscortOrderOptionCatalog.supportedCodesForDisplay()));
+          DomainError.invalidInput("護航選項代碼無效，可用代碼：" + getSupportedCodes()));
     }
+    EscortOrderOption option =
+        new EscortOrderOption(
+            cat.code(), cat.type(), cat.level(), cat.mapScope(), cat.target(), cat.priceTwd());
 
     try {
       repository.upsert(guildId, normalizedCode, priceTwd, updatedByUserId);
       return Result.ok(
-          new OptionPriceView(normalizedCode, option, option.priceTwd(), priceTwd, true));
+          new OptionPriceView(normalizedCode, option, cat.priceTwd(), priceTwd, true));
     } catch (Exception e) {
       LOG.error(
           "Failed to update escort option price: guildId={}, optionCode={}, priceTwd={}",
@@ -80,10 +92,9 @@ public class EscortOptionPricingService {
       return Result.err(DomainError.invalidInput("護航選項代碼不能為空"));
     }
     String normalizedCode = optionCode.trim().toUpperCase();
-    if (!EscortOrderOptionCatalog.isSupported(normalizedCode)) {
+    if (!catalogRepository.existsByCode(normalizedCode)) {
       return Result.err(
-          DomainError.invalidInput(
-              "護航選項代碼無效，可用代碼：" + EscortOrderOptionCatalog.supportedCodesForDisplay()));
+          DomainError.invalidInput("護航選項代碼無效，可用代碼：" + getSupportedCodes()));
     }
 
     try {
@@ -104,14 +115,14 @@ public class EscortOptionPricingService {
       return Result.err(DomainError.invalidInput("護航選項代碼不能為空"));
     }
     String normalizedCode = optionCode.trim().toUpperCase();
-    EscortOrderOption option = EscortOrderOptionCatalog.findByCode(normalizedCode).orElse(null);
-    if (option == null) {
+    EscortOptionCatalog cat = catalogRepository.findByCode(normalizedCode).orElse(null);
+    if (cat == null) {
       return Result.err(DomainError.invalidInput("護航選項代碼無效"));
     }
 
     try {
       Long override = repository.findByGuildIdAndOptionCode(guildId, normalizedCode).orElse(null);
-      return Result.ok(override != null ? override : option.priceTwd());
+      return Result.ok(override != null ? override : cat.priceTwd());
     } catch (Exception e) {
       LOG.error(
           "Failed to get effective escort option price: guildId={}, optionCode={}",
@@ -120,6 +131,12 @@ public class EscortOptionPricingService {
           e);
       return Result.err(DomainError.persistenceFailure("查詢護航定價失敗", e));
     }
+  }
+
+  private String getSupportedCodes() {
+    return String.join(", ", catalogRepository.findAll().stream()
+        .map(EscortOptionCatalog::code)
+        .toList());
   }
 
   public record OptionPriceView(

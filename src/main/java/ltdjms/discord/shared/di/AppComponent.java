@@ -28,6 +28,7 @@ import ltdjms.discord.gametoken.services.GameTokenTransactionService;
 import ltdjms.discord.panel.commands.AdminPanelButtonHandler;
 import ltdjms.discord.panel.commands.AdminProductPanelHandler;
 import ltdjms.discord.panel.commands.UserPanelButtonHandler;
+import ltdjms.discord.product.domain.EscortOptionCatalogRepository;
 import ltdjms.discord.product.domain.ProductRepository;
 import ltdjms.discord.product.services.ProductService;
 import ltdjms.discord.redemption.domain.RedemptionCodeRepository;
@@ -118,6 +119,9 @@ public interface AppComponent {
   DiceGame1Service diceGame1Service();
 
   GameTokenTransactionService gameTokenTransactionService();
+
+  // Escort Option Catalog
+  EscortOptionCatalogRepository escortOptionCatalogRepository();
 
   // Product and Redemption
   ProductRepository productRepository();

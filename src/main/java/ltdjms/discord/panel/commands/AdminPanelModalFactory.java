@@ -2,6 +2,7 @@ package ltdjms.discord.panel.commands;
 
 import ltdjms.discord.gametoken.domain.DiceGame1Config;
 import ltdjms.discord.gametoken.domain.DiceGame2Config;
+import ltdjms.discord.product.domain.EscortOptionCatalog;
 import net.dv8tion.jda.api.interactions.components.ActionRow;
 import net.dv8tion.jda.api.interactions.components.text.TextInput;
 import net.dv8tion.jda.api.interactions.components.text.TextInputStyle;
@@ -161,6 +162,125 @@ final class AdminPanelModalFactory {
 
     return Modal.create(AdminPanelButtonHandler.MODAL_GAME_2_BONUSES, "神龍擺尾 - 豹子獎勵")
         .addComponents(ActionRow.of(lowInput), ActionRow.of(highInput))
+        .build();
+  }
+
+  // ========== Escort Catalog Modals ==========
+
+  /** Creates a modal for adding a new escort catalog item. */
+  static Modal createEscortCatalogCreateModal() {
+    TextInput codeInput =
+        TextInput.create("escort_cat_code", "選項代碼", TextInputStyle.SHORT)
+            .setPlaceholder("例如：CONF_DAM_300W")
+            .setRequired(true)
+            .setMinLength(1)
+            .setMaxLength(120)
+            .build();
+
+    TextInput typeInput =
+        TextInput.create("escort_cat_type", "訂單類型", TextInputStyle.SHORT)
+            .setPlaceholder("例如：包本單、小時單、指定大紅")
+            .setRequired(true)
+            .setMinLength(1)
+            .setMaxLength(64)
+            .build();
+
+    TextInput levelInput =
+        TextInput.create("escort_cat_level", "服務級別", TextInputStyle.SHORT)
+            .setPlaceholder("例如：機密護、絕密護、不限")
+            .setRequired(true)
+            .setMinLength(1)
+            .setMaxLength(64)
+            .build();
+
+    TextInput scopeTargetInput =
+        TextInput.create("escort_cat_scope_target", "服務範圍 / 目標", TextInputStyle.PARAGRAPH)
+            .setPlaceholder(
+                "第一行：服務範圍，例如 機密大壩\n第二行：目標說明，例如 300 萬目標")
+            .setRequired(true)
+            .setMinLength(1)
+            .setMaxLength(500)
+            .build();
+
+    TextInput priceInput =
+        TextInput.create("escort_cat_price", "價格（TWD）", TextInputStyle.SHORT)
+            .setPlaceholder("新台幣整數，例如 500")
+            .setRequired(true)
+            .setMinLength(1)
+            .setMaxLength(15)
+            .build();
+
+    return Modal.create(AdminPanelButtonHandler.MODAL_ESCORT_CATALOG_CREATE, "新增護航項目")
+        .addComponents(
+            ActionRow.of(codeInput),
+            ActionRow.of(typeInput),
+            ActionRow.of(levelInput),
+            ActionRow.of(scopeTargetInput),
+            ActionRow.of(priceInput))
+        .build();
+  }
+
+  /** Creates a modal for editing an existing escort catalog item, pre-filled with current values. */
+  static Modal createEscortCatalogEditModal(EscortOptionCatalog catalog) {
+    String modalId = AdminPanelButtonHandler.MODAL_ESCORT_CATALOG_EDIT + ":" + catalog.code();
+    String modalTitle = "編輯護航項目 - " + catalog.code();
+    if (modalTitle.length() > 45) {
+      modalTitle = "編輯護航項目";
+    }
+
+    TextInput codeInput =
+        TextInput.create("escort_cat_code", "選項代碼", TextInputStyle.SHORT)
+            .setPlaceholder("例如：CONF_DAM_300W")
+            .setValue(catalog.code())
+            .setRequired(true)
+            .setMinLength(1)
+            .setMaxLength(120)
+            .build();
+
+    TextInput typeInput =
+        TextInput.create("escort_cat_type", "訂單類型", TextInputStyle.SHORT)
+            .setPlaceholder("例如：包本單、小時單、指定大紅")
+            .setValue(catalog.type())
+            .setRequired(true)
+            .setMinLength(1)
+            .setMaxLength(64)
+            .build();
+
+    TextInput levelInput =
+        TextInput.create("escort_cat_level", "服務級別", TextInputStyle.SHORT)
+            .setPlaceholder("例如：機密護、絕密護、不限")
+            .setValue(catalog.level())
+            .setRequired(true)
+            .setMinLength(1)
+            .setMaxLength(64)
+            .build();
+
+    TextInput scopeTargetInput =
+        TextInput.create("escort_cat_scope_target", "服務範圍 / 目標", TextInputStyle.PARAGRAPH)
+            .setPlaceholder(
+                "第一行：服務範圍\n第二行：目標說明")
+            .setValue(catalog.mapScope() + "\n" + catalog.target())
+            .setRequired(true)
+            .setMinLength(1)
+            .setMaxLength(500)
+            .build();
+
+    TextInput priceInput =
+        TextInput.create("escort_cat_price", "價格（TWD）", TextInputStyle.SHORT)
+            .setPlaceholder("新台幣整數，例如 500")
+            .setValue(String.valueOf(catalog.priceTwd()))
+            .setRequired(true)
+            .setMinLength(1)
+            .setMaxLength(15)
+            .build();
+
+    return Modal.create(modalId, modalTitle)
+        .addComponents(
+            ActionRow.of(codeInput),
+            ActionRow.of(typeInput),
+            ActionRow.of(levelInput),
+            ActionRow.of(scopeTargetInput),
+            ActionRow.of(priceInput))
         .build();
   }
 }

@@ -68,8 +68,8 @@ class AdminPanelButtonHandlerTest {
   void mainPanelShouldIncludeDispatchAfterSalesButton() {
     List<ActionRow> rows = handler.buildMainPanelComponents("💰");
 
-    ActionRow lastRow = rows.get(rows.size() - 1);
-    Button dispatchButton = (Button) lastRow.getComponents().get(0);
+    ActionRow dispatchRow = rows.get(3);
+    Button dispatchButton = (Button) dispatchRow.getComponents().get(0);
 
     assertThat(dispatchButton.getId())
         .isEqualTo(AdminPanelButtonHandler.BUTTON_DISPATCH_AFTER_SALES_CONFIG);
@@ -81,8 +81,8 @@ class AdminPanelButtonHandlerTest {
   void mainPanelShouldIncludeEscortPricingButton() {
     List<ActionRow> rows = handler.buildMainPanelComponents("💰");
 
-    ActionRow lastRow = rows.get(rows.size() - 1);
-    Button escortButton = (Button) lastRow.getComponents().get(1);
+    ActionRow pricingRow = rows.get(3);
+    Button escortButton = (Button) pricingRow.getComponents().get(1);
 
     assertThat(escortButton.getId())
         .isEqualTo(AdminPanelButtonHandler.BUTTON_ESCORT_PRICING_CONFIG);

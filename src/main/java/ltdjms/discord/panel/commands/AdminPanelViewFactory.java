@@ -10,6 +10,7 @@ import ltdjms.discord.discord.domain.EmbedView;
 import ltdjms.discord.gametoken.domain.DiceGame1Config;
 import ltdjms.discord.gametoken.domain.DiceGame2Config;
 import ltdjms.discord.panel.components.PanelComponentRenderer;
+import ltdjms.discord.product.domain.EscortOptionCatalog;
 import net.dv8tion.jda.api.entities.MessageEmbed;
 import net.dv8tion.jda.api.interactions.components.ActionRow;
 import net.dv8tion.jda.api.interactions.components.buttons.ButtonStyle;
@@ -19,6 +20,7 @@ import net.dv8tion.jda.api.interactions.components.selections.StringSelectMenu;
 final class AdminPanelViewFactory {
 
   private static final Color EMBED_COLOR = new Color(0xED4245);
+  private static final int ITEMS_PER_PAGE = 10;
 
   private AdminPanelViewFactory() {}
 
@@ -293,6 +295,102 @@ final class AdminPanelViewFactory {
     } catch (NumberFormatException e) {
       return 0;
     }
+  }
+
+  // ========== Escort Catalog 護航價目表管理 ==========
+
+  /**
+   * Builds the escort catalog list embed with pagination.
+   *
+   * @param items the catalog items for the current page
+   * @param page the current page number (0-based)
+   * @param totalPages the total number of pages
+   * @return the embed
+   */
+  static MessageEmbed buildEscortCatalogListEmbed(
+      List<EscortOptionCatalog> items, int page, int totalPages) {
+    List<EmbedView.FieldView> fields = new ArrayList<>();
+
+    if (items.isEmpty()) {
+      fields.add(new EmbedView.FieldView("目前項目", "暫無護航項目", false));
+    } else {
+      int startIndex = page * ITEMS_PER_PAGE + 1;
+      for (int i = 0; i < items.size(); i++) {
+        EscortOptionCatalog item = items.get(i);
+        String line =
+            String.format(
+                "%d. **%s**\n訂單類型：%s / 服務範圍：%s / 服務價格：NT$%,d",
+                startIndex + i,
+                item.code(),
+                item.type(),
+                item.level(),
+                item.priceTwd());
+        fields.add(new EmbedView.FieldView("", line, false));
+      }
+    }
+
+    String footer;
+    if (totalPages <= 0) {
+      footer = "暫無項目";
+    } else {
+      footer = String.format("第 %d / %d 頁", page + 1, totalPages);
+    }
+
+    return buildAdminEmbed("📋 護航價目表管理", "所有護航項目列表（點擊下方按鈕管理）", fields, footer);
+  }
+
+  /**
+   * Builds action components for the escort catalog page.
+   *
+   * @param page the current page number (0-based)
+   * @param totalPages the total number of pages
+   * @return list of action rows
+   */
+  static List<ActionRow> buildEscortCatalogComponents(int page, int totalPages) {
+    List<ButtonView> navButtons = new ArrayList<>();
+    navButtons.add(
+        new ButtonView(
+            AdminPanelButtonHandler.BUTTON_ESCORT_CATALOG_PREV,
+            "⬅️ 上一頁",
+            ButtonStyle.SECONDARY,
+            page <= 0));
+    navButtons.add(
+        new ButtonView(
+            AdminPanelButtonHandler.BUTTON_ESCORT_CATALOG_NEXT,
+            "下一頁 ➡️",
+            ButtonStyle.SECONDARY,
+            page >= totalPages - 1));
+
+    List<ButtonView> actionButtons = new ArrayList<>();
+    actionButtons.add(
+        new ButtonView(
+            AdminPanelButtonHandler.BUTTON_ESCORT_CATALOG_CREATE,
+            "➕ 新增項目",
+            ButtonStyle.SUCCESS,
+            false));
+    actionButtons.add(
+        new ButtonView(
+            AdminPanelButtonHandler.BUTTON_ESCORT_CATALOG_REFRESH,
+            "🔄 重新整理",
+            ButtonStyle.SECONDARY,
+            false));
+    actionButtons.add(
+        new ButtonView(
+            AdminPanelButtonHandler.BUTTON_ESCORT_CATALOG_SELECT,
+            "✏️ 選擇編輯/刪除",
+            ButtonStyle.PRIMARY,
+            false));
+
+    return List.of(
+        PanelComponentRenderer.buildActionRow(navButtons),
+        PanelComponentRenderer.buildActionRow(actionButtons),
+        PanelComponentRenderer.buildActionRow(
+            List.of(
+                new ButtonView(
+                    AdminPanelButtonHandler.BUTTON_BACK,
+                    "⬅️ 返回主選單",
+                    ButtonStyle.SECONDARY,
+                    false))));
   }
 
   private static EntitySelectMenu buildManagementUserSelect(String selectId) {
