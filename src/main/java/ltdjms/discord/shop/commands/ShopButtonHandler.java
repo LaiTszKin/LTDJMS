@@ -10,11 +10,12 @@ import ltdjms.discord.shop.services.ShopService;
 import ltdjms.discord.shop.services.ShopView;
 import net.dv8tion.jda.api.entities.MessageEmbed;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
+import net.dv8tion.jda.api.events.interaction.ModalInteractionEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import net.dv8tion.jda.api.interactions.components.ActionRow;
 import net.dv8tion.jda.api.interactions.components.selections.StringSelectMenu;
 
-/** Handles button interactions for shop pagination and purchase. */
+/** Handles button interactions for shop pagination, purchase, and search. */
 public class ShopButtonHandler extends ListenerAdapter {
 
   private static final Logger LOG = LoggerFactory.getLogger(ShopButtonHandler.class);
@@ -51,10 +52,16 @@ public class ShopButtonHandler extends ListenerAdapter {
       } else if (buttonId.startsWith(ShopView.BUTTON_NEXT_PAGE)) {
         int page = parsePageFromButtonId(buttonId, ShopView.BUTTON_NEXT_PAGE);
         showShopPage(event, guildId, page);
-      } else if (buttonId.equals(ShopView.BUTTON_PURCHASE)) {
-        showPurchaseMenu(event, guildId);
-      } else if (buttonId.equals(ShopView.BUTTON_FIAT_ORDER)) {
-        showFiatOrderMenu(event, guildId);
+      } else if (buttonId.equals(ShopView.BUTTON_BUY)) {
+        showBuyMenu(event, guildId);
+      } else if (buttonId.equals(ShopView.BUTTON_SEARCH)) {
+        event.replyModal(ShopView.buildSearchModal()).queue();
+      } else if (buttonId.equals(ShopView.BUTTON_BACK_TO_SHOP)) {
+        showShopPage(event, guildId, 1);
+      } else if (buttonId.startsWith(ShopView.BUTTON_SEARCH_PREV)) {
+        handleSearchPagination(event, guildId, buttonId, ShopView.BUTTON_SEARCH_PREV);
+      } else if (buttonId.startsWith(ShopView.BUTTON_SEARCH_NEXT)) {
+        handleSearchPagination(event, guildId, buttonId, ShopView.BUTTON_SEARCH_NEXT);
       }
     } catch (Exception e) {
       LOG.error("Error handling shop button: {}", buttonId, e);
@@ -62,11 +69,64 @@ public class ShopButtonHandler extends ListenerAdapter {
     }
   }
 
+  @Override
+  public void onModalInteraction(ModalInteractionEvent event) {
+    if (!event.getModalId().equals(ShopView.MODAL_SEARCH)) {
+      return;
+    }
+
+    if (!event.isFromGuild() || event.getGuild() == null) {
+      event.reply("此功能只能在伺服器中使用").setEphemeral(true).queue();
+      return;
+    }
+
+    long guildId = event.getGuild().getIdLong();
+    String keyword = event.getValue("keyword").getAsString();
+
+    if (keyword == null || keyword.isBlank()) {
+      event.reply("請輸入有效的關鍵字").setEphemeral(true).queue();
+      return;
+    }
+
+    LOG.debug(
+        "Processing shop search: guildId={}, keyword={}, userId={}",
+        guildId,
+        keyword,
+        event.getUser().getIdLong());
+
+    try {
+      ShopService.ShopPage searchResults = shopService.searchProducts(guildId, keyword, 0);
+
+      if (searchResults.isEmpty()) {
+        event.reply("找不到符合「" + keyword + "」的商品").setEphemeral(true).queue();
+        return;
+      }
+
+      MessageEmbed embed =
+          ShopView.buildShopEmbed(
+              searchResults.products(),
+              searchResults.currentPage(),
+              searchResults.totalPages(),
+              guildId);
+      List<ActionRow> components =
+          ShopView.buildSearchResultComponents(
+              searchResults.currentPage(), searchResults.totalPages(), keyword);
+
+      event.replyEmbeds(embed).setComponents(components).setEphemeral(true).queue();
+    } catch (Exception e) {
+      LOG.error("Error searching products: guildId={}, keyword={}", guildId, keyword, e);
+      event.reply("搜尋發生錯誤，請稍後再試").setEphemeral(true).queue();
+    }
+  }
+
   private boolean isShopButton(String buttonId) {
     return buttonId.startsWith(ShopView.BUTTON_PREV_PAGE)
         || buttonId.startsWith(ShopView.BUTTON_NEXT_PAGE)
-        || buttonId.equals(ShopView.BUTTON_PURCHASE)
-        || buttonId.equals(ShopView.BUTTON_FIAT_ORDER);
+        || buttonId.equals(ShopView.BUTTON_BUY)
+        || buttonId.equals(ShopView.BUTTON_SEARCH)
+        || buttonId.equals(ShopView.BUTTON_BACK_TO_SHOP)
+        || buttonId.startsWith(ShopView.BUTTON_SEARCH_PREV)
+        || buttonId.startsWith(ShopView.BUTTON_SEARCH_NEXT);
   }
 
   private int parsePageFromButtonId(String buttonId, String prefix) {
@@ -78,46 +138,70 @@ public class ShopButtonHandler extends ListenerAdapter {
     ShopService.ShopPage shopPage = shopService.getShopPage(guildId, page - 1);
 
     MessageEmbed embed;
+    List<ActionRow> components;
+
     if (shopPage.isEmpty()) {
       embed = ShopView.buildEmptyShopEmbed();
+      components = List.of();
     } else {
       embed =
           ShopView.buildShopEmbed(
               shopPage.products(), shopPage.currentPage(), shopPage.totalPages(), guildId);
+      components =
+          ShopView.buildShopComponents(
+              shopPage.currentPage(), shopPage.totalPages(), true);
     }
-
-    // Get products available for purchase
-    var productsForPurchase = productService.getProductsForPurchase(guildId);
-    var fiatOnlyProducts = productService.getFiatOnlyProducts(guildId);
-
-    List<ActionRow> components =
-        ShopView.buildShopComponents(
-            shopPage.currentPage(), shopPage.totalPages(), productsForPurchase, fiatOnlyProducts);
 
     event.editMessageEmbeds(embed).setComponents(components).queue();
   }
 
-  private void showPurchaseMenu(ButtonInteractionEvent event, long guildId) {
-    var productsForPurchase = productService.getProductsForPurchase(guildId);
+  private void showBuyMenu(ButtonInteractionEvent event, long guildId) {
+    var allProducts = productService.getAllPurchasableProducts(guildId);
 
-    if (productsForPurchase.isEmpty()) {
-      event.reply("目前沒有可用貨幣購買的商品").setEphemeral(true).queue();
+    if (allProducts.isEmpty()) {
+      event.reply("目前沒有可購買的商品").setEphemeral(true).queue();
       return;
     }
 
-    StringSelectMenu purchaseMenu = ShopView.buildPurchaseMenu(productsForPurchase);
+    StringSelectMenu buyMenu = ShopView.buildBuyMenu(allProducts);
 
-    event.reply("請選擇要購買的商品").setEphemeral(true).addActionRow(purchaseMenu).queue();
+    event.reply("請選擇要購買的商品").setEphemeral(true).addActionRow(buyMenu).queue();
   }
 
-  private void showFiatOrderMenu(ButtonInteractionEvent event, long guildId) {
-    var fiatOnlyProducts = productService.getFiatOnlyProducts(guildId);
-    if (fiatOnlyProducts.isEmpty()) {
-      event.reply("目前沒有限定法幣支付的商品").setEphemeral(true).queue();
+  private void handleSearchPagination(
+      ButtonInteractionEvent event, long guildId, String buttonId, String prefix) {
+    // Format: prefix + encodedKeyword + "_" + page
+    String remainder = buttonId.substring(prefix.length());
+    int lastUnderscore = remainder.lastIndexOf('_');
+    if (lastUnderscore < 0) {
+      event.reply("發生錯誤，請重新搜尋").setEphemeral(true).queue();
       return;
     }
 
-    StringSelectMenu fiatOrderMenu = ShopView.buildFiatOrderMenu(fiatOnlyProducts);
-    event.reply("請選擇要法幣下單的商品").setEphemeral(true).addActionRow(fiatOrderMenu).queue();
+    String encodedKeyword = remainder.substring(0, lastUnderscore);
+    int page = Integer.parseInt(remainder.substring(lastUnderscore + 1));
+    String keyword = ShopView.decodeKeyword(encodedKeyword);
+
+    ShopService.ShopPage searchResults = shopService.searchProducts(guildId, keyword, page - 1);
+
+    MessageEmbed embed;
+    List<ActionRow> components;
+
+    if (searchResults.isEmpty()) {
+      embed = ShopView.buildEmptyShopEmbed();
+      components = List.of();
+    } else {
+      embed =
+          ShopView.buildShopEmbed(
+              searchResults.products(),
+              searchResults.currentPage(),
+              searchResults.totalPages(),
+              guildId);
+      components =
+          ShopView.buildSearchResultComponents(
+              searchResults.currentPage(), searchResults.totalPages(), keyword);
+    }
+
+    event.editMessageEmbeds(embed).setComponents(components).queue();
   }
 }

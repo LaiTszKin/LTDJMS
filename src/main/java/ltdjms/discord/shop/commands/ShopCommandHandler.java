@@ -51,16 +51,9 @@ public class ShopCommandHandler implements SlashCommandListener.CommandHandler {
             ShopView.buildShopEmbed(
                 shopPage.products(), shopPage.currentPage(), shopPage.totalPages(), guildId);
 
-        // Get products available for purchase
-        var productsForPurchase = productService.getProductsForPurchase(guildId);
-        var fiatOnlyProducts = productService.getFiatOnlyProducts(guildId);
-
         components =
             ShopView.buildShopComponents(
-                shopPage.currentPage(),
-                shopPage.totalPages(),
-                productsForPurchase,
-                fiatOnlyProducts);
+                shopPage.currentPage(), shopPage.totalPages(), true);
       }
 
       event.replyEmbeds(embed).addComponents(components).setEphemeral(true).queue();

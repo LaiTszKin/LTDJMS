@@ -204,6 +204,82 @@ class ShopServiceTest {
   }
 
   @Nested
+  @DisplayName("searchProducts")
+  class SearchProductsTests {
+
+    @Test
+    @DisplayName("should return empty page for null keyword")
+    void shouldReturnEmptyPageForNullKeyword() {
+      ShopService.ShopPage result = shopService.searchProducts(TEST_GUILD_ID, null, 0);
+
+      assertThat(result.isEmpty()).isTrue();
+      assertThat(result.totalPages()).isZero();
+    }
+
+    @Test
+    @DisplayName("should return empty page for blank keyword")
+    void shouldReturnEmptyPageForBlankKeyword() {
+      ShopService.ShopPage result = shopService.searchProducts(TEST_GUILD_ID, "  ", 0);
+
+      assertThat(result.isEmpty()).isTrue();
+      assertThat(result.totalPages()).isZero();
+    }
+
+    @Test
+    @DisplayName("should return matching products")
+    void shouldReturnMatchingProducts() {
+      List<Product> products =
+          List.of(
+              createProduct(1L, "Apple", null, null, null),
+              createProduct(2L, "Application", null, null, null));
+      when(productRepository.countByGuildIdAndNameContaining(TEST_GUILD_ID, "app"))
+          .thenReturn(2L);
+      when(productRepository.findByGuildIdAndNameContaining(TEST_GUILD_ID, "app", 0, PAGE_SIZE))
+          .thenReturn(products);
+
+      ShopService.ShopPage result = shopService.searchProducts(TEST_GUILD_ID, "app", 0);
+
+      assertThat(result.isEmpty()).isFalse();
+      assertThat(result.products()).hasSize(2);
+      assertThat(result.currentPage()).isEqualTo(1);
+      assertThat(result.totalPages()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("should handle pagination correctly")
+    void shouldHandlePaginationCorrectly() {
+      when(productRepository.countByGuildIdAndNameContaining(TEST_GUILD_ID, "test"))
+          .thenReturn(12L);
+      when(productRepository.findByGuildIdAndNameContaining(TEST_GUILD_ID, "test", 0, PAGE_SIZE))
+          .thenReturn(List.of(createProduct(1L, "Test 1", null, null, null)));
+
+      ShopService.ShopPage result = shopService.searchProducts(TEST_GUILD_ID, "test", 0);
+
+      assertThat(result.totalPages()).isEqualTo(3);
+      assertThat(result.currentPage()).isEqualTo(1);
+      assertThat(result.hasNextPage()).isTrue();
+    }
+
+    @Test
+    @DisplayName("should clamp out-of-range page to valid range")
+    void shouldClampOutOfRangePage() {
+      when(productRepository.countByGuildIdAndNameContaining(TEST_GUILD_ID, "test"))
+          .thenReturn(3L);
+      when(productRepository.findByGuildIdAndNameContaining(TEST_GUILD_ID, "test", 0, PAGE_SIZE))
+          .thenReturn(
+              List.of(
+                  createProduct(1L, "Test 1", null, null, null),
+                  createProduct(2L, "Test 2", null, null, null),
+                  createProduct(3L, "Test 3", null, null, null)));
+
+      ShopService.ShopPage result = shopService.searchProducts(TEST_GUILD_ID, "test", 10);
+
+      assertThat(result.currentPage()).isEqualTo(1);
+      assertThat(result.totalPages()).isEqualTo(1);
+    }
+  }
+
+  @Nested
   @DisplayName("ShopPage")
   class ShopPageTests {
 

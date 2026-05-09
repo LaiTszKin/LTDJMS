@@ -12,6 +12,9 @@ import net.dv8tion.jda.api.entities.MessageEmbed;
 import net.dv8tion.jda.api.interactions.components.ActionRow;
 import net.dv8tion.jda.api.interactions.components.buttons.ButtonStyle;
 import net.dv8tion.jda.api.interactions.components.selections.StringSelectMenu;
+import net.dv8tion.jda.api.interactions.components.text.TextInput;
+import net.dv8tion.jda.api.interactions.components.text.TextInputStyle;
+import net.dv8tion.jda.api.interactions.modals.Modal;
 
 /** Builds shop page embed and action components. */
 public class ShopView {
@@ -21,13 +24,18 @@ public class ShopView {
   private static final int PAGE_SIZE = 5;
   private static final int MAX_PURCHASE_OPTIONS = 25;
   private static final String DIVIDER = "────────────────────────────────────";
+  public static final String MODAL_SEARCH = "shop_search_modal";
 
   public static final String BUTTON_PREV_PAGE = "shop_prev_";
   public static final String BUTTON_NEXT_PAGE = "shop_next_";
-  public static final String BUTTON_PURCHASE = "shop_purchase";
-  public static final String BUTTON_FIAT_ORDER = "shop_fiat_order";
-  public static final String SELECT_PURCHASE_PRODUCT = "shop_purchase_select";
-  public static final String SELECT_FIAT_PRODUCT = "shop_fiat_select";
+  public static final String BUTTON_BUY = "shop_buy";
+  public static final String SELECT_BUY_PRODUCT = "shop_buy_select";
+  public static final String BUTTON_SEARCH = "shop_search";
+  public static final String BUTTON_PAY_WITH_CURRENCY = "shop_pay_currency_";
+  public static final String BUTTON_PAY_WITH_FIAT = "shop_pay_fiat_";
+  public static final String BUTTON_BACK_TO_SHOP = "shop_back";
+  public static final String BUTTON_SEARCH_PREV = "shop_sprev_";
+  public static final String BUTTON_SEARCH_NEXT = "shop_snext_";
 
   private ShopView() {
     // Utility class
@@ -87,70 +95,124 @@ public class ShopView {
   }
 
   /**
-   * Builds action rows for shop page navigation with purchase button. Only includes purchase button
-   * if there are products available for purchase.
-   */
-  public static List<ActionRow> buildShopComponents(
-      int currentPage, int totalPages, List<Product> productsForPurchase) {
-    return buildShopComponents(currentPage, totalPages, productsForPurchase, List.of());
-  }
-
-  /**
-   * Builds action rows for shop page navigation with purchase/order buttons.
+   * Builds action rows for shop page navigation with buy and search buttons.
    *
-   * <p>Buttons are shown only when related products exist.
+   * <p>Buy and search buttons are shown only when there are products in the shop.
    */
   public static List<ActionRow> buildShopComponents(
-      int currentPage,
-      int totalPages,
-      List<Product> productsForPurchase,
-      List<Product> fiatOnlyProducts) {
+      int currentPage, int totalPages, boolean hasProducts) {
     List<ActionRow> rows = new ArrayList<>();
     rows.add(
         DiscordComponentRenderer.buildActionRow(buildPaginationButtons(currentPage, totalPages)));
 
-    List<ButtonView> actionButtons = new ArrayList<>();
-    if (!productsForPurchase.isEmpty()) {
-      actionButtons.add(new ButtonView(BUTTON_PURCHASE, "💰 購買商品", ButtonStyle.SUCCESS, false));
-    }
-    if (!fiatOnlyProducts.isEmpty()) {
-      actionButtons.add(new ButtonView(BUTTON_FIAT_ORDER, "💳 法幣下單", ButtonStyle.PRIMARY, false));
-    }
-    if (!actionButtons.isEmpty()) {
+    if (hasProducts) {
+      List<ButtonView> actionButtons = new ArrayList<>();
+      actionButtons.add(new ButtonView(BUTTON_BUY, "🛒 購買", ButtonStyle.SUCCESS, false));
+      actionButtons.add(new ButtonView(BUTTON_SEARCH, "🔍 搜尋", ButtonStyle.SECONDARY, false));
       rows.add(DiscordComponentRenderer.buildActionRow(actionButtons));
     }
 
     return rows;
   }
 
-  /** Builds a purchase menu with products available for currency purchase. */
-  public static StringSelectMenu buildPurchaseMenu(List<Product> productsForPurchase) {
+  /** Builds a unified buy menu with all purchasable products (both currency and fiat). */
+  public static StringSelectMenu buildBuyMenu(List<Product> allProducts) {
     StringSelectMenu.Builder menuBuilder =
-        StringSelectMenu.create(SELECT_PURCHASE_PRODUCT).setPlaceholder("選擇要購買的商品");
+        StringSelectMenu.create(SELECT_BUY_PRODUCT).setPlaceholder("選擇要購買的商品");
 
-    int limit = Math.min(productsForPurchase.size(), MAX_PURCHASE_OPTIONS);
+    int limit = Math.min(allProducts.size(), MAX_PURCHASE_OPTIONS);
     for (int i = 0; i < limit; i++) {
-      Product product = productsForPurchase.get(i);
-      menuBuilder.addOption(
-          product.name(), String.valueOf(product.id()), product.formatCurrencyPrice());
+      Product product = allProducts.get(i);
+      menuBuilder.addOption(product.name(), String.valueOf(product.id()), buildPriceDescription(product));
     }
 
     return menuBuilder.build();
   }
 
-  /** Builds a select menu for fiat-only products. */
-  public static StringSelectMenu buildFiatOrderMenu(List<Product> fiatOnlyProducts) {
-    StringSelectMenu.Builder menuBuilder =
-        StringSelectMenu.create(SELECT_FIAT_PRODUCT).setPlaceholder("選擇要法幣下單的商品");
-
-    int limit = Math.min(fiatOnlyProducts.size(), MAX_PURCHASE_OPTIONS);
-    for (int i = 0; i < limit; i++) {
-      Product product = fiatOnlyProducts.get(i);
-      menuBuilder.addOption(
-          product.name(), String.valueOf(product.id()), product.formatFiatPriceTwd());
+  /** Builds a payment method choice embed for products with both currency and fiat prices. */
+  public static MessageEmbed buildPaymentMethodChoiceEmbed(Product product) {
+    StringBuilder sb = new StringBuilder();
+    sb.append("**商品：** ").append(product.name()).append("\n\n");
+    sb.append("**請選擇支付方式：**\n\n");
+    if (product.hasCurrencyPrice()) {
+      sb.append("💰 **貨幣購買** — ").append(product.formatCurrencyPrice()).append("\n");
+    }
+    if (product.hasFiatPriceTwd()) {
+      sb.append("💳 **法幣下單** — ").append(product.formatFiatPriceTwd());
     }
 
-    return menuBuilder.build();
+    return DiscordComponentRenderer.buildEmbed(
+        new EmbedView("🛒 選擇支付方式", sb.toString(), EMBED_COLOR, List.of(), null));
+  }
+
+  /** Builds action row with payment method choice buttons. */
+  public static List<ActionRow> buildPaymentMethodChoiceComponents(Product product) {
+    List<ButtonView> buttons = new ArrayList<>();
+    if (product.hasCurrencyPrice()) {
+      buttons.add(
+          new ButtonView(
+              BUTTON_PAY_WITH_CURRENCY + product.id(),
+              "💰 貨幣購買",
+              ButtonStyle.SUCCESS,
+              false));
+    }
+    if (product.hasFiatPriceTwd()) {
+      buttons.add(
+          new ButtonView(
+              BUTTON_PAY_WITH_FIAT + product.id(),
+              "💳 法幣下單",
+              ButtonStyle.PRIMARY,
+              false));
+    }
+    return List.of(DiscordComponentRenderer.buildActionRow(buttons));
+  }
+
+  /** Builds a search modal with a keyword text input. */
+  public static Modal buildSearchModal() {
+    TextInput keywordInput =
+        TextInput.create("keyword", "關鍵字", TextInputStyle.SHORT)
+            .setPlaceholder("請輸入要搜尋的商品關鍵字")
+            .setRequired(true)
+            .setMinLength(1)
+            .setMaxLength(100)
+            .build();
+
+    return Modal.create(MODAL_SEARCH, "🔍 搜尋商品").addActionRow(keywordInput).build();
+  }
+
+  /**
+   * Builds action rows for search result page with pagination and a back-to-shop button.
+   *
+   * <p>The keyword is encoded in the pagination button IDs so the handler can re-query.
+   */
+  public static List<ActionRow> buildSearchResultComponents(
+      int currentPage, int totalPages, String keyword) {
+    String encodedKeyword = encodeKeyword(keyword);
+    boolean isFirstPage = currentPage == 1;
+    boolean isLastPage = currentPage >= totalPages;
+
+    List<ActionRow> rows = new ArrayList<>();
+    rows.add(
+        DiscordComponentRenderer.buildActionRow(
+            List.of(
+                new ButtonView(
+                    BUTTON_SEARCH_PREV + encodedKeyword + "_" + (currentPage - 1),
+                    "⬅️ 上一頁",
+                    ButtonStyle.SECONDARY,
+                    isFirstPage),
+                new ButtonView(
+                    BUTTON_SEARCH_NEXT + encodedKeyword + "_" + (currentPage + 1),
+                    "下一頁 ➡️",
+                    ButtonStyle.SECONDARY,
+                    isLastPage))));
+
+    rows.add(
+        DiscordComponentRenderer.buildActionRow(
+            List.of(
+                new ButtonView(
+                    BUTTON_BACK_TO_SHOP, "返回商店", ButtonStyle.SECONDARY, false))));
+
+    return rows;
   }
 
   /** Builds an embed for purchase confirmation. */
@@ -186,6 +248,19 @@ public class ShopView {
     return PAGE_SIZE;
   }
 
+  /** Encodes a keyword string for use in button IDs. */
+  static String encodeKeyword(String keyword) {
+    return java.util.Base64.getUrlEncoder().withoutPadding()
+        .encodeToString(keyword.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+  }
+
+  /** Decodes a keyword string from a button ID. */
+  public static String decodeKeyword(String encoded) {
+    return new String(
+        java.util.Base64.getUrlDecoder().decode(encoded),
+        java.nio.charset.StandardCharsets.UTF_8);
+  }
+
   private static List<ButtonView> buildPaginationButtons(int currentPage, int totalPages) {
     boolean isFirstPage = currentPage == 1;
     boolean isLastPage = currentPage >= totalPages;
@@ -194,5 +269,19 @@ public class ShopView {
             BUTTON_PREV_PAGE + (currentPage - 1), "⬅️ 上一頁", ButtonStyle.SECONDARY, isFirstPage),
         new ButtonView(
             BUTTON_NEXT_PAGE + (currentPage + 1), "下一頁 ➡️", ButtonStyle.SECONDARY, isLastPage));
+  }
+
+  private static String buildPriceDescription(Product product) {
+    StringBuilder sb = new StringBuilder();
+    if (product.hasCurrencyPrice()) {
+      sb.append(product.formatCurrencyPrice());
+    }
+    if (product.hasFiatPriceTwd()) {
+      if (!sb.isEmpty()) {
+        sb.append(" / ");
+      }
+      sb.append(product.formatFiatPriceTwd());
+    }
+    return sb.toString();
   }
 }

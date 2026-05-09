@@ -179,7 +179,7 @@ class ShopSelectMenuHandlerTest {
   @Test
   @DisplayName("非 Guild 事件應該回覆錯誤訊息")
   void nonGuildSelectEvent_shouldReplyErrorMessage() {
-    when(selectEvent.getComponentId()).thenReturn(ShopView.SELECT_PURCHASE_PRODUCT);
+    when(selectEvent.getComponentId()).thenReturn(ShopView.SELECT_BUY_PRODUCT);
     when(selectEvent.isFromGuild()).thenReturn(false);
 
     handler.onStringSelectInteraction(selectEvent);
@@ -191,7 +191,7 @@ class ShopSelectMenuHandlerTest {
   @Test
   @DisplayName("選擇不存在的商品應該回覆錯誤訊息")
   void selectNonExistentProduct_shouldReplyErrorMessage() {
-    when(selectEvent.getComponentId()).thenReturn(ShopView.SELECT_PURCHASE_PRODUCT);
+    when(selectEvent.getComponentId()).thenReturn(ShopView.SELECT_BUY_PRODUCT);
     when(selectEvent.getValues()).thenReturn(List.of(String.valueOf(TEST_PRODUCT_ID)));
     when(productService.getProduct(TEST_PRODUCT_ID)).thenReturn(Optional.empty());
 
@@ -202,33 +202,36 @@ class ShopSelectMenuHandlerTest {
   }
 
   @Test
-  @DisplayName("選擇無貨幣價格的商品應該回覆錯誤訊息")
-  void selectProductWithoutCurrencyPrice_shouldReplyErrorMessage() {
+  @DisplayName("雙價格商品應該顯示支付方式選擇")
+  void selectDualPriceProduct_shouldShowPaymentChoice() {
     var product =
         new Product(
             TEST_PRODUCT_ID,
             TEST_GUILD_ID,
-            "Test Product",
+            "Dual Product",
             null,
             null,
             null,
-            null,
+            100L,
+            500L,
             Instant.now(),
             Instant.now());
 
-    when(selectEvent.getComponentId()).thenReturn(ShopView.SELECT_PURCHASE_PRODUCT);
+    when(selectEvent.getComponentId()).thenReturn(ShopView.SELECT_BUY_PRODUCT);
     when(selectEvent.getValues()).thenReturn(List.of(String.valueOf(TEST_PRODUCT_ID)));
     when(productService.getProduct(TEST_PRODUCT_ID)).thenReturn(Optional.of(product));
+    when(selectEvent.editMessageEmbeds(any(MessageEmbed.class))).thenReturn(editAction);
+    when(editAction.setComponents(anyList())).thenReturn(editAction);
 
     handler.onStringSelectInteraction(selectEvent);
 
-    verify(selectEvent).reply("此商品不可用貨幣購買");
-    verify(replyAction).setEphemeral(true);
+    verify(selectEvent).editMessageEmbeds(any(MessageEmbed.class));
+    verify(editAction).setComponents(anyList());
   }
 
   @Test
-  @DisplayName("選擇有效商品應該顯示確認嵌入")
-  void selectValidProduct_shouldShowConfirmationEmbed() {
+  @DisplayName("僅貨幣價格商品應該顯示確認嵌入")
+  void selectCurrencyOnlyProduct_shouldShowConfirmationEmbed() {
     var product =
         new Product(
             TEST_PRODUCT_ID,
@@ -243,7 +246,7 @@ class ShopSelectMenuHandlerTest {
     Result<BalanceView, DomainError> balanceResult =
         Result.ok(new BalanceView(TEST_GUILD_ID, TEST_USER_ID, 500L, "貨幣", "💰"));
 
-    when(selectEvent.getComponentId()).thenReturn(ShopView.SELECT_PURCHASE_PRODUCT);
+    when(selectEvent.getComponentId()).thenReturn(ShopView.SELECT_BUY_PRODUCT);
     when(selectEvent.getValues()).thenReturn(List.of(String.valueOf(TEST_PRODUCT_ID)));
     when(productService.getProduct(TEST_PRODUCT_ID)).thenReturn(Optional.of(product));
     when(balanceService.tryGetBalance(TEST_GUILD_ID, TEST_USER_ID)).thenReturn(balanceResult);
@@ -273,7 +276,7 @@ class ShopSelectMenuHandlerTest {
     Result<BalanceView, DomainError> balanceResult =
         Result.err(new DomainError(DomainError.Category.PERSISTENCE_FAILURE, "Failed", null));
 
-    when(selectEvent.getComponentId()).thenReturn(ShopView.SELECT_PURCHASE_PRODUCT);
+    when(selectEvent.getComponentId()).thenReturn(ShopView.SELECT_BUY_PRODUCT);
     when(selectEvent.getValues()).thenReturn(List.of(String.valueOf(TEST_PRODUCT_ID)));
     when(productService.getProduct(TEST_PRODUCT_ID)).thenReturn(Optional.of(product));
     when(balanceService.tryGetBalance(TEST_GUILD_ID, TEST_USER_ID)).thenReturn(balanceResult);
@@ -288,7 +291,7 @@ class ShopSelectMenuHandlerTest {
   @Test
   @DisplayName("選擇商品發生異常應該回覆錯誤訊息")
   void selectProductWithException_shouldReplyErrorMessage() {
-    when(selectEvent.getComponentId()).thenReturn(ShopView.SELECT_PURCHASE_PRODUCT);
+    when(selectEvent.getComponentId()).thenReturn(ShopView.SELECT_BUY_PRODUCT);
     when(selectEvent.getValues()).thenReturn(List.of(String.valueOf(TEST_PRODUCT_ID)));
     when(productService.getProduct(TEST_PRODUCT_ID)).thenThrow(new RuntimeException("Test error"));
 
@@ -299,40 +302,29 @@ class ShopSelectMenuHandlerTest {
   }
 
   @Test
-  @DisplayName("法幣下單失敗應該回覆錯誤訊息")
-  void selectFiatProductFailure_shouldReplyErrorMessage() {
-    when(selectEvent.getComponentId()).thenReturn(ShopView.SELECT_FIAT_PRODUCT);
+  @DisplayName("僅法幣價格商品應觸發法幣下單流程")
+  void selectFiatOnlyProduct_shouldTriggerFiatOrder() {
+    var product =
+        new Product(
+            TEST_PRODUCT_ID,
+            TEST_GUILD_ID,
+            "Fiat Product",
+            null,
+            null,
+            null,
+            null,
+            1200L,
+            Instant.now(),
+            Instant.now());
+
+    when(selectEvent.getComponentId()).thenReturn(ShopView.SELECT_BUY_PRODUCT);
     when(selectEvent.getValues()).thenReturn(List.of(String.valueOf(TEST_PRODUCT_ID)));
-    when(fiatOrderService.createFiatOnlyOrder(TEST_GUILD_ID, TEST_USER_ID, TEST_PRODUCT_ID))
-        .thenReturn(
-            Result.err(new DomainError(DomainError.Category.INVALID_INPUT, "商品不支援法幣", null)));
-
-    handler.onStringSelectInteraction(selectEvent);
-
-    verify(selectEvent).deferReply(true);
-    verify(interactionHook).editOriginal(eq("下單失敗：商品不支援法幣"));
-  }
-
-  @Test
-  @DisplayName("法幣下單成功應在 deferred reply 顯示訂單摘要")
-  void selectFiatProductSuccess_shouldEditDeferredReplyWithOrderSummary() {
-    when(selectEvent.getComponentId()).thenReturn(ShopView.SELECT_FIAT_PRODUCT);
-    when(selectEvent.getValues()).thenReturn(List.of(String.valueOf(TEST_PRODUCT_ID)));
+    when(productService.getProduct(TEST_PRODUCT_ID)).thenReturn(Optional.of(product));
     when(fiatOrderService.createFiatOnlyOrder(TEST_GUILD_ID, TEST_USER_ID, TEST_PRODUCT_ID))
         .thenReturn(
             Result.ok(
                 new FiatOrderService.FiatOrderResult(
-                    new Product(
-                        TEST_PRODUCT_ID,
-                        TEST_GUILD_ID,
-                        "VIP 商品",
-                        "desc",
-                        null,
-                        null,
-                        null,
-                        1200L,
-                        Instant.now(),
-                        Instant.now()),
+                    product,
                     "FD260409000001",
                     "ABC123456789",
                     "2026/04/12 23:59:59",
@@ -349,31 +341,62 @@ class ShopSelectMenuHandlerTest {
                 msg ->
                     msg.contains("法幣訂單已建立")
                         && msg.contains("完整付款資訊也已私訊給你")
-                        && msg.contains("`FD260409000001`")
-                        && msg.contains("`ABC123456789`")
-                        && msg.contains("逾期取消狀態")));
+                        && msg.contains("`FD260409000001`")));
+  }
+
+  @Test
+  @DisplayName("法幣下單失敗應該回覆錯誤訊息")
+  void selectFiatOnlyProductFailure_shouldReplyError() {
+    var product =
+        new Product(
+            TEST_PRODUCT_ID,
+            TEST_GUILD_ID,
+            "Fiat Product",
+            null,
+            null,
+            null,
+            null,
+            1200L,
+            Instant.now(),
+            Instant.now());
+
+    when(selectEvent.getComponentId()).thenReturn(ShopView.SELECT_BUY_PRODUCT);
+    when(selectEvent.getValues()).thenReturn(List.of(String.valueOf(TEST_PRODUCT_ID)));
+    when(productService.getProduct(TEST_PRODUCT_ID)).thenReturn(Optional.of(product));
+    when(fiatOrderService.createFiatOnlyOrder(TEST_GUILD_ID, TEST_USER_ID, TEST_PRODUCT_ID))
+        .thenReturn(
+            Result.err(new DomainError(DomainError.Category.INVALID_INPUT, "商品不支援法幣", null)));
+
+    handler.onStringSelectInteraction(selectEvent);
+
+    verify(selectEvent).deferReply(true);
+    verify(interactionHook).editOriginal(eq("下單失敗：商品不支援法幣"));
   }
 
   @Test
   @DisplayName("法幣下單在無法開啟私訊時應顯示付款備援資訊")
-  void selectFiatProductWhenOpenDmFails_shouldShowFallbackInfo() {
-    when(selectEvent.getComponentId()).thenReturn(ShopView.SELECT_FIAT_PRODUCT);
+  void selectFiatOnlyProductWhenOpenDmFails_shouldShowFallbackInfo() {
+    var product =
+        new Product(
+            TEST_PRODUCT_ID,
+            TEST_GUILD_ID,
+            "Fiat Product",
+            null,
+            null,
+            null,
+            null,
+            1200L,
+            Instant.now(),
+            Instant.now());
+
+    when(selectEvent.getComponentId()).thenReturn(ShopView.SELECT_BUY_PRODUCT);
     when(selectEvent.getValues()).thenReturn(List.of(String.valueOf(TEST_PRODUCT_ID)));
+    when(productService.getProduct(TEST_PRODUCT_ID)).thenReturn(Optional.of(product));
     when(fiatOrderService.createFiatOnlyOrder(TEST_GUILD_ID, TEST_USER_ID, TEST_PRODUCT_ID))
         .thenReturn(
             Result.ok(
                 new FiatOrderService.FiatOrderResult(
-                    new Product(
-                        TEST_PRODUCT_ID,
-                        TEST_GUILD_ID,
-                        "VIP 商品",
-                        "desc",
-                        null,
-                        null,
-                        null,
-                        1200L,
-                        Instant.now(),
-                        Instant.now()),
+                    product,
                     "FD260409000002",
                     "ABC999999999",
                     "2026/04/12 23:59:59",
@@ -403,24 +426,28 @@ class ShopSelectMenuHandlerTest {
 
   @Test
   @DisplayName("法幣下單在私訊送出失敗時應顯示付款備援資訊")
-  void selectFiatProductWhenSendDmFails_shouldShowFallbackInfo() {
-    when(selectEvent.getComponentId()).thenReturn(ShopView.SELECT_FIAT_PRODUCT);
+  void selectFiatOnlyProductWhenSendDmFails_shouldShowFallbackInfo() {
+    var product =
+        new Product(
+            TEST_PRODUCT_ID,
+            TEST_GUILD_ID,
+            "Fiat Product",
+            null,
+            null,
+            null,
+            null,
+            1200L,
+            Instant.now(),
+            Instant.now());
+
+    when(selectEvent.getComponentId()).thenReturn(ShopView.SELECT_BUY_PRODUCT);
     when(selectEvent.getValues()).thenReturn(List.of(String.valueOf(TEST_PRODUCT_ID)));
+    when(productService.getProduct(TEST_PRODUCT_ID)).thenReturn(Optional.of(product));
     when(fiatOrderService.createFiatOnlyOrder(TEST_GUILD_ID, TEST_USER_ID, TEST_PRODUCT_ID))
         .thenReturn(
             Result.ok(
                 new FiatOrderService.FiatOrderResult(
-                    new Product(
-                        TEST_PRODUCT_ID,
-                        TEST_GUILD_ID,
-                        "VIP 商品",
-                        "desc",
-                        null,
-                        null,
-                        null,
-                        1200L,
-                        Instant.now(),
-                        Instant.now()),
+                    product,
                     "FD260409000003",
                     "ABC888888888",
                     "2026/04/12 23:59:59",
@@ -450,9 +477,23 @@ class ShopSelectMenuHandlerTest {
 
   @Test
   @DisplayName("法幣下單失敗後應釋放 in-flight guard")
-  void selectFiatProductFailure_shouldReleaseInFlightGuard() {
-    when(selectEvent.getComponentId()).thenReturn(ShopView.SELECT_FIAT_PRODUCT);
+  void selectFiatOnlyProductFailure_shouldReleaseInFlightGuard() {
+    var product =
+        new Product(
+            TEST_PRODUCT_ID,
+            TEST_GUILD_ID,
+            "Fiat Product",
+            null,
+            null,
+            null,
+            null,
+            1200L,
+            Instant.now(),
+            Instant.now());
+
+    when(selectEvent.getComponentId()).thenReturn(ShopView.SELECT_BUY_PRODUCT);
     when(selectEvent.getValues()).thenReturn(List.of(String.valueOf(TEST_PRODUCT_ID)));
+    when(productService.getProduct(TEST_PRODUCT_ID)).thenReturn(Optional.of(product));
     when(fiatOrderService.createFiatOnlyOrder(TEST_GUILD_ID, TEST_USER_ID, TEST_PRODUCT_ID))
         .thenReturn(
             Result.err(new DomainError(DomainError.Category.INVALID_INPUT, "商品不支援法幣", null)));
@@ -468,7 +509,7 @@ class ShopSelectMenuHandlerTest {
 
   @Test
   @DisplayName("法幣下單在同一商品重複觸發時應提示處理中")
-  void selectFiatProductWhileInFlight_shouldReplyProcessingMessage() {
+  void selectFiatOnlyProductWhileInFlight_shouldReplyProcessingMessage() {
     AtomicReference<Consumer<InteractionHook>> deferredConsumer = new AtomicReference<>();
     doAnswer(
             invocation -> {
@@ -480,8 +521,22 @@ class ShopSelectMenuHandlerTest {
         .when(deferredReplyAction)
         .queue(any(), any());
 
-    when(selectEvent.getComponentId()).thenReturn(ShopView.SELECT_FIAT_PRODUCT);
+    var product =
+        new Product(
+            TEST_PRODUCT_ID,
+            TEST_GUILD_ID,
+            "Fiat Product",
+            null,
+            null,
+            null,
+            null,
+            1200L,
+            Instant.now(),
+            Instant.now());
+
+    when(selectEvent.getComponentId()).thenReturn(ShopView.SELECT_BUY_PRODUCT);
     when(selectEvent.getValues()).thenReturn(List.of(String.valueOf(TEST_PRODUCT_ID)));
+    when(productService.getProduct(TEST_PRODUCT_ID)).thenReturn(Optional.of(product));
 
     handler.onStringSelectInteraction(selectEvent);
     handler.onStringSelectInteraction(selectEvent);
@@ -492,7 +547,83 @@ class ShopSelectMenuHandlerTest {
     verify(interactionHook, never()).editOriginal(anyString());
   }
 
-  // ========== ButtonInteraction 測試 ==========
+  // ========== ButtonInteraction 測試 (支付方式選擇) ==========
+
+  @Test
+  @DisplayName("貨幣購買按鈕應顯示確認嵌入")
+  void payWithCurrencyButton_shouldShowConfirmEmbed() {
+    String buttonId = ShopView.BUTTON_PAY_WITH_CURRENCY + TEST_PRODUCT_ID;
+    var product =
+        new Product(
+            TEST_PRODUCT_ID,
+            TEST_GUILD_ID,
+            "Dual Product",
+            null,
+            null,
+            null,
+            100L,
+            500L,
+            Instant.now(),
+            Instant.now());
+    Result<BalanceView, DomainError> balanceResult =
+        Result.ok(new BalanceView(TEST_GUILD_ID, TEST_USER_ID, 500L, "貨幣", "💰"));
+
+    when(buttonEvent.getComponentId()).thenReturn(buttonId);
+    when(productService.getProduct(TEST_PRODUCT_ID)).thenReturn(Optional.of(product));
+    when(balanceService.tryGetBalance(TEST_GUILD_ID, TEST_USER_ID)).thenReturn(balanceResult);
+    when(buttonEvent.editMessageEmbeds(any(MessageEmbed.class))).thenReturn(editAction);
+    when(editAction.setComponents(anyList())).thenReturn(editAction);
+
+    handler.onButtonInteraction(buttonEvent);
+
+    verify(buttonEvent).editMessageEmbeds(any(MessageEmbed.class));
+    verify(editAction).setComponents(anyList());
+  }
+
+  @Test
+  @DisplayName("法幣下單按鈕應觸發法幣訂單")
+  void payWithFiatButton_shouldTriggerFiatOrder() {
+    String buttonId = ShopView.BUTTON_PAY_WITH_FIAT + TEST_PRODUCT_ID;
+    var product =
+        new Product(
+            TEST_PRODUCT_ID,
+            TEST_GUILD_ID,
+            "Dual Product",
+            null,
+            null,
+            null,
+            100L,
+            500L,
+            Instant.now(),
+            Instant.now());
+
+    when(buttonEvent.getComponentId()).thenReturn(buttonId);
+    when(buttonEvent.deferReply(true)).thenReturn(deferredReplyAction);
+    when(productService.getProduct(TEST_PRODUCT_ID)).thenReturn(Optional.of(product));
+    when(fiatOrderService.createFiatOnlyOrder(TEST_GUILD_ID, TEST_USER_ID, TEST_PRODUCT_ID))
+        .thenReturn(
+            Result.ok(
+                new FiatOrderService.FiatOrderResult(
+                    product,
+                    "FD260409000001",
+                    "ABC123456789",
+                    "2026/04/12 23:59:59",
+                    "https://example.com/pay",
+                    null)));
+
+    handler.onButtonInteraction(buttonEvent);
+
+    verify(buttonEvent).deferReply(true);
+    verify(privateChannel).sendMessage(contains("超商代碼"));
+    verify(interactionHook)
+        .editOriginal(
+            ArgumentMatchers.<String>argThat(
+                msg ->
+                    msg.contains("法幣訂單已建立")
+                        && msg.contains("完整付款資訊也已私訊給你")));
+  }
+
+  // ========== ButtonInteraction 測試 (確認/取消購買) ==========
 
   @Test
   @DisplayName("非購買按鈕應該被忽略")

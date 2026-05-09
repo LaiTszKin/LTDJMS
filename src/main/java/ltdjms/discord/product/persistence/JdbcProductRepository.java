@@ -221,7 +221,7 @@ public class JdbcProductRepository implements ProductRepository {
     String sql =
         "SELECT "
             + SELECT_COLUMNS
-            + " FROM product WHERE guild_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?";
+            + " FROM product WHERE guild_id = ? ORDER BY name ASC LIMIT ? OFFSET ?";
 
     List<Product> products = new ArrayList<>();
 
@@ -424,6 +424,70 @@ public class JdbcProductRepository implements ProductRepository {
     } catch (SQLException e) {
       LOG.error("Failed to find fiat-only products for guildId={}", guildId, e);
       throw new RepositoryException("Failed to find fiat-only products", e);
+    }
+  }
+
+  @Override
+  public List<Product> findByGuildIdAndNameContaining(
+      long guildId, String keyword, int page, int size) {
+    String sql =
+        "SELECT "
+            + SELECT_COLUMNS
+            + " FROM product WHERE guild_id = ? AND name ILIKE '%' || ? || '%' ORDER BY name ASC"
+            + " LIMIT ? OFFSET ?";
+
+    List<Product> products = new ArrayList<>();
+
+    try (Connection conn = dataSource.getConnection();
+        PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+      stmt.setLong(1, guildId);
+      stmt.setString(2, keyword);
+      stmt.setInt(3, size);
+      stmt.setInt(4, page * size);
+
+      try (ResultSet rs = stmt.executeQuery()) {
+        while (rs.next()) {
+          products.add(mapRow(rs));
+        }
+      }
+
+      LOG.debug(
+          "Found {} products for guildId={}, keyword={}, page={}, size={}",
+          products.size(),
+          guildId,
+          keyword,
+          page,
+          size);
+      return products;
+    } catch (SQLException e) {
+      LOG.error(
+          "Failed to search products for guildId={}, keyword={}", guildId, keyword, e);
+      throw new RepositoryException("Failed to search products", e);
+    }
+  }
+
+  @Override
+  public long countByGuildIdAndNameContaining(long guildId, String keyword) {
+    String sql =
+        "SELECT COUNT(*) FROM product WHERE guild_id = ? AND name ILIKE '%' || ? || '%'";
+
+    try (Connection conn = dataSource.getConnection();
+        PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+      stmt.setLong(1, guildId);
+      stmt.setString(2, keyword);
+
+      try (ResultSet rs = stmt.executeQuery()) {
+        if (rs.next()) {
+          return rs.getLong(1);
+        }
+        return 0;
+      }
+    } catch (SQLException e) {
+      LOG.error(
+          "Failed to count search products for guildId={}, keyword={}", guildId, keyword, e);
+      throw new RepositoryException("Failed to count search products", e);
     }
   }
 }

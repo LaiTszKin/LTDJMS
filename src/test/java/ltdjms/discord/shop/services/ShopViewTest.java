@@ -11,6 +11,7 @@ import ltdjms.discord.product.domain.Product;
 import net.dv8tion.jda.api.entities.MessageEmbed;
 import net.dv8tion.jda.api.interactions.components.ActionRow;
 import net.dv8tion.jda.api.interactions.components.buttons.Button;
+import net.dv8tion.jda.api.interactions.modals.Modal;
 
 /**
  * ShopView 單元測試
@@ -113,69 +114,70 @@ class ShopViewTest {
   }
 
   @Test
-  @DisplayName("buildShopComponents 應該在有空商品時添加購買按鈕")
-  void buildShopComponentsShouldAddPurchaseButtonWhenProductsAvailable() {
-    Product product = Product.createWithCurrencyPrice(TEST_GUILD_ID, "測試商品", null, 100L);
-
-    List<ActionRow> components = ShopView.buildShopComponents(1, 1, List.of(product));
+  @DisplayName("buildShopComponents 有商品時應顯示購買和搜尋按鈕")
+  void buildShopComponentsShouldAddBuyAndSearchButtonsWhenHasProducts() {
+    List<ActionRow> components = ShopView.buildShopComponents(1, 1, true);
 
     assertThat(components).hasSize(2);
-    assertThat(components.get(1).getButtons().get(0).getId()).isEqualTo(ShopView.BUTTON_PURCHASE);
+    List<Button> buttons = components.get(1).getButtons();
+    assertThat(buttons.get(0).getId()).isEqualTo(ShopView.BUTTON_BUY);
+    assertThat(buttons.get(1).getId()).isEqualTo(ShopView.BUTTON_SEARCH);
   }
 
   @Test
-  @DisplayName("buildShopComponents 不應該在無商品時添加購買按鈕")
-  void buildShopComponentsShouldNotAddPurchaseButtonWhenNoProducts() {
-    List<ActionRow> components = ShopView.buildShopComponents(1, 1, List.of());
+  @DisplayName("buildShopComponents 無商品時不應顯示購買和搜尋按鈕")
+  void buildShopComponentsShouldNotAddBuyAndSearchButtonsWhenNoProducts() {
+    List<ActionRow> components = ShopView.buildShopComponents(1, 1, false);
 
     assertThat(components).hasSize(1);
   }
 
   @Test
-  @DisplayName("buildShopComponents 應該在有限定法幣商品時添加法幣下單按鈕")
-  void buildShopComponentsShouldAddFiatOrderButtonWhenFiatProductsAvailable() {
-    Product fiatOnly =
-        new Product(
-            1L,
-            TEST_GUILD_ID,
-            "法幣商品",
-            null,
-            null,
-            null,
-            null,
-            500L,
-            java.time.Instant.now(),
-            java.time.Instant.now());
-
-    List<ActionRow> components = ShopView.buildShopComponents(1, 1, List.of(), List.of(fiatOnly));
-
-    assertThat(components).hasSize(2);
-    assertThat(components.get(1).getButtons().get(0).getId()).isEqualTo(ShopView.BUTTON_FIAT_ORDER);
-  }
-
-  @Test
-  @DisplayName("buildPurchaseMenu 應該建立選擇選單")
-  void buildPurchaseMenuShouldCreateSelectionMenu() {
+  @DisplayName("buildBuyMenu 應該建立合併購買選單")
+  void buildBuyMenuShouldCreateUnifiedMenu() {
     Product product = Product.createWithCurrencyPrice(TEST_GUILD_ID, "測試商品", null, 100L);
 
-    var menu = ShopView.buildPurchaseMenu(List.of(product));
+    var menu = ShopView.buildBuyMenu(List.of(product));
 
-    assertThat(menu.getId()).isEqualTo(ShopView.SELECT_PURCHASE_PRODUCT);
+    assertThat(menu.getId()).isEqualTo(ShopView.SELECT_BUY_PRODUCT);
     assertThat(menu.getOptions()).hasSize(1);
     assertThat(menu.getOptions().get(0).getLabel()).isEqualTo("測試商品");
     assertThat(menu.getOptions().get(0).getDescription()).isEqualTo("100 貨幣");
   }
 
   @Test
-  @DisplayName("buildPurchaseMenu 應該限制最多 25 個選項")
-  void buildPurchaseMenuShouldLimitOptions() {
+  @DisplayName("buildBuyMenu 應顯示雙價格商品的合併描述")
+  void buildBuyMenuShouldShowCombinedPriceForDualPriceProduct() {
+    Product product =
+        new Product(
+            1L,
+            TEST_GUILD_ID,
+            "雙價格商品",
+            null,
+            null,
+            null,
+            100L,
+            500L,
+            java.time.Instant.now(),
+            java.time.Instant.now());
+
+    var menu = ShopView.buildBuyMenu(List.of(product));
+
+    assertThat(menu.getOptions()).hasSize(1);
+    assertThat(menu.getOptions().get(0).getDescription()).contains("100");
+    assertThat(menu.getOptions().get(0).getDescription()).contains("NT$500");
+  }
+
+  @Test
+  @DisplayName("buildBuyMenu 應該限制最多 25 個選項")
+  void buildBuyMenuShouldLimitOptions() {
     List<Product> products =
         java.util.stream.IntStream.range(0, 30)
             .mapToObj(
                 i -> Product.createWithCurrencyPrice(TEST_GUILD_ID, "商品 " + i, null, 100L + i))
             .toList();
 
-    var menu = ShopView.buildPurchaseMenu(products);
+    var menu = ShopView.buildBuyMenu(products);
 
     assertThat(menu.getOptions()).hasSize(25);
     assertThat(menu.getOptions().get(0).getLabel()).isEqualTo("商品 0");
@@ -183,54 +185,76 @@ class ShopViewTest {
   }
 
   @Test
-  @DisplayName("buildFiatOrderMenu 應該建立法幣下單選單")
-  void buildFiatOrderMenuShouldCreateSelectionMenu() {
+  @DisplayName("buildPaymentMethodChoiceEmbed 應建立支付方式選擇 Embed")
+  void buildPaymentMethodChoiceEmbedShouldCreateChoiceEmbed() {
     Product product =
         new Product(
             1L,
             TEST_GUILD_ID,
-            "法幣商品",
+            "雙價格商品",
             null,
             null,
             null,
-            null,
-            700L,
+            100L,
+            500L,
             java.time.Instant.now(),
             java.time.Instant.now());
 
-    var menu = ShopView.buildFiatOrderMenu(List.of(product));
+    MessageEmbed embed = ShopView.buildPaymentMethodChoiceEmbed(product);
 
-    assertThat(menu.getId()).isEqualTo(ShopView.SELECT_FIAT_PRODUCT);
-    assertThat(menu.getOptions()).hasSize(1);
-    assertThat(menu.getOptions().get(0).getDescription()).isEqualTo("NT$700");
+    assertThat(embed.getTitle()).isEqualTo("🛒 選擇支付方式");
+    assertThat(embed.getDescription()).contains("雙價格商品");
+    assertThat(embed.getDescription()).contains("貨幣購買");
+    assertThat(embed.getDescription()).contains("法幣下單");
   }
 
   @Test
-  @DisplayName("buildFiatOrderMenu 應該限制最多 25 個選項")
-  void buildFiatOrderMenuShouldLimitOptions() {
-    java.time.Instant now = java.time.Instant.now();
-    List<Product> products =
-        java.util.stream.IntStream.range(0, 30)
-            .mapToObj(
-                i ->
-                    new Product(
-                        (long) i + 1,
-                        TEST_GUILD_ID,
-                        "法幣商品 " + i,
-                        null,
-                        null,
-                        null,
-                        null,
-                        500L + i,
-                        now,
-                        now))
-            .toList();
+  @DisplayName("buildPaymentMethodChoiceComponents 應建立貨幣和法幣按鈕")
+  void buildPaymentMethodChoiceComponentsShouldCreateBothButtons() {
+    Product product =
+        new Product(
+            1L,
+            TEST_GUILD_ID,
+            "雙價格商品",
+            null,
+            null,
+            null,
+            100L,
+            500L,
+            java.time.Instant.now(),
+            java.time.Instant.now());
 
-    var menu = ShopView.buildFiatOrderMenu(products);
+    List<ActionRow> components = ShopView.buildPaymentMethodChoiceComponents(product);
 
-    assertThat(menu.getOptions()).hasSize(25);
-    assertThat(menu.getOptions().get(0).getLabel()).isEqualTo("法幣商品 0");
-    assertThat(menu.getOptions().get(24).getLabel()).isEqualTo("法幣商品 24");
+    assertThat(components).hasSize(1);
+    List<Button> buttons = components.get(0).getButtons();
+    assertThat(buttons.get(0).getId()).startsWith(ShopView.BUTTON_PAY_WITH_CURRENCY);
+    assertThat(buttons.get(1).getId()).startsWith(ShopView.BUTTON_PAY_WITH_FIAT);
+  }
+
+  @Test
+  @DisplayName("buildSearchModal 應建立搜尋 Modal")
+  void buildSearchModalShouldCreateSearchModal() {
+    Modal modal = ShopView.buildSearchModal();
+
+    assertThat(modal).isNotNull();
+    assertThat(modal.getId()).isEqualTo(ShopView.MODAL_SEARCH);
+  }
+
+  @Test
+  @DisplayName("buildSearchResultComponents 應包含分頁和返回按鈕")
+  void buildSearchResultComponentsShouldIncludePaginationAndBackButton() {
+    List<ActionRow> components = ShopView.buildSearchResultComponents(1, 3, "test");
+
+    assertThat(components).hasSize(2);
+    // First row: pagination buttons
+    List<Button> paginationRow = components.get(0).getButtons();
+    assertThat(paginationRow).hasSize(2);
+    assertThat(paginationRow.get(0).getId()).startsWith(ShopView.BUTTON_SEARCH_PREV);
+    assertThat(paginationRow.get(1).getId()).startsWith(ShopView.BUTTON_SEARCH_NEXT);
+    // Second row: back button
+    List<Button> backRow = components.get(1).getButtons();
+    assertThat(backRow.get(0).getId()).isEqualTo(ShopView.BUTTON_BACK_TO_SHOP);
   }
 
   @Test
