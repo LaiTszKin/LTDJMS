@@ -4,6 +4,9 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Docs
+- **docs/restructure**: 將文件重整為三支柱結構，包含 `docs/features/`（BDD 情境）、`docs/architecture/`（巨觀架構）、`docs/principles/`（程式碼慣例）；移除已取代的 `docs/architecture.md` 與 `docs/features.md`；同步更新 `AGENTS.md`/`CLAUDE.md` 為三個章節並更新文件索引
+
 ## [0.35.2] - 2026-04-28
 
 ### Added

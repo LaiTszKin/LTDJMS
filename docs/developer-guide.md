@@ -120,6 +120,7 @@
   - `docs/README.md`
   - `docs/getting-started.md`
   - `docs/configuration.md`
-  - `docs/architecture.md`
-  - `docs/features.md`
+  - `docs/architecture/` (三支柱架構文件)
+  - `docs/features/` (三支柱功能文件)
+  - `docs/principles/` (三支柱慣例文件)
   - `AGENTS.md`

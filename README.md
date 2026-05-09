@@ -16,8 +16,9 @@ LTDJMS 是一個以 Java 17、Maven 與 JDA 建置的 Discord 管理機器人，
 | 先快速理解專案 | `README.md` |
 | 啟動本機環境或部署 | `docs/getting-started.md` |
 | 查環境變數與外部整合 | `docs/configuration.md` |
-| 理解模組與資料流 | `docs/architecture.md` |
-| 快速看功能與角色分工 | `docs/features.md` |
+| 理解架構與模組邊界 | `docs/architecture/` |
+| 瀏覽使用者 / 管理員功能 | `docs/features/` |
+| 了解程式碼慣例與模式 | `docs/principles/` |
 | 準備修改程式或除錯 | `docs/developer-guide.md` |
 | 完整文件導覽 | `docs/README.md` |
 
