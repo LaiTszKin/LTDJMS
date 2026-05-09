@@ -50,6 +50,45 @@ public class ShopService {
     return new ShopPage(products, validPage + 1, totalPages);
   }
 
+  /**
+   * Searches products by name keyword with pagination.
+   *
+   * @param guildId the Discord guild ID
+   * @param keyword the search keyword
+   * @param page zero-based page number
+   * @return the search result page containing matching products and pagination info
+   */
+  public ShopPage searchProducts(long guildId, String keyword, int page) {
+    if (keyword == null || keyword.isBlank()) {
+      LOG.debug("Search called with empty keyword for guildId={}", guildId);
+      return new ShopPage(List.of(), 1, 0);
+    }
+
+    LOG.debug(
+        "Searching products for guildId={}, keyword={}, page={}, pageSize={}",
+        guildId,
+        keyword,
+        page,
+        pageSize);
+
+    long totalCount = productRepository.countByGuildIdAndNameContaining(guildId, keyword);
+    int totalPages = (int) Math.ceil((double) totalCount / pageSize);
+
+    // Ensure page is within valid range
+    int validPage = Math.max(0, Math.min(page, totalPages - 1));
+
+    List<Product> products =
+        productRepository.findByGuildIdAndNameContaining(guildId, keyword, validPage, pageSize);
+
+    LOG.debug(
+        "Search page {}: found {} products, totalPages={}",
+        validPage,
+        products.size(),
+        totalPages);
+
+    return new ShopPage(products, validPage + 1, totalPages);
+  }
+
   /** Gets the total number of products for a guild. */
   public long getProductCount(long guildId) {
     return productRepository.countByGuildId(guildId);

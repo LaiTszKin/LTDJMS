@@ -92,4 +92,25 @@ public interface ProductRepository {
    * @return true if the name already exists for another product
    */
   boolean existsByGuildIdAndNameExcludingId(long guildId, String name, long excludeId);
+
+  /**
+   * Finds products whose name contains the given keyword, with pagination. Uses ILIKE for
+   * case-insensitive matching.
+   *
+   * @param guildId the Discord guild ID
+   * @param keyword the search keyword
+   * @param page zero-based page number
+   * @param size the number of items per page
+   * @return a list of matching products for the specified page
+   */
+  List<Product> findByGuildIdAndNameContaining(long guildId, String keyword, int page, int size);
+
+  /**
+   * Counts the number of products whose name contains the given keyword.
+   *
+   * @param guildId the Discord guild ID
+   * @param keyword the search keyword
+   * @return the number of matching products
+   */
+  long countByGuildIdAndNameContaining(long guildId, String keyword);
 }

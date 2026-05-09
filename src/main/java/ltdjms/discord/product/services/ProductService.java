@@ -1,5 +1,6 @@
 package ltdjms.discord.product.services;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -387,6 +388,18 @@ public class ProductService {
       return jdbcRepo.findFiatOnlyByGuildId(guildId);
     }
     return productRepository.findByGuildId(guildId).stream().filter(Product::isFiatOnly).toList();
+  }
+
+  /**
+   * Returns all purchasable products for a guild (both currency-priced and fiat-only products
+   * combined). No duplicates since fiat-only products explicitly exclude currency-priced ones.
+   */
+  public List<Product> getAllPurchasableProducts(long guildId) {
+    var currencyProducts = getProductsForPurchase(guildId);
+    var fiatProducts = getFiatOnlyProducts(guildId);
+    var all = new ArrayList<Product>(currencyProducts);
+    all.addAll(fiatProducts);
+    return all;
   }
 
   private record ValidationResult(

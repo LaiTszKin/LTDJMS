@@ -64,14 +64,14 @@ class ShopButtonHandlerTest {
     when(replyAction.setEphemeral(anyBoolean())).thenReturn(replyAction);
     when(event.editMessageEmbeds(any(MessageEmbed.class))).thenReturn(editAction);
     when(editAction.setComponents(anyList())).thenReturn(editAction);
-    when(productService.getFiatOnlyProducts(TEST_GUILD_ID)).thenReturn(List.of());
+    when(productService.getAllPurchasableProducts(TEST_GUILD_ID)).thenReturn(List.of());
   }
 
   @Test
   @DisplayName("非 Guild 事件應該回覆錯誤訊息")
   void nonGuildEvent_shouldReplyErrorMessage() {
     when(event.isFromGuild()).thenReturn(false);
-    when(event.getComponentId()).thenReturn(ShopView.BUTTON_PURCHASE);
+    when(event.getComponentId()).thenReturn(ShopView.BUTTON_BUY);
 
     handler.onButtonInteraction(event);
 
@@ -84,7 +84,7 @@ class ShopButtonHandlerTest {
   void nullGuildEvent_shouldReplyErrorMessage() {
     when(event.isFromGuild()).thenReturn(true);
     when(event.getGuild()).thenReturn(null);
-    when(event.getComponentId()).thenReturn(ShopView.BUTTON_PURCHASE);
+    when(event.getComponentId()).thenReturn(ShopView.BUTTON_BUY);
 
     handler.onButtonInteraction(event);
 
@@ -112,7 +112,6 @@ class ShopButtonHandlerTest {
 
     ShopService.ShopPage shopPage = new ShopService.ShopPage(List.of(), currentPage, 1);
     when(shopService.getShopPage(TEST_GUILD_ID, currentPage - 1)).thenReturn(shopPage);
-    when(productService.getProductsForPurchase(TEST_GUILD_ID)).thenReturn(List.of());
 
     handler.onButtonInteraction(event);
 
@@ -141,7 +140,6 @@ class ShopButtonHandlerTest {
             Instant.now());
     ShopService.ShopPage shopPage = new ShopService.ShopPage(List.of(product), currentPage, 2);
     when(shopService.getShopPage(TEST_GUILD_ID, currentPage - 1)).thenReturn(shopPage);
-    when(productService.getProductsForPurchase(TEST_GUILD_ID)).thenReturn(List.of());
 
     handler.onButtonInteraction(event);
 
@@ -158,7 +156,6 @@ class ShopButtonHandlerTest {
 
     ShopService.ShopPage shopPage = new ShopService.ShopPage(List.of(), 1, 1);
     when(shopService.getShopPage(TEST_GUILD_ID, 0)).thenReturn(shopPage);
-    when(productService.getProductsForPurchase(TEST_GUILD_ID)).thenReturn(List.of());
 
     handler.onButtonInteraction(event);
 
@@ -166,9 +163,21 @@ class ShopButtonHandlerTest {
   }
 
   @Test
-  @DisplayName("購買按鈕應該顯示購買選單")
-  void purchaseButton_shouldShowPurchaseMenu() {
-    when(event.getComponentId()).thenReturn(ShopView.BUTTON_PURCHASE);
+  @DisplayName("購買按鈕無可購商品時應顯示提示")
+  void buyButtonWithNoProducts_shouldReplyMessage() {
+    when(event.getComponentId()).thenReturn(ShopView.BUTTON_BUY);
+    when(productService.getAllPurchasableProducts(TEST_GUILD_ID)).thenReturn(List.of());
+
+    handler.onButtonInteraction(event);
+
+    verify(event).reply("目前沒有可購買的商品");
+    verify(replyAction).setEphemeral(true);
+  }
+
+  @Test
+  @DisplayName("購買按鈕有商品時應顯示購買選單")
+  void buyButtonWithProducts_shouldShowBuyMenu() {
+    when(event.getComponentId()).thenReturn(ShopView.BUTTON_BUY);
 
     var product =
         new Product(
@@ -181,7 +190,7 @@ class ShopButtonHandlerTest {
             100L,
             Instant.now(),
             Instant.now());
-    when(productService.getProductsForPurchase(TEST_GUILD_ID)).thenReturn(List.of(product));
+    when(productService.getAllPurchasableProducts(TEST_GUILD_ID)).thenReturn(List.of(product));
     when(replyAction.addActionRow(
             any(net.dv8tion.jda.api.interactions.components.ItemComponent[].class)))
         .thenReturn(replyAction);
@@ -195,54 +204,26 @@ class ShopButtonHandlerTest {
   }
 
   @Test
-  @DisplayName("購買按鈕無可用商品時應該回覆提示訊息")
-  void purchaseButtonWithNoProducts_shouldReplyMessage() {
-    when(event.getComponentId()).thenReturn(ShopView.BUTTON_PURCHASE);
-    when(productService.getProductsForPurchase(TEST_GUILD_ID)).thenReturn(List.of());
+  @DisplayName("搜尋按鈕應彈出 Modal")
+  void searchButton_shouldOpenModal() {
+    when(event.getComponentId()).thenReturn(ShopView.BUTTON_SEARCH);
 
     handler.onButtonInteraction(event);
 
-    verify(event).reply("目前沒有可用貨幣購買的商品");
-    verify(replyAction).setEphemeral(true);
+    verify(event).replyModal(any(net.dv8tion.jda.api.interactions.modals.Modal.class));
   }
 
   @Test
-  @DisplayName("法幣下單按鈕應該顯示法幣商品選單")
-  void fiatOrderButton_shouldShowFiatOrderMenu() {
-    when(event.getComponentId()).thenReturn(ShopView.BUTTON_FIAT_ORDER);
-    var product =
-        new Product(
-            2L,
-            TEST_GUILD_ID,
-            "Fiat Product",
-            null,
-            null,
-            null,
-            null,
-            500L,
-            Instant.now(),
-            Instant.now());
-    when(productService.getFiatOnlyProducts(TEST_GUILD_ID)).thenReturn(List.of(product));
-    when(replyAction.addActionRow(
-            any(net.dv8tion.jda.api.interactions.components.ItemComponent[].class)))
-        .thenReturn(replyAction);
+  @DisplayName("返回商店按鈕應顯示第一頁")
+  void backToShopButton_shouldShowFirstPage() {
+    when(event.getComponentId()).thenReturn(ShopView.BUTTON_BACK_TO_SHOP);
+
+    ShopService.ShopPage shopPage = new ShopService.ShopPage(List.of(), 1, 1);
+    when(shopService.getShopPage(TEST_GUILD_ID, 0)).thenReturn(shopPage);
 
     handler.onButtonInteraction(event);
 
-    verify(event).reply("請選擇要法幣下單的商品");
-    verify(replyAction).setEphemeral(true);
-  }
-
-  @Test
-  @DisplayName("法幣下單按鈕無商品時應該回覆提示訊息")
-  void fiatOrderButtonWithNoProducts_shouldReplyMessage() {
-    when(event.getComponentId()).thenReturn(ShopView.BUTTON_FIAT_ORDER);
-    when(productService.getFiatOnlyProducts(TEST_GUILD_ID)).thenReturn(List.of());
-
-    handler.onButtonInteraction(event);
-
-    verify(event).reply("目前沒有限定法幣支付的商品");
-    verify(replyAction).setEphemeral(true);
+    verify(shopService).getShopPage(TEST_GUILD_ID, 0);
   }
 
   @Test
