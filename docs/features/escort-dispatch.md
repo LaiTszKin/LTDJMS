@@ -70,7 +70,13 @@ Given the user is a guild administrator
 When they open the escort catalog in the admin panel  
 Then they see a paginated store-like list of all escort options with order type, service scope, and default price  
 And they can create, edit, or delete escort catalog items  
-And guild-specific price overrides can still be applied per option
+And guild-specific price overrides can still be applied per option  
+
+### Catalog Deletion Protection
+Given a product references an escort catalog option  
+When an administrator attempts to delete that catalog option  
+Then the deletion is refused with an error message listing the referencing products  
+And the catalog option remains unchanged until all product references are removed
 
 ### Manage After-Sales Staff (Admin)
 Given the user is a guild administrator  

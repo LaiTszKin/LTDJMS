@@ -11,6 +11,7 @@ import ltdjms.discord.product.domain.Product;
 import net.dv8tion.jda.api.entities.MessageEmbed;
 import net.dv8tion.jda.api.interactions.components.ActionRow;
 import net.dv8tion.jda.api.interactions.components.buttons.Button;
+import net.dv8tion.jda.api.interactions.components.selections.StringSelectMenu;
 import net.dv8tion.jda.api.interactions.modals.Modal;
 
 /**
@@ -137,7 +138,8 @@ class ShopViewTest {
   void buildBuyMenuShouldCreateUnifiedMenu() {
     Product product = Product.createWithCurrencyPrice(TEST_GUILD_ID, "測試商品", null, 100L);
 
-    var menu = ShopView.buildBuyMenu(List.of(product));
+    var rows = ShopView.buildBuyMenu(List.of(product));
+    var menu = extractMenu(rows);
 
     assertThat(menu.getId()).isEqualTo(ShopView.SELECT_BUY_PRODUCT);
     assertThat(menu.getOptions()).hasSize(1);
@@ -161,7 +163,8 @@ class ShopViewTest {
             java.time.Instant.now(),
             java.time.Instant.now());
 
-    var menu = ShopView.buildBuyMenu(List.of(product));
+    var rows = ShopView.buildBuyMenu(List.of(product));
+    var menu = extractMenu(rows);
 
     assertThat(menu.getOptions()).hasSize(1);
     assertThat(menu.getOptions().get(0).getDescription()).contains("100");
@@ -169,19 +172,31 @@ class ShopViewTest {
   }
 
   @Test
-  @DisplayName("buildBuyMenu 應該限制最多 25 個選項")
-  void buildBuyMenuShouldLimitOptions() {
+  @DisplayName("buildBuyMenu 超過 25 個商品時應自動拆分為多個選單")
+  void buildBuyMenuShouldSplitIntoMultipleMenus() {
     List<Product> products =
         java.util.stream.IntStream.range(0, 30)
             .mapToObj(
                 i -> Product.createWithCurrencyPrice(TEST_GUILD_ID, "商品 " + i, null, 100L + i))
             .toList();
 
-    var menu = ShopView.buildBuyMenu(products);
+    var rows = ShopView.buildBuyMenu(products);
 
-    assertThat(menu.getOptions()).hasSize(25);
-    assertThat(menu.getOptions().get(0).getLabel()).isEqualTo("商品 0");
-    assertThat(menu.getOptions().get(24).getLabel()).isEqualTo("商品 24");
+    // 應有 2 個 action row（第一個 25 個，第二個 5 個）
+    assertThat(rows).hasSize(2);
+    assertThat(extractMenu(rows.subList(0, 1)).getOptions()).hasSize(25);
+    assertThat(extractMenu(rows.subList(1, 2)).getOptions()).hasSize(5);
+    assertThat(extractMenu(rows.subList(0, 1)).getOptions().get(0).getLabel()).isEqualTo("商品 0");
+    assertThat(extractMenu(rows.subList(1, 2)).getOptions().get(0).getLabel()).isEqualTo("商品 25");
+  }
+
+  private static StringSelectMenu extractMenu(List<ActionRow> rows) {
+    return rows.stream()
+        .flatMap(row -> row.getComponents().stream())
+        .filter(comp -> comp instanceof StringSelectMenu)
+        .map(comp -> (StringSelectMenu) comp)
+        .findFirst()
+        .orElseThrow();
   }
 
   @Test

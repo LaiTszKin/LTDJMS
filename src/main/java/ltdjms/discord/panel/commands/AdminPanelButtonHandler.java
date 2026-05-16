@@ -13,6 +13,7 @@ import org.slf4j.LoggerFactory;
 
 import ltdjms.discord.discord.domain.ButtonView;
 import ltdjms.discord.discord.domain.EmbedView;
+import ltdjms.discord.discord.services.SelectMenuUtil;
 import ltdjms.discord.dispatch.services.EscortOptionPricingService;
 import ltdjms.discord.gametoken.domain.DiceGame1Config;
 import ltdjms.discord.gametoken.domain.DiceGame2Config;
@@ -312,6 +313,7 @@ public class AdminPanelButtonHandler extends ListenerAdapter {
             handleEscortPricingPanelOptionSelect(event, sessionKey, guildId);
         case SELECT_ESCORT_CATALOG_ITEM, SELECT_ESCORT_CATALOG_ITEM_EXTRA ->
             handleEscortCatalogItemSelect(event, guildId);
+        // SELECT_ESCORT_CATALOG_ITEM_EXTRA is retained for backward compatibility
         default -> LOG.warn("Unknown string select: {}", selectId);
       }
     } catch (Exception e) {
@@ -2655,46 +2657,28 @@ public class AdminPanelButtonHandler extends ListenerAdapter {
     }
 
     List<EscortOptionCatalog> items = result.getValue();
-    int limit = Math.min(24, items.size());
-    List<EscortOptionCatalog> primaryItems = items.subList(0, limit);
-    List<EscortOptionCatalog> extraItems =
-        items.size() > limit ? items.subList(limit, items.size()) : List.of();
-
-    StringSelectMenu primaryMenu = buildEscortCatalogSelectMenu(
-        SELECT_ESCORT_CATALOG_ITEM, primaryItems, "選擇要編輯或刪除的護航項目");
-
-    List<ActionRow> rows = new ArrayList<>();
-    rows.add(PanelComponentRenderer.buildRow(primaryMenu));
-
-    if (!extraItems.isEmpty()) {
-      StringSelectMenu extraMenu = buildEscortCatalogSelectMenu(
-          SELECT_ESCORT_CATALOG_ITEM_EXTRA, extraItems, "更多護航項目…");
-      rows.add(PanelComponentRenderer.buildRow(extraMenu));
-    }
+    List<ActionRow> rows = SelectMenuUtil.buildSelectRows(
+        SELECT_ESCORT_CATALOG_ITEM,
+        "選擇要編輯或刪除的護航項目",
+        items,
+        (builder, item) -> {
+          String label = item.code();
+          if (label.length() > 100) {
+            label = label.substring(0, 97) + "...";
+          }
+          String description =
+              item.type() + " | " + item.mapScope() + " | NT$" + item.priceTwd();
+          if (description.length() > 100) {
+            description = description.substring(0, 97) + "...";
+          }
+          builder.addOption(label, item.code(), description);
+        });
 
     event
         .reply("請選擇要編輯或刪除的護航項目：")
         .addComponents(rows)
         .setEphemeral(true)
         .queue();
-  }
-
-  private StringSelectMenu buildEscortCatalogSelectMenu(
-      String selectId, List<EscortOptionCatalog> items, String placeholder) {
-    StringSelectMenu.Builder menuBuilder =
-        StringSelectMenu.create(selectId).setPlaceholder(placeholder);
-    for (EscortOptionCatalog item : items) {
-      String label = item.code();
-      if (label.length() > 100) {
-        label = label.substring(0, 97) + "...";
-      }
-      String description = item.type() + " | " + item.mapScope() + " | NT$" + item.priceTwd();
-      if (description.length() > 100) {
-        description = description.substring(0, 97) + "...";
-      }
-      menuBuilder.addOption(label, item.code(), description);
-    }
-    return menuBuilder.build();
   }
 
   private void handleEscortCatalogItemSelect(

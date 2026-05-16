@@ -23,7 +23,7 @@ The object graph is assembled at compile time via Dagger 2 annotations.
 
 **Listener registration**: Dagger `@IntoSet` multibindings collect all `Consumer<DomainEvent>` implementations. `EventModule` declares the multibound set and `DomainEventPublisher` receives it via constructor injection.
 
-**14 event types** covering balance changes, game token changes, config changes, product changes, redemption completions, AI messages, agent completions, tool executions.
+**13 event types** covering balance changes, game token changes, config changes, product changes, redemption completions, AI messages, agent completions, tool executions.
 
 ## Cache Layer
 

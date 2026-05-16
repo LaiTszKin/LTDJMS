@@ -7,11 +7,11 @@ import java.util.List;
 import ltdjms.discord.discord.domain.ButtonView;
 import ltdjms.discord.discord.domain.EmbedView;
 import ltdjms.discord.discord.services.DiscordComponentRenderer;
+import ltdjms.discord.discord.services.SelectMenuUtil;
 import ltdjms.discord.product.domain.Product;
 import net.dv8tion.jda.api.entities.MessageEmbed;
 import net.dv8tion.jda.api.interactions.components.ActionRow;
 import net.dv8tion.jda.api.interactions.components.buttons.ButtonStyle;
-import net.dv8tion.jda.api.interactions.components.selections.StringSelectMenu;
 import net.dv8tion.jda.api.interactions.components.text.TextInput;
 import net.dv8tion.jda.api.interactions.components.text.TextInputStyle;
 import net.dv8tion.jda.api.interactions.modals.Modal;
@@ -22,7 +22,6 @@ public class ShopView {
   private static final Color EMBED_COLOR = new Color(0x5865F2);
   private static final Color WARNING_COLOR = new Color(0xED4245);
   private static final int PAGE_SIZE = 5;
-  private static final int MAX_PURCHASE_OPTIONS = 25;
   private static final String DIVIDER = "────────────────────────────────────";
   public static final String MODAL_SEARCH = "shop_search_modal";
 
@@ -116,18 +115,14 @@ public class ShopView {
     return rows;
   }
 
-  /** Builds a unified buy menu with all purchasable products (both currency and fiat). */
-  public static StringSelectMenu buildBuyMenu(List<Product> allProducts) {
-    StringSelectMenu.Builder menuBuilder =
-        StringSelectMenu.create(SELECT_BUY_PRODUCT).setPlaceholder("選擇要購買的商品");
-
-    int limit = Math.min(allProducts.size(), MAX_PURCHASE_OPTIONS);
-    for (int i = 0; i < limit; i++) {
-      Product product = allProducts.get(i);
-      menuBuilder.addOption(product.name(), String.valueOf(product.id()), buildPriceDescription(product));
-    }
-
-    return menuBuilder.build();
+  /** Builds buy menu action rows with all purchasable products, auto-split into ≤25 per menu. */
+  public static List<ActionRow> buildBuyMenu(List<Product> allProducts) {
+    return SelectMenuUtil.buildSelectRows(
+        SELECT_BUY_PRODUCT,
+        "選擇要購買的商品",
+        allProducts,
+        (builder, product) ->
+            builder.addOption(product.name(), String.valueOf(product.id()), buildPriceDescription(product)));
   }
 
   /** Builds a payment method choice embed for products with both currency and fiat prices. */
@@ -196,7 +191,7 @@ public class ShopView {
 
     // Buy select menu with the products shown in search results
     if (!products.isEmpty()) {
-      rows.add(DiscordComponentRenderer.buildRow(buildSearchBuyMenu(products)));
+      rows.addAll(buildSearchBuyMenu(products));
     }
 
     rows.add(
@@ -222,18 +217,14 @@ public class ShopView {
     return rows;
   }
 
-  /** Builds a select menu of the given products for purchase directly from search results. */
-  public static StringSelectMenu buildSearchBuyMenu(List<Product> products) {
-    StringSelectMenu.Builder menuBuilder =
-        StringSelectMenu.create(SELECT_SEARCH_BUY).setPlaceholder("選擇要購買的商品");
-
-    int limit = Math.min(products.size(), MAX_PURCHASE_OPTIONS);
-    for (int i = 0; i < limit; i++) {
-      Product product = products.get(i);
-      menuBuilder.addOption(product.name(), String.valueOf(product.id()), buildPriceDescription(product));
-    }
-
-    return menuBuilder.build();
+  /** Builds search buy menu action rows, auto-split into ≤25 per menu. */
+  public static List<ActionRow> buildSearchBuyMenu(List<Product> products) {
+    return SelectMenuUtil.buildSelectRows(
+        SELECT_SEARCH_BUY,
+        "選擇要購買的商品",
+        products,
+        (builder, product) ->
+            builder.addOption(product.name(), String.valueOf(product.id()), buildPriceDescription(product)));
   }
 
   /** Builds an embed for purchase confirmation. */

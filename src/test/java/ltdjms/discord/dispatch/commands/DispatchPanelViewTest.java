@@ -85,6 +85,30 @@ class DispatchPanelViewTest {
   }
 
   @Test
+  @DisplayName("超過 25 筆待派單時應拆分為多個 StringSelectMenu")
+  void moreThan25PendingOrdersShouldSplitMenu() {
+    List<EscortDispatchOrder> orders = java.util.stream.IntStream.range(0, 30)
+        .mapToObj(i -> EscortDispatchOrder.createManualOpenOrder(
+            "ESC-" + String.format("ORDER%04d", i), 1L, 10L, 30L, "CONF_HOURLY_1H"))
+        .toList();
+
+    List<ActionRow> rows =
+        DispatchPanelView.buildAssignOrderComponents(orders, null, true);
+
+    // 2 select menu rows (25 + 5) + 1 entity select row + 1 button row
+    assertThat(rows).hasSize(4);
+    assertThat(rows.get(0).getComponents().get(0)).isInstanceOf(StringSelectMenu.class);
+    assertThat(rows.get(1).getComponents().get(0)).isInstanceOf(StringSelectMenu.class);
+    assertThat(rows.get(2).getComponents().get(0)).isInstanceOf(EntitySelectMenu.class);
+    assertThat(rows.get(3).getButtons()).hasSize(3);
+
+    StringSelectMenu firstMenu = (StringSelectMenu) rows.get(0).getComponents().get(0);
+    StringSelectMenu secondMenu = (StringSelectMenu) rows.get(1).getComponents().get(0);
+    assertThat(firstMenu.getOptions()).hasSize(25);
+    assertThat(secondMenu.getOptions()).hasSize(5);
+  }
+
+  @Test
   @DisplayName("buildPanelComponents 應建立兩個選單列與一個按鈕列")
   void buildPanelComponentsShouldBuildRowsInExpectedOrder() {
     List<ActionRow> rows = DispatchPanelView.buildPanelComponents(false);

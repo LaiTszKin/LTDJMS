@@ -4,7 +4,7 @@
 
 Events are simple Java records implementing the sealed `DomainEvent` interface, which requires a `long guildId()` accessor.
 
-**14 event types** (see `shared/events/`):
+**13 event types** (see `shared/events/`):
 - `BalanceChangedEvent`, `GameTokenChangedEvent` — balance/token changes
 - `CurrencyConfigChangedEvent`, `DiceGameConfigChangedEvent` — config changes
 - `ProductChangedEvent` — product CRUD (with `OperationType` enum)
