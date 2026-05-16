@@ -4,6 +4,29 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.35.4] - 2026-05-17
+
+### Added
+- **shop/search-buy**: 搜尋結果頁面可直接從選單購買商品，無需返回主商店頁面
+- **escort/catalog-deletion-protection**: 管理員刪除護航目錄項目時，若仍有商品參照則拒絕刪除並列出參照商品
+- **buyer/notification**: 護航商品購買完成後，系統會 DM 通知買家訂單編號、商品名稱與付款方式
+
+### Fixed
+- **panel/products**: 商品管理列表選單在超過 25 項時拋出 `IllegalArgumentException`；新增 `SelectMenuUtil` 自動拆分為多個選單列，涵蓋管理面板商品列表、護航目錄、派單待派單選單及商店購買選單
+- **shop/overflow**: 商店購買選單原先僅顯示前 25 項商品（靜默截斷），改為自動拆分顯示全部商品
+- **dispatch/overflow**: 待派單訂單選單超過 25 筆時會擲出例外，改為自動拆分
+- **container/caddy**: 還原 Docker 部署中意外被刪除的 Caddyfile，恢復 HTTPS 終止與 ECPay 回撥反向代理
+
+### Changed
+- **select-menu/splitting**: 動態選單（StringSelectMenu）改為自動分頁模式，所有選單共用同一 custom ID，handler 無需額外修改
+
+### Docs
+- **docs/features/shop-and-payment.md**: 新增「從搜尋結果購買」BDD 情境
+- **docs/features/escort-dispatch.md**: 新增「護航目錄刪除保護」BDD 情境
+- **docs/features/notifications.md**: 新增「護航訂單建立通知（買家）」BDD 情境
+- **docs/architecture/infrastructure.md**: 領域事件數量 14→13
+- **docs/principles/event-driven-patterns.md**: 領域事件數量 14→13
+
 ## [0.35.3] - 2026-05-09
 
 ### Added
