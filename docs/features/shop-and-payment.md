@@ -25,7 +25,12 @@ And there is a unified "Buy" button for all purchasable products
 Given the user is a member of a guild  
 When they click the search button in the shop and enter a keyword  
 Then matching products are shown by name similarity  
-And results are paginated when exceeding 5 items
+And results are paginated when exceeding 5 items  
+
+### Buy from Search Results
+Given the user is viewing search results  
+When they select a product from the buy menu on the search results page  
+Then the purchase confirmation flow proceeds as if the product were selected from the main shop
 
 ### Unified Purchase Flow
 Given the user selects a product in the shop  

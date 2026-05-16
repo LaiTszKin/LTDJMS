@@ -24,6 +24,12 @@ Given an escort is assigned to a dispatch order
 When the assignment is confirmed  
 Then the escort receives a direct message with a confirmation button
 
+### Escort Order Created DM (Buyer)
+Given an escort order is auto-created after a product purchase (currency or fiat)  
+When the post-payment worker or currency purchase service completes  
+Then the buyer receives a direct message with the product name, escort order number, and payment method  
+And the delivery is best-effort (failures logged as warnings, not retried)
+
 ### Completion Request DM
 Given a dispatch order is confirmed  
 When the escort requests completion  

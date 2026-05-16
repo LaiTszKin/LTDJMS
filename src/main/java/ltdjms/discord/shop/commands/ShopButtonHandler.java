@@ -13,7 +13,6 @@ import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.ModalInteractionEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import net.dv8tion.jda.api.interactions.components.ActionRow;
-import net.dv8tion.jda.api.interactions.components.selections.StringSelectMenu;
 
 /** Handles button interactions for shop pagination, purchase, and search. */
 public class ShopButtonHandler extends ListenerAdapter {
@@ -166,9 +165,9 @@ public class ShopButtonHandler extends ListenerAdapter {
       return;
     }
 
-    StringSelectMenu buyMenu = ShopView.buildBuyMenu(allProducts);
+    List<ActionRow> buyRows = ShopView.buildBuyMenu(allProducts);
 
-    event.reply("請選擇要購買的商品").setEphemeral(true).addActionRow(buyMenu).queue();
+    event.reply("請選擇要購買的商品").setEphemeral(true).setComponents(buyRows).queue();
   }
 
   private void handleSearchPagination(

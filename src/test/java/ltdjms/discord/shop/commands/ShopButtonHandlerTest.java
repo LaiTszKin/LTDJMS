@@ -191,8 +191,8 @@ class ShopButtonHandlerTest {
             Instant.now(),
             Instant.now());
     when(productService.getAllPurchasableProducts(TEST_GUILD_ID)).thenReturn(List.of(product));
-    when(replyAction.addActionRow(
-            any(net.dv8tion.jda.api.interactions.components.ItemComponent[].class)))
+    when(replyAction.setComponents(
+            anyList()))
         .thenReturn(replyAction);
 
     handler.onButtonInteraction(event);
@@ -200,7 +200,7 @@ class ShopButtonHandlerTest {
     verify(event).reply("請選擇要購買的商品");
     verify(replyAction).setEphemeral(true);
     verify(replyAction)
-        .addActionRow(any(net.dv8tion.jda.api.interactions.components.ItemComponent[].class));
+        .setComponents(anyList());
   }
 
   @Test

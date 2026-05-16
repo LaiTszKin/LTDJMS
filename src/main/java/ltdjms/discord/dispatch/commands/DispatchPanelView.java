@@ -7,6 +7,7 @@ import java.util.List;
 import ltdjms.discord.discord.domain.ButtonView;
 import ltdjms.discord.discord.domain.EmbedView;
 import ltdjms.discord.discord.services.DiscordComponentRenderer;
+import ltdjms.discord.discord.services.SelectMenuUtil;
 import ltdjms.discord.dispatch.domain.EscortDispatchOrder;
 import ltdjms.discord.product.domain.EscortOrderOptionCatalog;
 import net.dv8tion.jda.api.entities.MessageEmbed;
@@ -171,39 +172,45 @@ public final class DispatchPanelView {
 
   public static List<ActionRow> buildAssignOrderComponents(
       List<EscortDispatchOrder> pendingOrders, String selectedOrderNumber, boolean canAssign) {
-    StringSelectMenu.Builder orderSelect =
-        StringSelectMenu.create(SELECT_PENDING_ORDER).setPlaceholder("選擇待派單訂單");
+    List<ActionRow> rows = new ArrayList<>();
+
     if (pendingOrders == null || pendingOrders.isEmpty()) {
-      orderSelect.addOption("目前沒有待派單訂單", NO_PENDING_ORDER_VALUE, "請先開單或等待商品訂單交接");
-      orderSelect.setDisabled(true);
+      StringSelectMenu emptySelect =
+          StringSelectMenu.create(SELECT_PENDING_ORDER)
+              .setPlaceholder("選擇待派單訂單")
+              .addOption("目前沒有待派單訂單", NO_PENDING_ORDER_VALUE, "請先開單或等待商品訂單交接")
+              .setDisabled(true)
+              .build();
+      rows.add(DiscordComponentRenderer.buildRow(emptySelect));
     } else {
-      for (EscortDispatchOrder order : pendingOrders) {
-        orderSelect.addOption(
-            truncate(order.orderNumber() + "｜" + formatPendingOrderLabel(order), 100),
-            order.orderNumber(),
-            truncate(formatSourceSummary(order), 100));
-      }
-      if (selectedOrderNumber != null
-          && pendingOrders.stream()
-              .anyMatch(order -> order.orderNumber().equals(selectedOrderNumber))) {
-        orderSelect.setDefaultValues(List.of(selectedOrderNumber));
+      List<StringSelectMenu> orderMenus = SelectMenuUtil.splitSelectMenu(
+          SELECT_PENDING_ORDER,
+          "選擇待派單訂單",
+          pendingOrders,
+          (builder, order) ->
+              builder.addOption(
+                  truncate(order.orderNumber() + "｜" + formatPendingOrderLabel(order), 100),
+                  order.orderNumber(),
+                  truncate(formatSourceSummary(order), 100)));
+      for (StringSelectMenu menu : orderMenus) {
+        rows.add(DiscordComponentRenderer.buildRow(menu));
       }
     }
 
-    EntitySelectMenu escortUserSelect =
-        EntitySelectMenu.create(SELECT_ESCORT_USER, EntitySelectMenu.SelectTarget.USER)
-            .setPlaceholder("選擇護航者")
-            .setRequiredRange(1, 1)
-            .build();
-
-    return List.of(
-        DiscordComponentRenderer.buildRow(orderSelect.build()),
-        DiscordComponentRenderer.buildRow(escortUserSelect),
+    rows.add(
+        DiscordComponentRenderer.buildRow(
+            EntitySelectMenu.create(SELECT_ESCORT_USER, EntitySelectMenu.SelectTarget.USER)
+                .setPlaceholder("選擇護航者")
+                .setRequiredRange(1, 1)
+                .build()));
+    rows.add(
         DiscordComponentRenderer.buildActionRow(
             List.of(
                 new ButtonView(BUTTON_ASSIGN_ORDER, "✅ 派發訂單", ButtonStyle.SUCCESS, !canAssign),
                 new ButtonView(BUTTON_BACK_TO_MODE, "↩ 返回", ButtonStyle.SECONDARY, false),
                 new ButtonView(BUTTON_HISTORY, "📜 歷史記錄", ButtonStyle.SECONDARY, false))));
+
+    return rows;
   }
 
   public static List<ActionRow> buildPanelComponents(boolean canCreateOrder) {
